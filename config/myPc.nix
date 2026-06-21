@@ -3,6 +3,6 @@
   hostName = "ddHomePC";
   timeZone = "Europe/Minsk";
   stateVersion = "26.05";
-  snapshot = "ЕБАЛ Я ЭТО В РОТ";
+  snapshot = "ebal-ego-v-rot";
   users = [ params.users.dd ];
 }
