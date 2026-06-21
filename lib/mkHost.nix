@@ -16,7 +16,7 @@ let
 
   mkLabel = hostName: host:
     sanitizeLabel (lib.concatStringsSep "_" (lib.filter (s: s != "") [
-      host.snapshot or ""
+      host.snapshot or ":3"
     ]));
 
 in hostName: hostFile: let
