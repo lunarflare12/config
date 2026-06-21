@@ -1,4 +1,5 @@
-{ driver, graphics }: { config, lib, ... }: {
+{ driver, graphics }:
+{ config, lib, ... }: {
   hardware.graphics = {
     enable = true;
     enable32Bit = true;
