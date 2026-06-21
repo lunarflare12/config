@@ -1,11 +1,19 @@
 {
   description = "NixOS configuration";
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
+  inputs = let
+    repos = import ./shared/repos.nix;
+  in {
+    nixpkgs.url = repos.nixpkgs;
+    home-manager = {
+      url = repos.home-manager;
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+  };
 
-  outputs = { self, nixpkgs, ... }:
+  outputs = { self, nixpkgs, home-manager, ... }:
     import ./lib {
-      inherit nixpkgs;
+      inherit nixpkgs home-manager;
       flakeSelf = self;
       root = ./.;
     };
