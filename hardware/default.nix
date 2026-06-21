@@ -1,0 +1,3 @@
+{
+  myHomePC = ./myHomePC.nix;
+}
