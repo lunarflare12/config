@@ -1,17 +1,22 @@
-{ nixpkgs, self, root }:
+{ nixpkgs, flakeSelf, root }:
 
 let
   lib = nixpkgs.lib;
-  mkHost = import ./mkHost.nix { inherit lib self root; };
+  buildHost = import ./build-host.nix { inherit lib root flakeSelf; };
 
-  hostFiles = lib.filterAttrs
-    (name: type: type == "regular" && lib.hasSuffix ".nix" name && name != "default.nix")
+  hostDefinitionFiles = lib.filterAttrs
+    (fileName: fileType:
+      fileType == "regular"
+      && lib.hasSuffix ".nix" fileName
+      && fileName != "shared.nix"
+      && fileName != "kernels.nix"
+      && fileName != "drivers.nix")
     (builtins.readDir (root + "/config"));
 in {
   nixosConfigurations = lib.mapAttrs'
-    (file: _: {
-      name = lib.removeSuffix ".nix" file;
-      value = mkHost (lib.removeSuffix ".nix" file) (root + "/config/${file}");
+    (fileName: _: {
+      name = lib.removeSuffix ".nix" fileName;
+      value = buildHost (lib.removeSuffix ".nix" fileName) (root + "/config/${fileName}");
     })
-    hostFiles;
+    hostDefinitionFiles;
 }

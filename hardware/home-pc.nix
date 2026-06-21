@@ -1,5 +1,5 @@
 rec {
-  systemType = "x86_64-linux";
+  system = "x86_64-linux";
 
   module = { config, lib, modulesPath, ... }: {
     imports = [ (modulesPath + "/installer/scan/not-detected.nix") ];
@@ -22,7 +22,7 @@ rec {
       { device = "/dev/disk/by-uuid/a7942af4-1356-4a41-ab92-5b8eeac4dc10"; }
     ];
 
-    nixpkgs.hostPlatform = lib.mkDefault systemType;
+    nixpkgs.hostPlatform = lib.mkDefault system;
     hardware.cpu.amd.updateMicrocode = lib.mkDefault config.hardware.enableRedistributableFirmware;
   };
 }

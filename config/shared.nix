@@ -1,5 +1,5 @@
 {
-  users = {
+  accounts = {
     dd = {
       name = "dd";
       shell = "zsh";

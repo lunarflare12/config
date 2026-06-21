@@ -1,3 +1,3 @@
 {
-  myHomePC = ./myHomePC.nix;
+  homePc = ./home-pc.nix;
 }
