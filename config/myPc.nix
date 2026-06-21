@@ -1,4 +1,5 @@
-{ hardwareProfiles, sharedConfig, kernels, drivers }: {
+{ hardwareProfiles, sharedConfig, kernels, drivers }:
+{
   hardwareProfile = hardwareProfiles.homePc;
   kernel = kernels."7.0.11";
   nvidiaDriver = drivers."610.43.02";
