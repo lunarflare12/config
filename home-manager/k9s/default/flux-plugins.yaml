@@ -1,0 +1,80 @@
+plugins:
+  reconcile-git:
+    shortCut: Ctrl-R
+    confirm: false
+    description: Flux reconcile source git
+    scopes:
+      - gitrepositories
+    command: bash
+    background: false
+    args:
+      - -c
+      - >-
+        flux reconcile source git
+        --context $CONTEXT
+        -n $NAMESPACE $NAME
+        | less -K
+
+  reconcile-hr:
+    shortCut: Ctrl-R
+    confirm: false
+    description: Flux reconcile helmrelease
+    scopes:
+      - helmreleases
+    command: bash
+    background: false
+    args:
+      - -c
+      - >-
+        flux reconcile helmrelease
+        --context $CONTEXT
+        -n $NAMESPACE $NAME
+        | less -K
+
+  reconcile-ks:
+    shortCut: Ctrl-R
+    confirm: false
+    description: Flux reconcile kustomization
+    scopes:
+      - kustomizations
+    command: bash
+    background: false
+    args:
+      - -c
+      - >-
+        flux reconcile kustomization
+        --context $CONTEXT
+        -n $NAMESPACE $NAME
+        | less -K
+
+  reconcile-helm-repo:
+    shortCut: Ctrl-Shift-R
+    confirm: false
+    description: Flux reconcile source helm
+    scopes:
+      - helmrepositories
+    command: bash
+    background: false
+    args:
+      - -c
+      - >-
+        flux reconcile source helm
+        --context $CONTEXT
+        -n $NAMESPACE $NAME
+        | less -K
+
+  reconcile-oci-repo:
+    shortCut: Ctrl-Shift-R
+    confirm: false
+    description: Flux reconcile source oci
+    scopes:
+      - ocirepositories
+    command: bash
+    background: false
+    args:
+      - -c
+      - >-
+        flux reconcile source oci
+        --context $CONTEXT
+        -n $NAMESPACE $NAME
+        | less -K

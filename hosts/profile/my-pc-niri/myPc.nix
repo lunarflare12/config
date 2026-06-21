@@ -1,4 +1,4 @@
-{ hardware, shared }: {
+{ hardware, shared, homeManagerModules }: {
   hardwareProfile = hardware.homePc;
   kernel = shared.kernels."7.0.11";
   nvidiaDriver = shared.drivers."610.43.02";
@@ -11,4 +11,13 @@
     xserver = false;
     wayland = true;
   };
+  homeManager = with homeManagerModules; [
+    zsh
+    git
+    kitty
+    tmux
+    ranger
+    waybar
+    k9s
+  ];
 }

@@ -2,6 +2,7 @@
 let
   shared = import paths.shared;
   hardware = import paths.hardware;
+  homeManagerModules = import paths.homeManager;
   sanitizeLabel = import "${paths.shared}/sanitize-label.nix" lib;
 
   gitRevision =
@@ -23,7 +24,7 @@ let
 in
   hostName: hostFile:
     let
-      host = import hostFile { inherit hardware shared; };
+      host = import hostFile { inherit hardware shared homeManagerModules; };
       hardwareProfile = import host.hardwareProfile;
     in
     lib.nixosSystem {
@@ -47,6 +48,7 @@ in
           inherit home-manager paths;
           accounts = host.accounts;
           stateVersion = host.stateVersion;
+          homeManagerModules = host.homeManager;
         })
       ];
     }
