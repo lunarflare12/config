@@ -1,8 +1,4 @@
 driver: { config, ... }: {
-  boot.initrd.availableKernelModules = [
-    "nvidia" "nvidia_modeset" "nvidia_uvm" "nvidia_drm"
-  ];
-
   hardware.graphics = {
     enable = true;
     enable32Bit = true;
@@ -11,7 +7,7 @@ driver: { config, ... }: {
   hardware.nvidia = {
     modesetting.enable = true;
     powerManagement.enable = true;
-    open = false;
+    open = true;
     nvidiaSettings = true;
     package = config.boot.kernelPackages.nvidiaPackages.mkDriver driver;
   };
