@@ -11,8 +11,33 @@
     xserver = false;
     wayland = true;
   };
+  wm = shared.wm.type.niri;
+  wmConfig = {
+    output = "DP-4";
+    mode = "2560x1080@200.000";
+    scale = 1;
+  };
+  initSys = shared.initSys.type.sddm;
+  audio = {
+    enable = true;
+    pulse = true;
+    alsa = true;
+    alsa32 = true;
+  };
   homeManager = with homeManagerModules; [
     niri
+    cursors
+    wallpaper
+    swayosd
+    swaync
+    lock
+    wlogout
+    focus-urgent
+    restore-workspaces
+    cursor
+    idea
+    zen-browser
+    steam
     zsh
     git
     kitty
@@ -22,8 +47,10 @@
     k9s
   ];
   programs = {
-    niri = true;
     wireguard = true;
-    steam = true;
+    steam = {
+      enable = true;
+      libraryDir = "/games";
+    };
   };
 }

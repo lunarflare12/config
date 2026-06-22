@@ -1,9 +1,9 @@
-{ nixpkgs, home-manager, flakeSelf, root }:
+{ nixpkgs, nixpkgs-unstable, home-manager, zen-browser-flake, flakeSelf, root }:
 let
   lib = nixpkgs.lib;
   paths = import ./paths.nix root;
   buildHost = import ./host.nix {
-    inherit lib home-manager paths flakeSelf;
+    inherit lib nixpkgs-unstable home-manager zen-browser-flake paths flakeSelf;
   };
 
   profiles = lib.filterAttrs (_: type: type == "directory") (

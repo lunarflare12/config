@@ -2,7 +2,7 @@
   dd = {
     name = "dd";
     shell = "zsh";
-    groups = [ "wheel" ];
+    groups = [ "wheel" "video" "render" "audio" ];
     packages = [ "tree" ];
   };
 }
