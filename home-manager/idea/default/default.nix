@@ -1,13 +1,14 @@
 { config, lib, pkgs, ... }:
 let
   terminfo = "${pkgs.ncurses}/share/terminfo";
-  ideaPkg = pkgs.jetbrains.idea;
+  ideaPkg = pkgs.jetbrains.idea-oss;
+  ideaBin = "idea-oss";
 
   ideaLauncher = pkgs.writeShellScript "idea-wl" ''
     export TERM="''${TERM:-xterm-256color}"
     export COLORTERM=truecolor
     export TERMINFO="''${TERMINFO:-${terminfo}}"
-    exec ${ideaPkg}/bin/idea \
+    exec ${ideaPkg}/bin/${ideaBin} \
       -Dawt.toolkit.name=WLToolkit \
       -Didea.terminal.environment.variables=TERM=xterm-256color;COLORTERM=truecolor;TERMINFO=${terminfo} \
       -Djetbrains.terminal.enable.shell.integration=false \
@@ -18,8 +19,9 @@ let
     name = "idea-wl-${ideaPkg.version}";
     paths = [ ideaPkg ];
     postBuild = ''
-      rm -f $out/bin/idea
-      ${lib.getExe' pkgs.coreutils "install"} -m0555 ${ideaLauncher} $out/bin/idea
+      rm -f $out/bin/${ideaBin}
+      ${lib.getExe' pkgs.coreutils "install"} -m0555 ${ideaLauncher} $out/bin/${ideaBin}
+      ln -sf ${ideaBin} $out/bin/idea
     '';
     meta = ideaPkg.meta;
   };
