@@ -23,6 +23,7 @@ let
     output "${niriCfg.output}" {
         mode "${niriCfg.mode}"
         scale ${builtins.toString niriCfg.scale}
+        variable-refresh-rate on-demand=true
     }
 
   '';

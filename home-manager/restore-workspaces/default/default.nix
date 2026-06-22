@@ -12,11 +12,10 @@ let
           kitty) echo 2 ;;
           obsidian) echo 3 ;;
           jetbrains-idea|cursor) echo 4 ;;
-          org.telegram.desktop|vesktop|discord|Discord|com.discordapp.Discord) echo 5 ;;
-          [Ss]team|PrismLauncher|prismlauncher|gamescope|heroic|lutris|osu*|com.mojang.MinecraftLauncher) echo 10 ;;
+          org.telegram.desktop|vesktop|discord|Discord|com.discordapp.Discord|[Ss]team|PrismLauncher|prismlauncher|gamescope|heroic|lutris|osu*|com.mojang.MinecraftLauncher) echo 5 ;;
           *)
             if [[ "$1" =~ \.exe$|[Ww]ine|[Pp]roton ]]; then
-              echo 10
+              echo 5
             fi
             ;;
         esac

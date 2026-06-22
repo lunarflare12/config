@@ -35,6 +35,7 @@
     focus-urgent
     restore-workspaces
     cursor
+    audio
     idea
     zen-browser
     steam

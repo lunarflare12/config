@@ -9,6 +9,7 @@
   focus-urgent = ./focus-urgent/default/default.nix;
   restore-workspaces = ./restore-workspaces/default/default.nix;
   cursor = ./cursor/default/default.nix;
+  audio = ./audio/default/default.nix;
   idea = ./idea/default/default.nix;
   zen-browser = ./zen-browser/default/default.nix;
   steam = ./steam/default/default.nix;

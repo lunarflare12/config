@@ -33,11 +33,17 @@ environment {
     PATH "@PATH_ENV@:''${PATH}"
     ELECTRON_OZONE_PLATFORM_HINT "wayland"
     NIXOS_OZONE_WL "1"
+    NIXOS_OZONE_WAYLAND "1"
     QT_QPA_PLATFORM "wayland"
     XDG_CURRENT_DESKTOP "niri"
     GDK_SCALE "1"
     XCURSOR_THEME "nikaido-hiro"
     XCURSOR_SIZE "48"
+    LIBVA_DRIVER_NAME "nvidia"
+    GBM_BACKEND "nvidia-drm"
+    __GLX_VENDOR_LIBRARY_NAME "nvidia"
+    __GL_GSYNC_ALLOWED "1"
+    __GL_VRR_ALLOWED "1"
 }
 
 layout {
@@ -175,11 +181,6 @@ workspace "2"
 workspace "3"
 workspace "4"
 workspace "5"
-workspace "6"
-workspace "7"
-workspace "8"
-workspace "9"
-workspace "10"
 
 window-rule {
   open-focused true
@@ -222,23 +223,23 @@ window-rule {
 
 window-rule {
   match app-id=r#"^[Ss]team$"#
-  open-on-workspace "10"
+  open-on-workspace "5"
   open-focused true
 }
 
 window-rule {
   match app-id=r#"^(PrismLauncher|prismlauncher|gamescope|heroic|lutris|osu|com\.mojang\.MinecraftLauncher)$"#
-  open-on-workspace "10"
+  open-on-workspace "5"
 }
 
 window-rule {
   match app-id=r#"\.exe$"#
-  open-on-workspace "10"
+  open-on-workspace "5"
 }
 
 window-rule {
   match app-id=r#"[Ww]ine|[Pp]roton"#
-  open-on-workspace "10"
+  open-on-workspace "5"
 }
 
 window-rule {
@@ -375,21 +376,11 @@ binds {
   Mod+3 { focus-workspace 3; }
   Mod+4 { focus-workspace 4; }
   Mod+5 { focus-workspace 5; }
-  Mod+6 { focus-workspace 6; }
-  Mod+7 { focus-workspace 7; }
-  Mod+8 { focus-workspace 8; }
-  Mod+9 { focus-workspace 9; }
-  Mod+0 { focus-workspace 10; }
   Mod+Shift+1 { move-column-to-workspace 1; }
   Mod+Shift+2 { move-column-to-workspace 2; }
   Mod+Shift+3 { move-column-to-workspace 3; }
   Mod+Shift+4 { move-column-to-workspace 4; }
   Mod+Shift+5 { move-column-to-workspace 5; }
-  Mod+Shift+6 { move-column-to-workspace 6; }
-  Mod+Shift+7 { move-column-to-workspace 7; }
-  Mod+Shift+8 { move-column-to-workspace 8; }
-  Mod+Shift+9 { move-column-to-workspace 9; }
-  Mod+Shift+0 { move-column-to-workspace 10; }
 
   Mod+BracketLeft  { consume-or-expel-window-left; }
   Mod+BracketRight { consume-or-expel-window-right; }
@@ -399,7 +390,7 @@ binds {
 
   Mod+R { switch-preset-column-width; }
   Mod+Shift+R { switch-preset-window-height; }
-  Mod+Shift+X hotkey-overlay-title="Вернуть окна на свои столы (1 zen, 2 kitty, 3 obsidian, 4 idea/cursor, 5 tg/discord, 10 игры)" { spawn-sh "niri-restore-workspaces"; }
+  Mod+Shift+X hotkey-overlay-title="Вернуть окна на свои столы (1 zen, 2 kitty, 3 obsidian, 4 idea/cursor, 5 tg/discord/игры)" { spawn-sh "niri-restore-workspaces"; }
   Mod+Ctrl+R { reset-window-height; }
   Mod+F { maximize-column; }
   Mod+Shift+F { fullscreen-window; }
