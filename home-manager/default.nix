@@ -1,4 +1,5 @@
 {
+  niri = ./niri/default/default.nix;
   zsh = ./zsh/default.nix;
   git = ./git/default/default.nix;
   kitty = ./kitty/default/default.nix;

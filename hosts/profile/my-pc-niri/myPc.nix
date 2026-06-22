@@ -12,6 +12,7 @@
     wayland = true;
   };
   homeManager = with homeManagerModules; [
+    niri
     zsh
     git
     kitty
@@ -21,6 +22,7 @@
     k9s
   ];
   programs = {
+    niri = true;
     wireguard = true;
     steam = true;
   };
