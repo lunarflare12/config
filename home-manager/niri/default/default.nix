@@ -7,12 +7,12 @@
     swaylock
     swww
     wlogout
-    swaync
     xwayland-satellite
     brightnessctl
   ];
 
   programs.swaylock.enable = true;
+  services.swaync.enable = true;
 
   services.swayidle = {
     enable = true;
