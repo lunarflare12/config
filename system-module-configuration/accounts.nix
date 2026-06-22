@@ -1,4 +1,9 @@
-accountList: { pkgs, lib, ... }: {
+accountList: { pkgs, lib, ... }:
+let
+  usesZsh = lib.any (account: account.shell == "zsh") accountList;
+in {
+  programs.zsh.enable = lib.mkIf usesZsh true;
+
   users.users = lib.listToAttrs (
     map
       (account: {
