@@ -1,11 +1,12 @@
 { accounts, homeManagerModules, stateVersion }:
 { lib, ... }: {
-  users.users = lib.genAttrs (map (account: account.name) accounts) (
+  home-manager.useGlobalPkgs = true;
+  home-manager.useUserPackages = true;
+
+  home-manager.users = lib.genAttrs (map (account: account.name) accounts) (
     name: {
-      homeManager = {
-        home.stateVersion = stateVersion;
-        imports = homeManagerModules;
-      };
+      home.stateVersion = stateVersion;
+      imports = homeManagerModules;
     }
   );
 }
