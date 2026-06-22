@@ -45,8 +45,8 @@ in
         })
         (import "${paths.modules}/accounts.nix" host.accounts)
         (import "${paths.modules}/programs.nix" (host.programs or {}))
+        home-manager.nixosModules.home-manager
         (import "${paths.modules}/home-manager.nix" {
-          inherit home-manager paths;
           accounts = host.accounts;
           stateVersion = host.stateVersion;
           homeManagerModules = host.homeManager;
