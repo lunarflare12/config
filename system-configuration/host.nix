@@ -44,6 +44,7 @@ in
           graphics = host.graphics;
         })
         (import "${paths.modules}/accounts.nix" host.accounts)
+        (import "${paths.modules}/programs.nix" (host.programs or {}))
         (import "${paths.modules}/home-manager.nix" {
           inherit home-manager paths;
           accounts = host.accounts;

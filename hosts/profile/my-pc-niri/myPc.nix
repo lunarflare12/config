@@ -20,4 +20,8 @@
     waybar
     k9s
   ];
+  programs = {
+    wireguard = true;
+    steam = true;
+  };
 }
