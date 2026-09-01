@@ -23,6 +23,7 @@
           ./hardware-configuration.nix
           ./users.nix
           ./nvidia.nix
+          ./hyprland.nix
         ];
       };
     };
