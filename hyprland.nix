@@ -1,5 +1,4 @@
 {
-  config,
   lib,
   pkgs,
   ...
@@ -9,22 +8,30 @@
   programs.hyprland = {
     enable = true;
     withUWSM = true;
-    xwayland.enable = true;
+    xwayland.enable = false;
   };
 
+  programs.xwayland.enable = lib.mkForce false;
   programs.dconf.enable = true;
+
+  # SDDM/Hyprland run on Wayland. Do not start Xorg.
+  # `services.xserver.videoDrivers` in nvidia.nix only selects the GPU driver.
+  services.xserver.enable = lib.mkForce false;
+
+  services.displayManager = {
+    defaultSession = "hyprland-uwsm";
+    sddm = {
+      enable = true;
+      wayland = {
+        enable = true;
+        compositor = "weston";
+      };
+    };
+  };
 
   xdg.portal = {
     enable = true;
     extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
-  };
-
-  services.greetd = {
-    enable = true;
-    settings.default_session = {
-      command = "${lib.getExe pkgs.tuigreet} --time --remember --asterisks --sessions ${config.services.displayManager.sessionData.desktops}/share/wayland-sessions --cmd uwsm start hyprland-uwsm.desktop";
-      user = "greeter";
-    };
   };
 
   security.rtkit.enable = true;
@@ -39,6 +46,11 @@
 
   environment.sessionVariables = {
     NIXOS_OZONE_WL = "1";
+    MOZ_ENABLE_WAYLAND = "1";
+    QT_QPA_PLATFORM = "wayland";
+    GDK_BACKEND = "wayland";
+    SDL_VIDEODRIVER = "wayland";
+    CLUTTER_BACKEND = "wayland";
     TERMINAL = "alacritty";
   };
 
