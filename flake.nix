@@ -22,6 +22,7 @@
           ./configuration.nix
           ./hardware-configuration.nix
           ./users.nix
+          ./nvidia.nix
         ];
       };
     };

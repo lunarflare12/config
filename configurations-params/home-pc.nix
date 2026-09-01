@@ -7,6 +7,8 @@
       extraGroups = [
         "wheel"
         "networkmanager"
+        "video"
+        "gamemode"
       ];
     };
   };
