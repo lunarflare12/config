@@ -51,7 +51,8 @@
     package = config.boot.kernelPackages.nvidiaPackages.latest;
   };
 
-  hardware.nvidia-container-toolkit.enable = true;
+  # CDI generator needs a loaded NVIDIA driver. Enable after `nvidia-smi` works.
+  # hardware.nvidia-container-toolkit.enable = true;
 
   boot.kernelParams = [
     "nvidia-drm.fbdev=1"
@@ -98,7 +99,7 @@
 
     cudaPackages.cuda_nvcc
     cudaPackages.cuda_cudart
-    cudaPackages.cuda_cccl
+    cudaPackages.cccl
     cudaPackages.cuda_nvrtc
     cudaPackages.libcublas
   ];
