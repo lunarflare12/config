@@ -7,7 +7,7 @@
 
   outputs = { self, nixpkgs, ... }:
     let
-      params = import ./params.nix;
+      params = import ./home-pc.nix;
     in {
       nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
         system = params.systemArch;
