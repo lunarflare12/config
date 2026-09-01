@@ -5,10 +5,12 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
   };
 
-  outputs = { self, nixpkgs, ... }:
+  outputs =
+    { self, nixpkgs, ... }:
     let
       params = import ./configurations-params/home-pc.nix;
-    in {
+    in
+    {
       nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
         system = params.systemArch;
 
@@ -19,6 +21,7 @@
         modules = [
           ./configuration.nix
           ./hardware-configuration.nix
+          ./users.nix
         ];
       };
     };
