@@ -10,8 +10,9 @@
   xdg.configFile."quickshell".source = ./dots/quickshell;
   xdg.configFile."quickshell".recursive = true;
 
-  xdg.configFile."dunst".source = ./dots/dunst;
-  xdg.configFile."dunst".recursive = true;
+  xdg.configFile."dunst/dunstrc".source = ./dots/dunst/dunstrc;
+  xdg.configFile."dunst/themes/dark.conf".source = ./dots/dunst/themes/dark.conf;
+  xdg.configFile."dunst/themes/light.conf".source = ./dots/dunst/themes/light.conf;
 
   xdg.configFile."mako".source = ./dots/mako;
   xdg.configFile."mako".recursive = true;
@@ -57,7 +58,7 @@
     if [ ! -e "${config.xdg.configHome}/fuzzel/theme.ini" ]; then
       ln -sfn "${config.xdg.configHome}/fuzzel/themes/dark.ini" "${config.xdg.configHome}/fuzzel/theme.ini"
     fi
-    if [ ! -e "${config.xdg.configHome}/dunst/dunstrc.d/99-theme.conf" ]; then
+    if [ ! -L "${config.xdg.configHome}/dunst/dunstrc.d/99-theme.conf" ] && [ ! -e "${config.xdg.configHome}/dunst/dunstrc.d/99-theme.conf" ]; then
       ln -sfn "${config.xdg.configHome}/dunst/themes/dark.conf" "${config.xdg.configHome}/dunst/dunstrc.d/99-theme.conf"
     fi
     mkdir -p "$HOME/.wall" "$HOME/Pictures/Screenshots"

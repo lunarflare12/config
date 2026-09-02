@@ -12,6 +12,7 @@
 
   xdg.enable = true;
   xdg.mimeApps.enable = true;
+  xdg.configFile."mimeapps.list".force = true;
   xdg.mimeApps.defaultApplications = {
     "text/html" = "${params.browser}.desktop";
     "x-scheme-handler/http" = "${params.browser}.desktop";
