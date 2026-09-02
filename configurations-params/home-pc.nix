@@ -31,6 +31,10 @@ global:
     go
     node
     python
+    telegram
+    idea
+    vscode
+    cursor
   ];
 
   hardware = {

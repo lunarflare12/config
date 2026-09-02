@@ -2,7 +2,6 @@
   lib,
   pkgs,
   params,
-  glyph-sddm,
   ...
 }:
 
@@ -10,7 +9,7 @@ let
   glyphSddmTheme = pkgs.stdenvNoCC.mkDerivation {
     pname = "sddm-glyph-theme";
     version = "1.0";
-    src = glyph-sddm;
+    src = ./sddm/glyph;
     dontBuild = true;
     dontFixup = true;
     installPhase = ''
@@ -47,7 +46,11 @@ in
         pkgs.kdePackages.qtsvg
         pkgs.kdePackages.qt5compat
       ];
-      settings.Theme.CursorTheme = "breeze_cursors";
+      settings.Theme = {
+        Current = "glyph";
+        ThemeDir = "${glyphSddmTheme}/share/sddm/themes";
+        CursorTheme = "breeze_cursors";
+      };
     };
   };
 

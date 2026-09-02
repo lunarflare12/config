@@ -16,5 +16,9 @@
     go = "go";
     node = "nodejs_latest";
     python = "python3";
+    telegram = "telegram-desktop";
+    idea = "idea";
+    vscode = "vscode";
+    cursor = "code-cursor";
   };
 }

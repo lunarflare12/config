@@ -10,6 +10,10 @@ let
     go = pkgs.go;
     nodejs_latest = pkgs.nodejs_latest;
     python3 = pkgs.python3;
+    telegram-desktop = pkgs.telegram-desktop;
+    idea = pkgs.jetbrains.idea;
+    vscode = pkgs.vscode;
+    code-cursor = pkgs.code-cursor;
   };
 in
 {

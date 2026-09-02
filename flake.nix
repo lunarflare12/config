@@ -7,17 +7,12 @@
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    glyph-sddm = {
-      url = "github:xCaptaiN09/glyph-sddm";
-      flake = false;
-    };
   };
 
   outputs =
     {
       nixpkgs,
       home-manager,
-      glyph-sddm,
       ...
     }:
     let
@@ -27,7 +22,7 @@
       nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
         system = params.systemArch;
         specialArgs = {
-          inherit params glyph-sddm;
+          inherit params;
         };
         modules = [
           ./configuration.nix
