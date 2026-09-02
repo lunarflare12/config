@@ -1,3 +1,5 @@
+global:
+
 {
   systemArch = "x86_64-linux";
 
@@ -7,9 +9,15 @@
       extraGroups = [
         "wheel"
         "networkmanager"
-        "video"
-        "gamemode"
       ];
     };
   };
+
+  terminal = global.terminals.alacritty;
+  browser = global.browsers.firefox;
+
+  vms = with global.vms; [
+    libvirt
+    virt-manager
+  ];
 }
