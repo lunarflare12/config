@@ -29,13 +29,17 @@ in
     gamescopeSession.enable = true;
   };
 
+  users.groups.steam = lib.mkIf (has "steam") { };
+
+  systemd.tmpfiles.rules = lib.optionals (has "steam") [
+    "d /steam 0775 ${lib.head (lib.attrNames params.users)} steam -"
+  ];
+
   environment.systemPackages = map (name: packageMap.${name}) (
     lib.filter (name: builtins.hasAttr name packageMap) packages
   );
 
-  users.users = lib.mkIf (has "docker") (
-    lib.mapAttrs (_: _: {
-      extraGroups = [ "docker" ];
-    }) params.users
-  );
+  users.users = lib.mapAttrs (_: _: {
+    extraGroups = lib.optional (has "docker") "docker" ++ lib.optional (has "steam") "steam";
+  }) params.users;
 }
