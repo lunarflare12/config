@@ -1,13 +1,33 @@
-{ lib, pkgs, params, ... }:
+{
+  lib,
+  pkgs,
+  params,
+  glyph-sddm,
+  ...
+}:
 
+let
+  glyphSddmTheme = pkgs.stdenvNoCC.mkDerivation {
+    pname = "sddm-glyph-theme";
+    version = "1.0";
+    src = glyph-sddm;
+    dontBuild = true;
+    dontFixup = true;
+    installPhase = ''
+      runHook preInstall
+      mkdir -p $out/share/sddm/themes/glyph
+      cp -r . $out/share/sddm/themes/glyph/
+      runHook postInstall
+    '';
+  };
+in
 {
   programs.hyprland = {
     enable = true;
     withUWSM = true;
-    xwayland.enable = false;
+    xwayland.enable = true;
   };
 
-  programs.xwayland.enable = lib.mkForce false;
   programs.dconf.enable = true;
   programs.thunar.enable = params.fileManager == "thunar";
   services.xserver.enable = lib.mkForce false;
@@ -19,8 +39,22 @@
     sddm = {
       enable = true;
       wayland.enable = true;
+      theme = "glyph";
+      package = pkgs.kdePackages.sddm;
+      extraPackages = [
+        glyphSddmTheme
+        pkgs.kdePackages.qtdeclarative
+        pkgs.kdePackages.qtsvg
+        pkgs.kdePackages.qt5compat
+      ];
+      settings.Theme.CursorTheme = "breeze_cursors";
     };
   };
+
+  environment.systemPackages = [
+    glyphSddmTheme
+    pkgs.kdePackages.breeze
+  ];
 
   xdg.portal = {
     enable = true;
@@ -48,6 +82,5 @@
     MOZ_ENABLE_WAYLAND = "1";
     QT_QPA_PLATFORM = "wayland";
     GDK_BACKEND = "wayland";
-    SDL_VIDEODRIVER = "wayland";
   };
 }

@@ -18,6 +18,7 @@ in
   programs.steam = lib.mkIf (has "steam") {
     enable = true;
     extraCompatPackages = [ pkgs.proton-ge-bin ];
+    gamescopeSession.enable = true;
   };
 
   environment.systemPackages = map (name: packageMap.${name}) (
