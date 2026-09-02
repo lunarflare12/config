@@ -1,7 +1,7 @@
 {
   terminals.alacritty = "alacritty";
-
   browsers.firefox = "firefox";
+  fileManagers.thunar = "thunar";
 
   vms = {
     libvirt = "libvirt";

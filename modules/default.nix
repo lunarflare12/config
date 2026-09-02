@@ -3,8 +3,7 @@
     ./users.nix
     ./nvidia.nix
     ./desktop.nix
-    ./browsers.nix
-    ./terminals.nix
     ./virt.nix
+    ./home-manager.nix
   ];
 }

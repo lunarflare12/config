@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ pkgs, params, ... }:
 
 {
   boot.loader.systemd-boot.enable = true;
@@ -14,6 +14,9 @@
     "flakes"
   ];
 
+  programs.zsh.enable = true;
+  users.defaultUserShell = pkgs.zsh;
+
   environment.systemPackages = with pkgs; [
     neovim
     wget
@@ -23,5 +26,5 @@
   services.openssh.enable = true;
   services.openssh.settings.PermitRootLogin = "yes";
 
-  system.stateVersion = "26.05";
+  system.stateVersion = params.stateVersion;
 }

@@ -1,10 +1,20 @@
 {
   description = "My NixOS configuration";
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    home-manager = {
+      url = "github:nix-community/home-manager";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+  };
 
   outputs =
-    { nixpkgs, ... }:
+    {
+      nixpkgs,
+      home-manager,
+      ...
+    }:
     let
       params = import ./configurations-params/home-pc.nix (import ./configurations-params/global.nix);
     in
@@ -18,6 +28,7 @@
           ./configuration.nix
           ./hardware-configuration.nix
           ./modules
+          home-manager.nixosModules.home-manager
         ];
       };
     };
