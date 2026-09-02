@@ -2,7 +2,7 @@
 
 let
   fileManagers = {
-    thunar = pkgs.xfce.thunar;
+    thunar = pkgs.thunar;
   };
 in
 {

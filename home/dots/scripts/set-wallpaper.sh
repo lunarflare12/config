@@ -10,6 +10,6 @@ if [ ! -f "$wallpaper" ]; then
   exit 1
 fi
 
-swww img "$wallpaper" --transition-type grow --transition-duration 1.4 --transition-fps 60
+awww img "$wallpaper" --transition-type grow --transition-duration 1.4 --transition-fps 60
 printf '%s\n' "$(basename "$wallpaper")" > "$current_file"
 notify-send -i "$wallpaper" "Wallpaper Changed" "$(basename "$wallpaper")" -t 3000

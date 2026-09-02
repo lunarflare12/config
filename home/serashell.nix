@@ -47,7 +47,7 @@
   home.file.".wall".source = ./dots/wallpapers;
   home.file.".wall".recursive = true;
 
-  systemd.user.services.swww = {
+  systemd.user.services.awww = {
     Unit = {
       Description = "Wallpaper daemon";
       After = [ "graphical-session.target" ];
@@ -55,10 +55,10 @@
       ConditionEnvironment = "WAYLAND_DISPLAY";
     };
     Service = {
-      ExecStart = "${pkgs.swww}/bin/swww-daemon";
-      ExecStartPost = "${pkgs.writeShellScript "swww-ready" ''
+      ExecStart = "${pkgs.awww}/bin/awww-daemon";
+      ExecStartPost = "${pkgs.writeShellScript "awww-ready" ''
         for i in $(seq 1 50); do
-          ${pkgs.swww}/bin/swww query >/dev/null 2>&1 && exit 0
+          ${pkgs.awww}/bin/awww query >/dev/null 2>&1 && exit 0
           sleep 0.1
         done
         exit 0
@@ -73,9 +73,9 @@
       Description = "Set wallpaper";
       After = [
         "graphical-session.target"
-        "swww.service"
+        "awww.service"
       ];
-      Wants = [ "swww.service" ];
+      Wants = [ "awww.service" ];
       PartOf = [ "graphical-session.target" ];
       ConditionEnvironment = "WAYLAND_DISPLAY";
     };
@@ -84,7 +84,7 @@
       RemainAfterExit = true;
       ExecStart = "${pkgs.writeShellScript "load-wallpaper" ''
         export PATH="${lib.makeBinPath [
-          pkgs.swww
+          pkgs.awww
           pkgs.coreutils
           pkgs.findutils
         ]}:$PATH"
@@ -134,7 +134,7 @@
 
   home.packages = with pkgs; [
     quickshell
-    swww
+    awww
     dunst
     fuzzel
     hyprpicker

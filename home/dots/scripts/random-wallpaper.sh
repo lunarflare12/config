@@ -37,6 +37,6 @@ if [ -z "$wallpaper" ] || [ ! -f "$wallpaper" ]; then
 fi
 
 transition="${TRANSITIONS[$RANDOM % ${#TRANSITIONS[@]}]}"
-swww img "$wallpaper" --transition-type "$transition" --transition-duration 1.2 --transition-fps 60
+awww img "$wallpaper" --transition-type "$transition" --transition-duration 1.2 --transition-fps 60
 echo "$(basename "$wallpaper")" > "$CURRENT_FILE"
 notify-send -i "$wallpaper" "Wallpaper Changed" "$(basename "$wallpaper")" -t 3000

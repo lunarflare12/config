@@ -16,16 +16,16 @@ if [ ! -s "$CURRENT_FILE" ]; then
   fi
 fi
 
-wait_for_swww() {
+wait_for_awww() {
   local attempt=0
   while [ "$attempt" -lt 30 ]; do
-    if swww query >/dev/null 2>&1; then
+    if awww query >/dev/null 2>&1; then
       return 0
     fi
     sleep 0.2
     attempt=$((attempt + 1))
   done
-  echo "swww is not ready yet" >&2
+  echo "awww is not ready yet" >&2
   exit 0
 }
 
@@ -43,8 +43,8 @@ load_wallpaper() {
     exit 1
   fi
 
-  swww img "$wallpaper" --transition-type none
+  awww img "$wallpaper" --transition-type none
 }
 
-wait_for_swww
+wait_for_awww
 load_wallpaper
