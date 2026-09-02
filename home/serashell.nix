@@ -1,5 +1,6 @@
 {
   config,
+  lib,
   pkgs,
   params,
   ...
@@ -45,7 +46,7 @@
   home.file.".wall".source = ./dots/wallpapers;
   home.file.".wall".recursive = true;
 
-  home.activation.serashellState = config.lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+  home.activation.serashellState = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     mkdir -p "${config.xdg.configHome}/quickshell" "${config.xdg.configHome}/fuzzel" "${config.xdg.configHome}/dunst/dunstrc.d"
     if [ ! -e "${config.xdg.configHome}/quickshell/theme-mode" ]; then
       echo dark > "${config.xdg.configHome}/quickshell/theme-mode"

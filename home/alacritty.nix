@@ -1,4 +1,4 @@
-{ config, ... }:
+{ config, lib, ... }:
 
 {
   programs.alacritty = {
@@ -82,7 +82,7 @@
     white = "#352B2D"
   '';
 
-  home.activation.alacrittyTheme = config.lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+  home.activation.alacrittyTheme = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     mkdir -p "${config.xdg.configHome}/alacritty"
     if [ ! -e "${config.xdg.configHome}/alacritty/theme.toml" ]; then
       ln -sfn "${config.xdg.configHome}/alacritty/themes/dark.toml" "${config.xdg.configHome}/alacritty/theme.toml"
