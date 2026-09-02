@@ -17,7 +17,7 @@
     node = "nodejs_latest";
     python = "python3";
     telegram = "telegram-desktop";
-    idea = "idea";
+    idea = "idea-oss";
     vscode = "vscode";
     cursor = "code-cursor";
   };

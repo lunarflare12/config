@@ -11,7 +11,7 @@ let
     nodejs_latest = pkgs.nodejs_latest;
     python3 = pkgs.python3;
     telegram-desktop = pkgs.telegram-desktop;
-    idea = pkgs.jetbrains.idea;
+    idea-oss = pkgs.jetbrains.idea-oss;
     vscode = pkgs.vscode;
     code-cursor = pkgs.code-cursor;
   };
