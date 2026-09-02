@@ -17,6 +17,10 @@ let
   };
 in
 {
+  nixpkgs.config.permittedInsecurePackages = lib.optionals (has "idea-oss") [
+    "idea-oss-2025.3.4"
+  ];
+
   virtualisation.docker.enable = has "docker";
 
   programs.steam = lib.mkIf (has "steam") {
