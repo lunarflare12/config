@@ -9,7 +9,7 @@ let
   monitorLua = lib.concatMapStrings (
     monitor:
     let
-      output = lib.optionalString (monitor.output or "" != "") ''output = "${monitor.output}", '';
+      output = ''output = "${monitor.output or ""}", '';
       transform = lib.optionalString (monitor ? transform) ''transform = ${toString monitor.transform}, '';
     in
     ''
