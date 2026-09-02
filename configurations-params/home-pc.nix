@@ -23,6 +23,21 @@ global:
     virt-manager
   ];
 
+  packages = with global.packages; [
+    docker
+    steam
+    terraform
+    ansible
+    go
+    node
+    python
+  ];
+
+  hardware = {
+    bluetooth = false;
+    battery = false;
+  };
+
   monitors = [
     {
       output = "";

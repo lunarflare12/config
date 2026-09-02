@@ -57,16 +57,11 @@ in
   '';
 
   xdg.configFile."hypr/config/autostart.lua".text = ''
-    local scripts = os.getenv("HOME") .. "/.config/scripts"
-
     hl.on("hyprland.start", function()
         hl.exec_cmd("${polkitAgent}")
         hl.exec_cmd("nm-applet")
-        hl.exec_cmd("blueman-applet")
         hl.exec_cmd("qs")
         hl.exec_cmd("dunst")
-        hl.exec_cmd("swww-daemon")
-        hl.exec_cmd(scripts .. "/load-wallpaper.sh")
         hl.exec_cmd("wl-paste --type text --watch cliphist store")
         hl.exec_cmd("wl-paste --type image --watch cliphist store")
     end)

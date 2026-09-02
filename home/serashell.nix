@@ -47,6 +47,33 @@
   home.file.".wall".source = ./dots/wallpapers;
   home.file.".wall".recursive = true;
 
+  systemd.user.services.swww = {
+    Unit = {
+      Description = "Wallpaper daemon";
+      After = [ "graphical-session.target" ];
+      PartOf = [ "graphical-session.target" ];
+    };
+    Service = {
+      ExecStart = "${pkgs.swww}/bin/swww-daemon";
+      Restart = "on-failure";
+    };
+    Install.WantedBy = [ "graphical-session.target" ];
+  };
+
+  systemd.user.services.wallpaper = {
+    Unit = {
+      Description = "Set wallpaper";
+      After = [ "swww.service" ];
+      Requires = [ "swww.service" ];
+      PartOf = [ "graphical-session.target" ];
+    };
+    Service = {
+      Type = "oneshot";
+      ExecStart = "${config.home.homeDirectory}/.config/scripts/load-wallpaper.sh";
+    };
+    Install.WantedBy = [ "graphical-session.target" ];
+  };
+
   home.activation.serashellState = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     mkdir -p "${config.xdg.configHome}/quickshell" "${config.xdg.configHome}/fuzzel" "${config.xdg.configHome}/dunst/dunstrc.d"
     if [ ! -e "${config.xdg.configHome}/quickshell/theme-mode" ]; then
@@ -60,6 +87,12 @@
     fi
     if [ ! -L "${config.xdg.configHome}/dunst/dunstrc.d/99-theme.conf" ] && [ ! -e "${config.xdg.configHome}/dunst/dunstrc.d/99-theme.conf" ]; then
       ln -sfn "${config.xdg.configHome}/dunst/themes/dark.conf" "${config.xdg.configHome}/dunst/dunstrc.d/99-theme.conf"
+    fi
+    if [ -f "${config.xdg.configHome}/quickshell/pill-settings" ]; then
+      sed -i 's/^showBattery=.*/showBattery=${if params.hardware.battery or false then "true" else "false"}/' "${config.xdg.configHome}/quickshell/pill-settings"
+      grep -q '^showBluetooth=' "${config.xdg.configHome}/quickshell/pill-settings" \
+        && sed -i 's/^showBluetooth=.*/showBluetooth=${if params.hardware.bluetooth or false then "true" else "false"}/' "${config.xdg.configHome}/quickshell/pill-settings" \
+        || printf '\nshowBluetooth=${if params.hardware.bluetooth or false then "true" else "false"}\n' >> "${config.xdg.configHome}/quickshell/pill-settings"
     fi
     mkdir -p "$HOME/.wall" "$HOME/Pictures/Screenshots"
     if [ ! -s "$HOME/.wall/.current" ] && [ -s "$HOME/.wall/.current.default" ]; then

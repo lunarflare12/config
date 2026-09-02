@@ -359,6 +359,7 @@ PanelWindow {
                     ActionTile {
                         width: 172
                         height: 72
+                        visible: Local.Settings.showBluetooth
                         icon: "󰂯"
                         title: "Bluetooth"
                         subtitle: root.bluetoothName

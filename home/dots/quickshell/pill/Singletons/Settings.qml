@@ -18,7 +18,8 @@ Item {
     property bool showWindowTitle: true
     property bool showAudio: true
     property bool showBrightness: true
-    property bool showBattery: true
+    property bool showBattery: false
+    property bool showBluetooth: false
     property bool showControlCenter: true
     property bool showCpu: true
     property bool showMemory: true
@@ -84,7 +85,8 @@ Item {
                 if (pair[0] === "showWindowTitle") settings.showWindowTitle = pair[1] !== "false"
                 if (pair[0] === "showAudio") settings.showAudio = pair[1] !== "false"
                 if (pair[0] === "showBrightness") settings.showBrightness = pair[1] !== "false"
-                if (pair[0] === "showBattery") settings.showBattery = pair[1] !== "false"
+                if (pair[0] === "showBattery") settings.showBattery = pair[1] === "true"
+                if (pair[0] === "showBluetooth") settings.showBluetooth = pair[1] === "true"
                 if (pair[0] === "showControlCenter") settings.showControlCenter = pair[1] !== "false"
                 if (pair[0] === "showCpu") settings.showCpu = pair[1] !== "false"
                 if (pair[0] === "showMemory") settings.showMemory = pair[1] !== "false"

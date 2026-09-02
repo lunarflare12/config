@@ -11,8 +11,8 @@
   programs.dconf.enable = true;
   programs.thunar.enable = params.fileManager == "thunar";
   services.xserver.enable = lib.mkForce false;
-  services.blueman.enable = true;
-  services.power-profiles-daemon.enable = true;
+  hardware.bluetooth.enable = params.hardware.bluetooth or false;
+  services.blueman.enable = params.hardware.bluetooth or false;
 
   services.displayManager = {
     defaultSession = "hyprland-uwsm";
