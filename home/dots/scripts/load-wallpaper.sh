@@ -25,7 +25,8 @@ wait_for_swww() {
     sleep 0.2
     attempt=$((attempt + 1))
   done
-  return 1
+  echo "swww is not ready yet" >&2
+  exit 0
 }
 
 load_wallpaper() {
