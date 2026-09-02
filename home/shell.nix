@@ -1,4 +1,4 @@
-{ config, pkgs, ... }:
+{ pkgs, ... }:
 
 {
   programs.zsh = {
@@ -22,8 +22,7 @@
     enableZshIntegration = true;
   };
 
-  xdg.configFile."starship/starship.toml".source = ./dots/starship/starship.toml;
-  home.sessionVariables.STARSHIP_CONFIG = "${config.xdg.configHome}/starship/starship.toml";
+  xdg.configFile."starship.toml".source = ./dots/starship/starship.toml;
 
   programs.zoxide = {
     enable = true;
