@@ -1,4 +1,4 @@
-{ lib, params, ... }:
+{ lib, params, inputs, ... }:
 
 {
   home-manager = {
@@ -6,7 +6,7 @@
     useUserPackages = true;
     backupFileExtension = "bak";
     extraSpecialArgs = {
-      inherit params;
+      inherit params inputs;
     };
     users = lib.mapAttrs (_: _: import ../home) params.users;
   };

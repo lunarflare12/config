@@ -48,6 +48,7 @@ PanelWindow {
     function close() {
         page = "home"
         open = false
+        Local.SystemMonitor.controlCenterActive = false
         closeTimer.restart()
     }
 
@@ -57,6 +58,7 @@ PanelWindow {
         } else {
             shown = true
             open = true
+            Local.SystemMonitor.controlCenterActive = true
             refresh()
         }
     }
@@ -162,10 +164,16 @@ PanelWindow {
         command: ["brightnessctl", "-m"]
 
         stdout: StdioCollector {
+            id: brightnessOut
             onStreamFinished: {
-                const fields = this.text.trim().split(",")
-                if (fields.length > 3)
-                    root.brightness = Number(fields[3].replace("%", ""))
+                const match = brightnessOut.text.trim().match(/(\d+)\s*%/)
+                if (match)
+                    root.brightness = Number(match[1])
+                else {
+                    const fields = brightnessOut.text.trim().split(",")
+                    if (fields.length > 3)
+                        root.brightness = Number(fields[3].replace("%", ""))
+                }
             }
         }
     }
@@ -311,7 +319,7 @@ PanelWindow {
         Rectangle {
             id: card
             width: root.open ? (root.page === "home" ? 382 : 480) : 30
-            height: root.open ? (root.page === "home" ? 396 : 340) : 30
+            height: root.open ? (root.page === "home" ? (Local.Settings.showBluetooth ? 430 : 380) : 340) : 30
             x: parent.width - width - 12
             y: 46
             radius: root.open ? 26 : 15
@@ -329,107 +337,49 @@ PanelWindow {
 
             MouseArea { anchors.fill: parent }
 
-            Item {
-                id: quickControls
+            Components.NetworkBoard {
+                id: networkBoard
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.top: parent.top
                 anchors.topMargin: 14
-                anchors.margins: 12
-                height: 152
+                anchors.leftMargin: 12
+                anchors.rightMargin: 12
+                height: 148
                 visible: root.page === "home"
-
-                Column {
-                    anchors.left: parent.left
-                    anchors.top: parent.top
-                    spacing: 8
-
-                    ActionTile {
-                        width: 172
-                        height: 72
-                        icon: "󰖩"
-                        title: "Wi-Fi"
-                        subtitle: root.wifiName
-                        active: root.wifiEnabled
-                        onActivated: {
-                            root.openPage("wifi")
-                        }
-                    }
-
-                    ActionTile {
-                        width: 172
-                        height: 72
-                        visible: Local.Settings.showBluetooth
-                        icon: "󰂯"
-                        title: "Bluetooth"
-                        subtitle: root.bluetoothName
-                        active: root.bluetoothEnabled
-                        onActivated: {
-                            root.openPage("bluetooth")
-                        }
-                    }
-                }
-
-                Rectangle {
-                id: media
-                anchors.right: parent.right
-                anchors.top: parent.top
-                width: 174
-                height: parent.height
-                radius: 18
-                color: Local.Theme.surface
-                border.color: Local.Theme.accent
-                border.width: 1
-
-                ClippingRectangle {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.top: parent.top
-                    anchors.topMargin: 12
-                    width: 48
-                    height: 48
-                    radius: 12
-                    color: Local.Theme.accent
-
-                    Image {
-                        anchors.fill: parent
-                        source: root.player ? root.player.trackArtUrl : ""
-                        fillMode: Image.PreserveAspectCrop
-                    }
-                }
-
-                Column {
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.top: parent.top
-                    anchors.topMargin: 68
-                    anchors.margins: 10
-                    spacing: 1
-
-                    Text { width: parent.width; text: root.player ? root.player.trackTitle : "Not playing"; color: Local.Theme.text; font.family: Local.Theme.font; font.pixelSize: 10; font.bold: true; horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight }
-                    Text { width: parent.width; text: root.player ? root.player.trackArtist : ""; color: Local.Theme.muted; font.family: Local.Theme.font; font.pixelSize: 8; horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight }
-                }
-
-                Row {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.bottom: parent.bottom
-                    anchors.bottomMargin: 11
-                    spacing: 16
-
-                    Text { text: "󰒮"; color: Local.Theme.secondaryText; font.family: Local.Theme.font; font.pixelSize: 16; MouseArea { anchors.fill: parent; onClicked: { if (root.player?.canGoPrevious) root.player.previous() } } }
-                    Text { text: root.player?.isPlaying ? "󰏤" : "󰐊"; color: Local.Theme.text; font.family: Local.Theme.font; font.pixelSize: 18; MouseArea { anchors.fill: parent; onClicked: { if (root.player?.canTogglePlaying) root.player.togglePlaying() } } }
-                    Text { text: "󰒭"; color: Local.Theme.secondaryText; font.family: Local.Theme.font; font.pixelSize: 16; MouseArea { anchors.fill: parent; onClicked: { if (root.player?.canGoNext) root.player.next() } } }
-                }
             }
+
+            Item {
+                id: quickControls
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: networkBoard.bottom
+                anchors.topMargin: Local.Settings.showBluetooth ? 8 : 0
+                anchors.margins: 12
+                height: Local.Settings.showBluetooth ? 72 : 0
+                visible: root.page === "home" && Local.Settings.showBluetooth
+
+                ActionTile {
+                    width: parent.width
+                    height: 72
+                    icon: "󰂯"
+                    title: "Bluetooth"
+                    subtitle: root.bluetoothName
+                    active: root.bluetoothEnabled
+                    onActivated: {
+                        root.openPage("bluetooth")
+                    }
+                }
             }
 
             Rectangle {
                 id: soundCard
                 anchors.left: parent.left
                 anchors.right: parent.right
-                anchors.top: quickControls.bottom
+                anchors.top: quickControls.visible ? quickControls.bottom : networkBoard.bottom
                 anchors.leftMargin: 12
                 anchors.rightMargin: 12
-                anchors.topMargin: 14
+                anchors.topMargin: 8
                 height: 62
                 visible: root.page === "home"
                 radius: 16
@@ -492,42 +442,24 @@ PanelWindow {
                 }
             }
 
-            Row {
+            ActionTile {
                 id: homeActions
                 anchors.left: parent.left
+                anchors.right: parent.right
                 anchors.top: brightnessCard.bottom
                 anchors.topMargin: 12
                 anchors.leftMargin: 12
-                spacing: 8
+                anchors.rightMargin: 12
+                height: 58
                 visible: root.page === "home"
-
-                ActionTile {
-                    width: 174
-                    height: 58
-                    icon: "󰃭"
-                    title: "Theme"
-                    subtitle: Local.Theme.mode === "dark" ? "Dark" : "Light"
-                    active: false
-                    onActivated: {
-                        actionProcess.command = ["sh", "-c", "$HOME/.config/scripts/theme-mode.sh " + (Local.Theme.mode === "dark" ? "light" : "dark")]
-                        actionProcess.running = true
-                    }
+                icon: "󰃭"
+                title: "Theme"
+                subtitle: Local.Theme.mode === "dark" ? "Dark" : "Light"
+                active: false
+                onActivated: {
+                    actionProcess.command = ["sh", "-c", "$HOME/.config/scripts/theme-mode.sh " + (Local.Theme.mode === "dark" ? "light" : "dark")]
+                    actionProcess.running = true
                 }
-
-                ActionTile {
-                    width: 174
-                    height: 58
-                    icon: "󰹑"
-                    title: "Screenshot"
-                    subtitle: "Region copy"
-                    active: false
-                    onActivated: {
-                        root.close()
-                        actionProcess.command = [Quickshell.env("HOME") + "/.config/scripts/screenshot.sh", "region-clipboard"]
-                        actionProcess.running = true
-                    }
-                }
-
             }
 
             WifiPanel { controlCenter: root }

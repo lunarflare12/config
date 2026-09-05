@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 MODE="${1:-}"
@@ -15,8 +15,8 @@ case "$MODE" in
     ln -sfn "$CONFIG_DIR/fuzzel/themes/$MODE.ini" "$CONFIG_DIR/fuzzel/theme.ini"
     ln -sfn "$CONFIG_DIR/alacritty/themes/$MODE.toml" "$CONFIG_DIR/alacritty/theme.toml"
     ln -sfn "$CONFIG_DIR/mako/themes/$MODE.conf" "$CONFIG_DIR/mako/config"
-    mkdir -p "$CONFIG_DIR/quickshell"
-    printf '%s\n' "$MODE" > "$CONFIG_DIR/quickshell/theme-mode"
+    mkdir -p "$CONFIG_DIR/aurora"
+    printf '%s\n' "$MODE" > "$CONFIG_DIR/aurora/mode"
     tmux source-file "$HOME/.tmux.conf" >/dev/null 2>&1 || true
     hyprctl reload >/dev/null 2>&1 || true
     dunstctl reload >/dev/null 2>&1 || true

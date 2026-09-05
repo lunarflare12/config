@@ -7,6 +7,10 @@
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    zen-browser = {
+      url = "github:youwen5/zen-browser-flake";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -14,7 +18,7 @@
       nixpkgs,
       home-manager,
       ...
-    }:
+    }@inputs:
     let
       params = import ./configurations-params/home-pc.nix (import ./configurations-params/global.nix);
     in
@@ -23,6 +27,7 @@
         system = params.systemArch;
         specialArgs = {
           inherit params;
+          inherit inputs;
         };
         modules = [
           ./configuration.nix

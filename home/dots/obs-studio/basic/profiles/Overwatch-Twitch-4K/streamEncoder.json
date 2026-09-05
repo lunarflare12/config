@@ -1,0 +1,13 @@
+{
+    "bitrate": 10000,
+    "keyint_sec": 2,
+    "preset": "p5",
+    "tune": "hq",
+    "profile": "main",
+    "rate_control": "CBR",
+    "psycho_aq": true,
+    "lookahead": true,
+    "bf": 2,
+    "multipass": "disabled",
+    "gpu": 0
+}

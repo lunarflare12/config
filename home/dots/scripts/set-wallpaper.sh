@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 wallpaper="${1:?Usage: set-wallpaper.sh /path/to/wallpaper}"

@@ -6,6 +6,8 @@ for _, rule in ipairs({
     { name = "float-media", match = { title = "^(imv|mpv|danmufloat|termfloat|nemo|ncmpcpp)$" }, float = true, size = "960 540", move = "25%- 0" },
     { name = "float-waydroid", match = { class = "^(Waydroid)$" }, float = true, size = "1280 720", center = true },
     { name = "float-pavucontrol", match = { class = "^(org.pulseaudio.pavucontrol|pavucontrol-qt)$" }, float = true },
+    { name = "float-flameshot", match = { class = "^(flameshot)$" }, float = true, pin = true },
+    { name = "float-satty", match = { class = "^(com.gabm.satty|satty)$" }, float = true, center = true },
     { name = "float-serashell-settings", match = { title = "^Serashell$" }, float = true, center = true },
     { name = "float-picture-in-picture", match = { class = "^()$", title = "^(Picture in picture)$" }, float = true },
     { name = "float-save-file", match = { class = "^()$", title = "^(Save File)$" }, float = true },
@@ -25,6 +27,7 @@ for _, rule in ipairs({
     { name = "float-thunar-create", match = { class = "^(thunar)$", title = "^(Create.*)$" }, float = true },
     { name = "float-thunar-properties", match = { class = "^(thunar)$", title = "^(Properties)$" }, float = true, size = "600 500" },
     { name = "center-thunar-dialogs", match = { class = "^(thunar)$", title = "^(Rename.*|File Operation Progress|Confirm.*|Question|Create.*|Properties)$" }, center = true },
+    { name = "games-tearing", match = { class = "^(steam_app_|gamescope)" }, immediate = true, no_anim = true, no_blur = true, opaque = true, force_rgbx = true, decorate = false, rounding = 0, border_size = 0, idle_inhibit = "fullscreen", render_unfocused = true, focus_on_activate = true, no_auto_hdr = true, no_vrr = true },
 }) do
     hl.window_rule(rule)
 end

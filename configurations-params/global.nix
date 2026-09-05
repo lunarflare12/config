@@ -1,6 +1,8 @@
 {
   terminals.alacritty = "alacritty";
+  terminals.kitty = "kitty";
   browsers.firefox = "firefox";
+  browsers.google-chrome = "google-chrome";
   fileManagers.thunar = "thunar";
 
   vms = {
@@ -20,5 +22,11 @@
     idea = "idea-oss";
     vscode = "vscode";
     cursor = "code-cursor";
+    keymapp = "keymapp";
+    obsidian = "obsidian";
+    google-chrome = "google-chrome";
+    kubectl = "kubectl";
+    k9s = "k9s";
+    awscli2 = "awscli2";
   };
 }

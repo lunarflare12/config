@@ -1,0 +1,9 @@
+{
+    "type": "rtmp_custom",
+    "settings": {
+        "bwtest": false,
+        "key": "",
+        "server": "rtmps://push-rtmp-l.tiktok.com/live/",
+        "use_auth": false
+    }
+}

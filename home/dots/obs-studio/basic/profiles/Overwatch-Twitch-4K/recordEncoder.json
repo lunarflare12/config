@@ -1,0 +1,12 @@
+{
+    "bitrate": 40000,
+    "keyint_sec": 2,
+    "preset": "p5",
+    "profile": "main",
+    "rate_control": "CQP",
+    "cqp": 18,
+    "psycho_aq": true,
+    "lookahead": true,
+    "bf": 2,
+    "gpu": 0
+}

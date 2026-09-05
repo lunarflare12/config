@@ -1,4 +1,3 @@
 #!/bin/sh
 hyprctl reload
-qs kill
-qs
+systemctl --user restart quickshell.service

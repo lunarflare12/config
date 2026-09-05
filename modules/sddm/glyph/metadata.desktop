@@ -9,3 +9,4 @@ Version=1.0
 MainScript=Main.qml
 Screenshot=screenshot.png
 X-SDDM-Theme-InterfaceVersion=2
+QtVersion=6

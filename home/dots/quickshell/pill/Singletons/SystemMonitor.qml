@@ -19,14 +19,36 @@ Item {
     property var cpuHistory: []
     property var memoryHistory: []
     property var networkHistory: []
+    property var downloadHistory: []
+    property var uploadHistory: []
+    property var networkTimestamps: []
     property bool barActive: false
     property bool panelActive: false
-    readonly property bool active: barActive || panelActive
+    property bool controlCenterActive: false
+    readonly property bool active: barActive || panelActive || controlCenterActive
+    readonly property int historyLimit: 180
 
     function append(history, value) {
         const next = history.slice()
         next.push(value)
-        return next.slice(-32)
+        return next.slice(-monitor.historyLimit)
+    }
+
+    function formatMbit(kibPerSec) {
+        const mbit = kibPerSec * 1024 * 8 / 1000000
+        if (mbit >= 100)
+            return Math.round(mbit) + " Mbit/s"
+        if (mbit >= 10)
+            return mbit.toFixed(1) + " Mbit/s"
+        if (mbit >= 1)
+            return mbit.toFixed(2) + " Mbit/s"
+        if (mbit >= 0.01)
+            return mbit.toFixed(2) + " Mbit/s"
+        return "0 Mbit/s"
+    }
+
+    function toMbit(kibPerSec) {
+        return kibPerSec * 1024 * 8 / 1000000
     }
 
     Process {
@@ -62,10 +84,13 @@ Item {
                 monitor.previousIdle = idle
                 monitor.previousReceived = received
                 monitor.previousSent = sent
-                if (monitor.panelActive) {
+                if (monitor.active) {
                     monitor.cpuHistory = monitor.append(monitor.cpuHistory, monitor.cpu)
                     monitor.memoryHistory = monitor.append(monitor.memoryHistory, monitor.memory)
                     monitor.networkHistory = monitor.append(monitor.networkHistory, monitor.download + monitor.upload)
+                    monitor.downloadHistory = monitor.append(monitor.downloadHistory, monitor.download)
+                    monitor.uploadHistory = monitor.append(monitor.uploadHistory, monitor.upload)
+                    monitor.networkTimestamps = monitor.append(monitor.networkTimestamps, Date.now())
                 }
             }
         }

@@ -1,7 +1,16 @@
-{ config, params, ... }:
+{ config, pkgs, params, ... }:
 
 {
   home.stateVersion = params.stateVersion;
+
+  home.pointerCursor = {
+    enable = true;
+    name = "breeze_cursors";
+    package = pkgs.kdePackages.breeze;
+    size = params.cursorSize;
+    gtk.enable = true;
+    x11.enable = true;
+  };
 
   home.sessionVariables = {
     TERMINAL = params.terminal;
@@ -21,7 +30,9 @@
 
   imports = [
     ./hyprland.nix
-    ./alacritty.nix
+    ./hyprlock.nix
+    ./kitty.nix
+    ./theme.nix
     ./shell.nix
     ./apps.nix
     ./serashell.nix

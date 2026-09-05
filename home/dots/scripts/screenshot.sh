@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 SCREENSHOT_DIR="${HYPRSHOT_DIR:-$HOME/Pictures/Screenshots}"
@@ -43,8 +43,19 @@ case "$MODE" in
     fi
     exit 0
     ;;
+  annotate | region-edit | edit)
+    cleanup_freeze
+    # Flameshot draws its own pointer/crosshair (slurp/Hyprland software
+    # cursors stay invisible on the selection overlay with Nvidia).
+    # Annotation tools: pen, marker, text, shapes — editor is a normal window.
+    flameshot gui -p "$SCREENSHOT_PATH" -c
+    if [[ -f "$SCREENSHOT_PATH" ]]; then
+      notify_success "$SCREENSHOT_PATH"
+    fi
+    exit 0
+    ;;
   *)
-    echo "Usage: $(basename "$0") <region|window|output|region-clipboard>" >&2
+    echo "Usage: $(basename "$0") <region|window|output|region-clipboard|annotate>" >&2
     exit 1
     ;;
 esac

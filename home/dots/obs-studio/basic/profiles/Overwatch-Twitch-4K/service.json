@@ -1,0 +1,10 @@
+{
+    "type": "rtmp_common",
+    "settings": {
+        "bwtest": false,
+        "key": "",
+        "server": "auto",
+        "service": "Twitch",
+        "protocol": "RTMP"
+    }
+}

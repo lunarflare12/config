@@ -1,0 +1,837 @@
+{ lib, pkgs, ... }:
+
+let
+  themeData = import ../lib/themes.nix;
+  themeNames = builtins.attrNames themeData.themes;
+
+  themeToLua =
+    themeId:
+    let
+      theme = themeData.themes.${themeId};
+      colors = theme.colors;
+      fonts = themeData.global.fonts;
+      ui = themeData.global.ui;
+    in
+    ''
+      return {
+        id = "${themeId}",
+        name = "${theme.name}",
+        description = "${theme.description}",
+
+        fonts = {
+          interface = "${fonts.interface.name}",
+          terminal = "${fonts.terminal.name}",
+          emoji = "${fonts.emoji.name}",
+        },
+
+        colors = {
+          background = "${colors.background}",
+          backgroundDark = "${colors.backgroundDark}",
+
+          surface = "${colors.surface}",
+          surfaceHover = "${colors.surfaceHover}",
+          surfaceActive = "${colors.surfaceActive}",
+
+          border = "${colors.border}",
+          borderFocus = "${colors.borderFocus}",
+          separator = "${colors.separator}",
+
+          text = "${colors.text}",
+          textSecondary = "${colors.textSecondary}",
+          textMuted = "${colors.textMuted}",
+
+          accent = "${colors.accent}",
+          accentHover = "${colors.accentHover}",
+          accentActive = "${colors.accentActive}",
+          accentMuted = "${colors.accentMuted}",
+          accentForeground = "${colors.accentForeground}",
+
+          success = "${colors.success}",
+          warning = "${colors.warning}",
+          error = "${colors.error}",
+          info = "${colors.info}",
+
+          terminalBlack = "${colors.terminalBlack}",
+          terminalRed = "${colors.terminalRed}",
+          terminalGreen = "${colors.terminalGreen}",
+          terminalYellow = "${colors.terminalYellow}",
+          terminalBlue = "${colors.terminalBlue}",
+          terminalMagenta = "${colors.terminalMagenta}",
+          terminalCyan = "${colors.terminalCyan}",
+          terminalWhite = "${colors.terminalWhite}",
+
+          terminalBrightBlack = "${colors.terminalBrightBlack}",
+          terminalBrightRed = "${colors.terminalBrightRed}",
+          terminalBrightGreen = "${colors.terminalBrightGreen}",
+          terminalBrightYellow = "${colors.terminalBrightYellow}",
+          terminalBrightBlue = "${colors.terminalBrightBlue}",
+          terminalBrightMagenta = "${colors.terminalBrightMagenta}",
+          terminalBrightCyan = "${colors.terminalBrightCyan}",
+          terminalBrightWhite = "${colors.terminalBrightWhite}",
+        },
+
+        ui = {
+          borderWidth = ${toString ui.borderWidth},
+
+          radius = ${toString ui.radius},
+          radiusSmall = ${toString ui.radiusSmall},
+          radiusLarge = ${toString ui.radiusLarge},
+
+          iconSize = ${toString ui.iconSize},
+
+          fontSize = ${toString ui.fontSize},
+          fontSizeSmall = ${toString ui.fontSizeSmall},
+          fontSizeLarge = ${toString ui.fontSizeLarge},
+
+          shadowOpacity = ${toString ui.shadowOpacity},
+          surfaceOpacity = ${toString ui.surfaceOpacity},
+          windowOpacity = ${toString ui.windowOpacity},
+
+          glassOpacity = ${toString ui.glassOpacity},
+          glassLuminosity = ${toString ui.glassLuminosity},
+          glassGradientOpacity = ${toString ui.glassGradientOpacity},
+          glassGrainOpacity = ${toString ui.glassGrainOpacity},
+          glassRimOpacity = ${toString ui.glassRimOpacity},
+
+          glassSpecularOpacity = ${toString ui.glassSpecularOpacity},
+          glassLensOpacity = ${toString ui.glassLensOpacity},
+          glassDepthOpacity = ${toString ui.glassDepthOpacity},
+          glassClarity = ${toString ui.glassClarity},
+
+          terminalOpacity = ${toString ui.terminalOpacity},
+          editorFloatBlend = ${toString ui.editorFloatBlend},
+
+          clock = {
+            hour = "${ui.clock.hour}",
+            separator = "${ui.clock.separator}",
+            minute = "${ui.clock.minute}",
+            second = "${ui.clock.second}",
+          },
+        },
+      }
+    '';
+
+  themeToJson =
+    themeId:
+    builtins.toJSON {
+      id = themeId;
+      name = themeData.themes.${themeId}.name;
+      description = themeData.themes.${themeId}.description;
+
+      fonts = {
+        interface = themeData.global.fonts.interface.name;
+        terminal = themeData.global.fonts.terminal.name;
+        emoji = themeData.global.fonts.emoji.name;
+      };
+
+      colors = themeData.themes.${themeId}.colors;
+      ui = themeData.global.ui;
+    };
+
+  themeToKitty =
+    themeId:
+    let
+      theme = themeData.themes.${themeId};
+      colors = theme.colors;
+      fonts = themeData.global.fonts;
+      ui = themeData.global.ui;
+    in
+    ''
+      font_family ${fonts.terminal.name}
+      font_size ${toString ui.fontSize}
+
+      foreground ${colors.text}
+      background ${colors.background}
+
+      cursor ${colors.accent}
+      cursor_text_color ${colors.accentForeground}
+
+      selection_foreground ${colors.text}
+      selection_background ${colors.accentMuted}
+
+      url_color ${colors.info}
+
+      color0  ${colors.terminalBlack}
+      color1  ${colors.terminalRed}
+      color2  ${colors.terminalGreen}
+      color3  ${colors.terminalYellow}
+      color4  ${colors.terminalBlue}
+      color5  ${colors.terminalMagenta}
+      color6  ${colors.terminalCyan}
+      color7  ${colors.terminalWhite}
+
+      color8  ${colors.terminalBrightBlack}
+      color9  ${colors.terminalBrightRed}
+      color10 ${colors.terminalBrightGreen}
+      color11 ${colors.terminalBrightYellow}
+      color12 ${colors.terminalBrightBlue}
+      color13 ${colors.terminalBrightMagenta}
+      color14 ${colors.terminalBrightCyan}
+      color15 ${colors.terminalBrightWhite}
+
+      tab_bar_background ${colors.background}
+
+      active_tab_foreground ${colors.accentForeground}
+      active_tab_background ${colors.accent}
+
+      inactive_tab_foreground ${colors.textSecondary}
+      inactive_tab_background ${colors.surface}
+
+      background_opacity ${toString ui.terminalOpacity}
+    '';
+
+  themeToStarship =
+    themeId:
+    let
+      theme = themeData.themes.${themeId};
+      colors = theme.colors;
+    in
+    ''
+      add_newline = false
+        command_timeout = 1000
+
+        scan_timeout = 30
+
+        follow_symlinks = false
+
+        palette = "aurora"
+
+        format = """\
+
+        $directory\
+
+        ''${custom.giturl}\
+
+        $git_branch\
+
+        ''${custom.git_worktree}\
+
+        $git_status\
+
+        $package\
+
+        $nodejs\
+
+        $bun\
+
+        $c\
+
+        $rust\
+
+        $golang\
+
+        $php\
+
+        $java\
+
+        $kotlin\
+
+        $haskell\
+
+        $python\
+
+        $docker_context\
+
+        $cmd_duration\
+
+        $character"""
+
+        [palettes.aurora]
+
+        bg = "${colors.background}"
+
+        surface = "${colors.surface}"
+
+        surface2 = "${colors.surfaceHover}"
+
+        surface3 = "${colors.surfaceActive}"
+
+        text = "${colors.text}"
+
+        text_soft = "${colors.textSecondary}"
+
+        muted = "${colors.textMuted}"
+
+        dim = "${colors.textMuted}"
+
+        purple = "${colors.accent}"
+
+        purple_bright = "${colors.accentHover}"
+
+        purple_soft = "${colors.accentMuted}"
+
+        purple_dark = "${colors.border}"
+
+        blue = "${colors.terminalBlue}"
+
+        cyan = "${colors.terminalCyan}"
+
+        green = "${colors.success}"
+
+        yellow = "${colors.warning}"
+
+        orange = "${colors.warning}"
+
+        red = "${colors.error}"
+
+        pink = "${colors.terminalMagenta}"
+
+        [os]
+
+        disabled = false
+
+        style = "bold text"
+
+        format = "[$symbol ]($style)"
+
+        [os.symbols]
+
+        NixOS = ""
+
+        Macos = ""
+
+        Windows = "󰍲"
+
+        [directory]
+
+        style = "bold text"
+
+        format = "[$path]($style)[$read_only]($read_only_style) "
+
+        home_symbol = "~"
+
+        truncation_length = 3
+
+        truncate_to_repo = false
+
+        truncation_symbol = "…/"
+
+        read_only = " 󰌾"
+
+        read_only_style = "bold red"
+
+        [custom.giturl]
+
+        description = "Display symbol for remote Git server"
+
+        command = """
+
+        GIT_REMOTE=$(git remote get-url origin 2>/dev/null)
+
+        case "$GIT_REMOTE" in
+
+        *github*)
+
+        echo ""
+
+        ;;
+
+        *gitlab*)
+
+        echo ""
+
+        ;;
+
+        *bitbucket*)
+
+        echo ""
+
+        ;;
+
+        *git*)
+
+        echo ""
+
+        ;;
+
+        *)
+
+        echo ""
+
+        ;;
+
+        esac
+
+        """
+
+        when = "git rev-parse --is-inside-work-tree 2>/dev/null"
+
+        format = "[$output](bold purple) "
+
+        require_repo = true
+
+        ignore_timeout = true
+
+        [git_branch]
+
+        symbol = " "
+
+        format = "[](purple)[ $symbol$branch ](bold bg bg:purple)[](purple) "
+
+        [custom.git_worktree]
+
+        description = "Show indicator when inside a Git worktree"
+
+        command = """
+
+        if git rev-parse --git-dir >/dev/null 2>&1; then
+
+        common_dir=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+
+        git_dir=$(git rev-parse --path-format=absolute --git-dir 2>/dev/null)
+
+        if [ "$common_dir" != "$git_dir" ]; then
+
+        echo "⛓"
+
+        fi
+
+        fi
+
+        """
+
+        when = "git rev-parse --is-inside-work-tree >/dev/null 2>&1"
+
+        format = "[$output](bold purple) "
+
+        style = "bold purple"
+
+        require_repo = true
+
+        ignore_timeout = true
+
+        [git_status]
+
+        style = "bold text"
+
+        format = "[$untracked$staged$modified$renamed$deleted$conflicted$stashed$typechanged$ahead_behind]($style) "
+
+        untracked = "[?](bold red)"
+
+        staged = "[+](bold green)"
+
+        modified = "[!](bold yellow)"
+
+        renamed = "[»](bold blue)"
+
+        deleted = "[-](bold red)"
+
+        conflicted = "[✖](bold red)"
+
+        stashed = "[≡](bold purple)"
+
+        typechanged = "[󰜄](bold cyan)"
+
+        ahead = "[⇡''${count}](bold cyan)"
+
+        behind = "[⇣''${count}](bold orange)"
+
+        diverged = "[⇕⇡''${ahead_count}⇣''${behind_count}](bold pink)"
+
+        up_to_date = ""
+
+        [package]
+
+        disabled = false
+
+        symbol = "󰏗 "
+
+        style = "bold purple"
+
+        format = "[$symbol$version]($style) "
+
+        [nodejs]
+
+        symbol = ""
+
+        style = "bold green"
+
+        format = "[$symbol( $version)]($style) "
+
+        [bun]
+
+        symbol = "🥟"
+
+        style = "bold orange"
+
+        format = "[$symbol( $version)]($style) "
+
+        detect_files = [
+
+        "bun.lock",
+
+        "bun.lockb",
+
+        ]
+
+        [c]
+
+        symbol = " "
+
+        style = "bold blue"
+
+        format = "[$symbol( $version)]($style) "
+
+        [rust]
+
+        symbol = ""
+
+        style = "bold orange"
+
+        format = "[$symbol( $version)]($style) "
+
+        [golang]
+
+        symbol = ""
+
+        style = "bold cyan"
+
+        format = "[$symbol( $version)]($style) "
+
+        detect_files = [
+
+        "go.mod",
+
+        ]
+
+        [php]
+
+        symbol = ""
+
+        style = "bold purple"
+
+        format = "[$symbol( $version)]($style) "
+
+        [java]
+
+        symbol = " "
+
+        style = "bold red"
+
+        format = "[$symbol( $version)]($style) "
+
+        [kotlin]
+
+        symbol = ""
+
+        style = "bold pink"
+
+        format = "[$symbol( $version)]($style) "
+
+        [haskell]
+
+        symbol = ""
+
+        style = "bold purple"
+
+        format = "[$symbol( $version)]($style) "
+
+        [python]
+
+        symbol = ""
+
+        style = "bold yellow"
+
+        format = "[$symbol( $version)]($style) "
+
+        [docker_context]
+
+        symbol = ""
+
+        style = "bold cyan"
+
+        format = "[$symbol( $context)]($style) "
+
+        [time]
+
+        disabled = true
+
+        time_format = "%R"
+
+        style = "bold muted"
+
+        format = "[󰥔 $time]($style) "
+
+        [cmd_duration]
+
+        min_time = 1000
+
+        style = "bold muted"
+
+        format = "󰔟 [$duration]($style) "
+
+        [character]
+
+        success_symbol = "[➜](bold purple)"
+
+        error_symbol = "[➜](bold red)"
+
+        vimcmd_symbol = "[➜](bold cyan)"
+
+        vimcmd_replace_one_symbol = "[➜](bold pink)"
+
+        vimcmd_replace_symbol = "[➜](bold pink)"
+
+        vimcmd_visual_symbol = "[➜](bold purple)"
+    '';
+
+  luaThemeFiles = lib.genAttrs themeNames (themeId: {
+    text = themeToLua themeId;
+  });
+
+  jsonThemeFiles = lib.genAttrs themeNames (themeId: {
+    text = themeToJson themeId;
+  });
+
+  kittyThemeFiles = lib.genAttrs themeNames (themeId: {
+    text = themeToKitty themeId;
+  });
+
+  starshipThemeFiles = lib.genAttrs themeNames (themeId: {
+    text = themeToStarship themeId;
+  });
+
+  themeList = builtins.concatStringsSep "\n" (
+    map (
+      themeId:
+      let
+        theme = themeData.themes.${themeId};
+      in
+      "${themeId}\t${theme.name}"
+    ) themeNames
+  );
+
+  generatedLuaFiles = lib.mapAttrs' (
+    themeId: file: lib.nameValuePair "aurora/themes/${themeId}.lua" file
+  ) luaThemeFiles;
+
+  generatedJsonFiles = lib.mapAttrs' (
+    themeId: file: lib.nameValuePair "aurora/themes/${themeId}.json" file
+  ) jsonThemeFiles;
+
+  generatedKittyFiles = lib.mapAttrs' (
+    themeId: file: lib.nameValuePair "aurora/themes/${themeId}.kitty.conf" file
+  ) kittyThemeFiles;
+
+  generatedStarshipFiles = lib.mapAttrs' (
+    themeId: file: lib.nameValuePair "aurora/themes/${themeId}.starship.toml" file
+  ) starshipThemeFiles;
+
+in
+{
+  xdg.configFile = {
+    "aurora/themes.json".text = builtins.toJSON themeData;
+    "aurora/themes.list".text = themeList + "\n";
+  }
+
+  // generatedLuaFiles
+  // generatedJsonFiles
+  // generatedKittyFiles
+  // generatedStarshipFiles;
+
+  gtk = {
+    enable = true;
+    theme = {
+      name = "Adwaita-dark";
+      package = pkgs.gnome-themes-extra;
+    };
+    iconTheme = {
+      name = "Colloid-Dark";
+      package = pkgs.colloid-icon-theme;
+    };
+    gtk3.extraConfig = {
+      gtk-application-prefer-dark-theme = 1;
+    };
+    gtk4.extraConfig = {
+      gtk-application-prefer-dark-theme = 1;
+    };
+  };
+
+  dconf.settings."org/gnome/desktop/interface" = {
+    color-scheme = "prefer-dark";
+    gtk-theme = "Adwaita-dark";
+    icon-theme = "Colloid-Dark";
+  };
+
+  home.packages = with pkgs; [
+    gnome-themes-extra
+    colloid-icon-theme
+  ];
+
+  home.activation.initializeAuroraTheme = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    theme_dir="$HOME/.config/aurora"
+    theme_file="$theme_dir/active-theme"
+    active_lua="$theme_dir/active-theme.lua"
+    active_kitty="$theme_dir/active-kitty.conf"
+    active_starship="$theme_dir/active-starship.toml"
+
+    mkdir -p "$theme_dir"
+    mkdir -p "$HOME/.cache/aurora"
+    printf '%s\n' "dark" > "$theme_dir/mode"
+    if command -v gsettings >/dev/null 2>&1; then
+      gsettings set org.gnome.desktop.interface color-scheme prefer-dark >/dev/null 2>&1 || true
+      gsettings set org.gnome.desktop.interface gtk-theme Adwaita-dark >/dev/null 2>&1 || true
+      gsettings set org.gnome.desktop.interface icon-theme Colloid-Dark >/dev/null 2>&1 || true
+    fi
+
+    if [ ! -f "$theme_file" ]; then
+      printf '%s\n' "catppuccin-mocha" > "$theme_file"
+    fi
+
+    selected="$(cat "$theme_file")"
+
+    if [[ ! -f "$theme_dir/themes/$selected.lua" ]]; then
+      printf '%s\n' "catppuccin-mocha" > "$theme_file"
+      selected="catppuccin-mocha"
+    fi
+
+    ln -sfn \
+      "$theme_dir/themes/$selected.lua" \
+      "$active_lua"
+
+    if [[ -f "$theme_dir/themes/$selected.kitty.conf" ]]; then
+      ln -sfn \
+        "$theme_dir/themes/$selected.kitty.conf" \
+        "$active_kitty"
+    else
+      ln -sfn \
+        "$theme_dir/themes/catppuccin-mocha.kitty.conf" \
+        "$active_kitty"
+    fi
+
+    if [[ -f "$theme_dir/themes/$selected.starship.toml" ]]; then
+      ln -sfn \
+        "$theme_dir/themes/$selected.starship.toml" \
+        "$active_starship"
+    else
+      ln -sfn \
+        "$theme_dir/themes/catppuccin-mocha.starship.toml" \
+        "$active_starship"
+    fi
+  '';
+
+  home.file.".local/bin/aurora-theme" = {
+    executable = true;
+
+    text = ''
+      #!/usr/bin/env bash
+
+      set -euo pipefail
+
+      CONFIG_DIR="$HOME/.config/aurora"
+      THEMES_FILE="$CONFIG_DIR/themes.list"
+      ACTIVE_THEME="$CONFIG_DIR/active-theme"
+      ACTIVE_LUA="$CONFIG_DIR/active-theme.lua"
+      ACTIVE_KITTY="$CONFIG_DIR/active-kitty.conf"
+      ACTIVE_STARSHIP="$CONFIG_DIR/active-starship.toml"
+      THEME_DIR="$CONFIG_DIR/themes"
+
+      if [[ ! -f "$THEMES_FILE" ]]; then
+        echo "Aurora: theme list not found." >&2
+        exit 1
+      fi
+
+      if [[ $# -gt 0 ]]; then
+        selected="$1"
+      else
+        echo "Aurora: usage: aurora-theme <theme-id|display-name>" >&2
+        echo "Aurora: for a picker, run: qs ipc call theme toggle" >&2
+        exit 1
+      fi
+
+      [[ -z "$selected" ]] && exit 0
+
+      theme_id="$(
+        awk -F '\t' -v sel="$selected" '
+          $1 == sel || $2 == sel {
+            print $1
+            exit
+          }
+        ' "$THEMES_FILE"
+      )"
+
+      if [[ -z "$theme_id" ]]; then
+        echo "Aurora: unknown theme: $selected" >&2
+        exit 1
+      fi
+
+      theme_lua="$THEME_DIR/$theme_id.lua"
+      theme_json="$THEME_DIR/$theme_id.json"
+      theme_kitty="$THEME_DIR/$theme_id.kitty.conf"
+      theme_starship="$THEME_DIR/$theme_id.starship.toml"
+
+      if [[ ! -f "$theme_lua" ]]; then
+        echo "Aurora: generated Lua theme not found: $theme_id" >&2
+        exit 1
+      fi
+
+      if [[ ! -f "$theme_json" ]]; then
+        echo "Aurora: generated JSON theme not found: $theme_id" >&2
+        exit 1
+      fi
+
+      if [[ ! -f "$theme_kitty" ]]; then
+        echo "Aurora: generated Kitty theme not found: $theme_id" >&2
+        exit 1
+      fi
+
+      if [[ ! -f "$theme_starship" ]]; then
+        echo "Aurora: generated Starship theme not found: $theme_id" >&2
+        exit 1
+      fi
+
+      ln -sfn "$theme_lua" "$ACTIVE_LUA"
+      ln -sfn "$theme_kitty" "$ACTIVE_KITTY"
+      ln -sfn "$theme_starship" "$ACTIVE_STARSHIP"
+
+      printf '%s\n' "$theme_id" > "$ACTIVE_THEME"
+
+      if command -v hyprctl >/dev/null 2>&1; then
+        hyprctl reload >/dev/null 2>&1 || true
+      fi
+
+      if command -v kitten >/dev/null 2>&1; then
+        shopt -s nullglob
+
+        kitty_sockets=(
+          "$XDG_RUNTIME_DIR"/kitty-*
+        )
+
+        for socket in "''${kitty_sockets[@]}"; do
+          [[ -S "$socket" ]] || continue
+
+          kitten @ \
+            --to "unix:$socket" \
+            set-colors \
+            --all \
+            --configured \
+            "$theme_kitty" \
+            >/dev/null 2>&1 || true
+        done
+      fi
+
+      AURORA_ZSH_REFRESH_DIR="''${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/aurora-zsh"
+
+      if [[ -d "$AURORA_ZSH_REFRESH_DIR" ]]; then
+        for fifo in "$AURORA_ZSH_REFRESH_DIR"/*; do
+          [[ -p "$fifo" ]] || continue
+
+          (
+            printf '%s\n' "refresh" > "$fifo"
+          ) >/dev/null 2>&1 &
+        done
+      fi
+
+      # System dark preference for GTK / portals / Electron
+      if command -v gsettings >/dev/null 2>&1; then
+        gsettings set org.gnome.desktop.interface color-scheme prefer-dark >/dev/null 2>&1 || true
+        gsettings set org.gnome.desktop.interface gtk-theme Adwaita-dark >/dev/null 2>&1 || true
+        gsettings set org.gnome.desktop.interface icon-theme Colloid-Dark >/dev/null 2>&1 || true
+      fi
+
+      printf '%s\n' "dark" > "$CONFIG_DIR/mode"
+
+      echo "Aurora theme: $selected"
+    '';
+  };
+}

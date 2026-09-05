@@ -21,12 +21,9 @@ PanelWindow {
     mask: Region { item: dismissArea.visible ? dismissArea : island }
     WlrLayershell.keyboardFocus: panelOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
-    readonly property var player: {
-        const players = Mpris.players.values
-        return players.find(player => player.isPlaying) || players[0] || null
-    }
-    readonly property bool hasMedia: player && player.trackTitle !== ""
-    readonly property bool idleMedia: !hasMedia
+    readonly property var player: null
+    readonly property bool hasMedia: false
+    readonly property bool idleMedia: false
     property bool themePickerOpen: false
     readonly property var themeModes: ["dark", "light"]
     property int themeIndex: 0

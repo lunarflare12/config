@@ -3,8 +3,20 @@
 {
   programs.zsh = {
     enable = true;
+    enableCompletion = true;
     autosuggestion.enable = true;
     syntaxHighlighting.enable = true;
+
+    oh-my-zsh = {
+      enable = true;
+      plugins = [
+        "git"
+        "kubectl"
+        "docker"
+        "aws"
+      ];
+    };
+
     shellAliases = {
       ff = "fastfetch";
       ls = "eza -l --git --icons --group-directories-first";
@@ -14,7 +26,36 @@
       tmn = "tmux new -s";
       tma = "tmux attach -t";
       tmd = "tmux detach";
+      r = "ranger";
+      k = "kubectl";
     };
+
+    initContent = ''
+      # k9s completion
+      if command -v k9s >/dev/null 2>&1; then
+        source <(k9s completion zsh)
+      fi
+
+      # nix-specific completions
+      if [ -f ${pkgs.nix-zsh-completions}/share/nix-zsh-completions/nix-zsh-completions.zsh ]; then
+        source ${pkgs.nix-zsh-completions}/share/nix-zsh-completions/nix-zsh-completions.zsh
+      fi
+    '';
+  };
+
+  programs.fzf = {
+    enable = true;
+    enableZshIntegration = true;
+    defaultOptions = [
+      "--height 40%"
+      "--layout=reverse"
+      "--border"
+      "--info=inline"
+    ];
+  };
+
+  programs.ranger = {
+    enable = true;
   };
 
   programs.starship = {
@@ -36,5 +77,8 @@
     extraConfig = builtins.readFile ./dots/tmux.conf;
   };
 
-  home.packages = [ pkgs.fastfetch ];
+  home.packages = with pkgs; [
+    fastfetch
+    nix-zsh-completions
+  ];
 }

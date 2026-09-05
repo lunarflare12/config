@@ -59,16 +59,48 @@ PanelWindow {
         objects: [Pipewire.defaultAudioSink]
     }
 
+    readonly property string brightnessStatePath: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state")) + "/monitor-brightness"
+
+    function parseBrightness(raw) {
+        const text = (raw || "").trim()
+        const match = text.match(/(\d+)\s*%/)
+        if (match)
+            return match[1] + "%"
+        if (/^\d+$/.test(text))
+            return text + "%"
+        const fields = text.split(",")
+        if (fields.length > 3 && fields[3])
+            return fields[3].includes("%") ? fields[3] : fields[3] + "%"
+        return ""
+    }
+
+    FileView {
+        id: brightnessFile
+        path: root.brightnessStatePath
+        watchChanges: true
+        printErrors: false
+        onLoaded: {
+            const value = root.parseBrightness(text())
+            if (value)
+                root.brightness = value
+        }
+        onFileChanged: reload()
+    }
+
     Process {
         id: brightnessProcess
         command: ["brightnessctl", "-m"]
 
         stdout: StdioCollector {
+            id: brightnessOut
             onStreamFinished: {
-                const fields = this.text.trim().split(",")
-                root.brightness = fields.length > 3 ? fields[3] : "--"
+                const value = root.parseBrightness(brightnessOut.text)
+                if (value)
+                    root.brightness = value
             }
         }
+
+        onExited: brightnessFile.reload()
     }
 
     Timer {
@@ -79,10 +111,14 @@ PanelWindow {
     }
 
     Timer {
-        interval: 10000
+        interval: 2000
         running: true
         repeat: true
-        onTriggered: brightnessProcess.running = true
+        triggeredOnStart: true
+        onTriggered: {
+            brightnessProcess.running = false
+            brightnessProcess.running = true
+        }
     }
 
     component Pill: Rectangle {
@@ -207,14 +243,9 @@ PanelWindow {
                                 font.bold: parent.focused
                             }
 
-                            Process {
-                                id: workspaceProcess
-                                command: ["hyprctl", "dispatch", "hl.dsp.focus({ workspace = " + workspaceButton.workspace + " })"]
-                            }
-
                             MouseArea {
                                 anchors.fill: parent
-                                onClicked: workspaceProcess.running = true
+                                onClicked: Hyprland.dispatch("workspace " + workspaceButton.workspace)
                             }
                         }
                     }
@@ -336,7 +367,11 @@ PanelWindow {
 
                         Process {
                             id: brightnessChange
-                            onExited: brightnessProcess.running = true
+                            onExited: {
+                                brightnessProcess.running = false
+                                brightnessProcess.running = true
+                                brightnessFile.reload()
+                            }
                         }
 
                         MouseArea {
@@ -371,7 +406,7 @@ PanelWindow {
 
                     Text {
                         visible: Settings.showDate
-                        text: "󰃭 " + Qt.formatDate(root.now, "dd:MM")
+                        text: "󰃭 " + Qt.formatDate(root.now, "d MMM")
                         color: Theme.muted
                         font.family: Theme.font
                         font.pixelSize: 12
