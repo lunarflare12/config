@@ -9,57 +9,89 @@ TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
 FILENAME="screenshot_${TIMESTAMP}.png"
 SCREENSHOT_PATH="$SCREENSHOT_DIR/$FILENAME"
 
-cleanup_freeze() {
+freeze_pid=""
+
+cleanup() {
+  if [[ -n "${freeze_pid}" ]]; then
+    kill "${freeze_pid}" 2>/dev/null || true
+  fi
   pkill -x hyprpicker 2>/dev/null || true
   pkill -x slurp 2>/dev/null || true
 }
 
-trap 'cleanup_freeze' EXIT INT TERM HUP
+trap cleanup EXIT INT TERM HUP
 
-copy_to_clipboard() {
-  wl-copy --type image/png < "$1"
+freeze() {
+  hyprpicker -r -z >/dev/null 2>&1 &
+  freeze_pid=$!
+  sleep 0.05
 }
 
-notify_success() {
-  notify-send --icon="$1" --app-name="Screenshot" --urgency=low --expire-time=4000 "Screenshot saved" "$(basename "$1")"
+thaw() {
+  if [[ -n "${freeze_pid}" ]]; then
+    kill "${freeze_pid}" 2>/dev/null || true
+    freeze_pid=""
+  fi
+  pkill -x hyprpicker 2>/dev/null || true
 }
 
-run_hyprshot() {
-  hyprshot "$@" --silent --output-folder "$SCREENSHOT_DIR" --filename "$FILENAME"
-  local code=$?
-  cleanup_freeze
-  return "$code"
+edit() {
+  local src=$1
+  thaw
+  satty \
+    --filename "$src" \
+    --output-filename "$SCREENSHOT_PATH" \
+    --early-exit all \
+    --copy-command wl-copy \
+    --actions-on-enter save-to-clipboard \
+    --actions-on-enter save-to-file \
+    --actions-on-escape save-to-clipboard \
+    --actions-on-escape exit \
+    --fullscreen current \
+    --notification-thumbnail screenshot \
+    --disable-notifications
+}
+
+focused_output() {
+  hyprctl -j monitors | jq -r '.[] | select(.focused == true) | .name' | head -n 1
+}
+
+window_at_point() {
+  local px=$1 py=$2
+  hyprctl -j clients | jq -r --argjson x "$px" --argjson y "$py" '
+    .[]
+    | select(.mapped == true and .hidden == false and (.workspace.id // 0) > 0)
+    | select($x >= .at[0] and $y >= .at[1] and $x < (.at[0] + .size[0]) and $y < (.at[1] + .size[1]))
+    | "\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"
+  ' | head -n 1
 }
 
 case "$MODE" in
-  region) run_hyprshot -m region --freeze ;;
-  window) run_hyprshot -m window --freeze ;;
-  output | monitor-active) run_hyprshot -m output -m active --freeze ;;
-  region-clipboard | region-copy)
-    run_hyprshot -m region --freeze
-    if [[ -f "$SCREENSHOT_PATH" ]]; then
-      copy_to_clipboard "$SCREENSHOT_PATH"
-      notify_success "$SCREENSHOT_PATH"
-    fi
-    exit 0
+  region | annotate | region-edit | edit)
+    freeze
+    geo=$(slurp) || exit 1
+    grim -g "$geo" "$SCREENSHOT_PATH"
+    edit "$SCREENSHOT_PATH"
     ;;
-  annotate | region-edit | edit)
-    cleanup_freeze
-    # Flameshot draws its own pointer/crosshair (slurp/Hyprland software
-    # cursors stay invisible on the selection overlay with Nvidia).
-    # Annotation tools: pen, marker, text, shapes — editor is a normal window.
-    flameshot gui -p "$SCREENSHOT_PATH" -c
-    if [[ -f "$SCREENSHOT_PATH" ]]; then
-      notify_success "$SCREENSHOT_PATH"
+  window)
+    freeze
+    point=$(slurp -p -f '%x,%y') || exit 1
+    px=${point%%,*}
+    py=${point##*,}
+    geo=$(window_at_point "$px" "$py")
+    if [[ -z "$geo" ]]; then
+      geo=$(hyprctl -j activewindow | jq -r '"\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"')
     fi
-    exit 0
+    grim -g "$geo" "$SCREENSHOT_PATH"
+    edit "$SCREENSHOT_PATH"
+    ;;
+  output | monitor-active | screen)
+    out=$(focused_output)
+    grim ${out:+-o "$out"} "$SCREENSHOT_PATH"
+    edit "$SCREENSHOT_PATH"
     ;;
   *)
-    echo "Usage: $(basename "$0") <region|window|output|region-clipboard|annotate>" >&2
+    echo "Usage: $(basename "$0") <region|window|output>" >&2
     exit 1
     ;;
 esac
-
-if [[ -f "$SCREENSHOT_PATH" ]]; then
-  notify_success "$SCREENSHOT_PATH"
-fi
