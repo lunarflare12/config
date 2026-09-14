@@ -5,36 +5,82 @@ hl.layer_rule({
     order = 1,
 })
 
+-- Compositor kawase blur on a layer is drawn by Hyprland, not Quickshell.
+-- On NVIDIA a tall/wide blurred layer (the old 2560x666 bar host) glitches
+-- and kills other windows. The bar paints its own frost in QML (Glass.qml).
+hl.layer_rule({
+    name = "aurora-desktop",
+    match = { namespace = "^aurora-desktop$" },
+    blur = false,
+    order = 2,
+})
+
+hl.layer_rule({
+    name = "aurora-desktop-metrics",
+    match = { namespace = "^aurora-desktop-metrics$" },
+    blur = false,
+    order = 4,
+})
+
+hl.layer_rule({
+    name = "aurora-dim",
+    match = { namespace = "^aurora-dim$" },
+    blur = false,
+    order = 3,
+})
+
 hl.layer_rule({
     name = "aurora-bar",
     match = { namespace = "^aurora-bar$" },
-    blur = true,
-    blur_popups = true,
-    ignore_alpha = 0.20,
+    blur = false,
     order = 10,
+})
+
+hl.layer_rule({
+    name = "aurora-launcher",
+    match = { namespace = "^aurora-launcher$" },
+    blur = false,
+    order = 12,
+})
+
+hl.layer_rule({
+    name = "aurora-overview",
+    match = { namespace = "^aurora-overview$" },
+    blur = false,
+    order = 14,
 })
 
 hl.layer_rule({
     name = "aurora-popup",
     match = { namespace = "^aurora-popup$" },
-    blur = true,
-    blur_popups = true,
-    ignore_alpha = 0.20,
+    blur = false,
     order = 6,
 })
 
 hl.layer_rule({
     name = "aurora-notifications",
     match = { namespace = "^aurora-notifications$" },
-    blur = true,
-    blur_popups = true,
-    ignore_alpha = 0.20,
+    blur = false,
     order = 8,
 })
 
 hl.layer_rule({
+    name = "aurora-screenshot",
+    match = { namespace = "^aurora-screenshot$" },
+    blur = false,
+    order = 16,
+})
+
+hl.layer_rule({
+    name = "aurora-shaders",
+    match = { namespace = "^aurora-shaders$" },
+    blur = false,
+    order = 18,
+})
+
+hl.layer_rule({
     name = "screen-capture",
-    match = { namespace = "^(selection|slurp|grim|hyprpicker|swappy)$" },
+    match = { namespace = "^(selection|slurp|grim|hyprpicker|satty)$" },
     blur = false,
     xray = true,
     order = 15,

@@ -178,9 +178,9 @@ QtObject {
 
     // Liquid Glass
 
-    readonly property real glassOpacity: ui.glassOpacity !== undefined ? ui.glassOpacity : 0.51
+    readonly property real glassOpacity: 1.0
 
-    readonly property real surfaceOpacity: ui.surfaceOpacity !== undefined ? ui.surfaceOpacity : 0.38
+    readonly property real surfaceOpacity: 1.0;
 
     readonly property real glassLuminosity: ui.glassLuminosity !== undefined ? ui.glassLuminosity : 0.20
 
@@ -200,7 +200,7 @@ QtObject {
 
     readonly property real glassDepthOpacity: ui.glassDepthOpacity !== undefined ? ui.glassDepthOpacity : 0.07
 
-    readonly property real glassClarity: ui.glassClarity !== undefined ? ui.glassClarity : 0.06
+    readonly property real glassClarity: 0.0;
 
     readonly property color glassBody: {
         if (glassOnLight) {
@@ -211,7 +211,7 @@ QtObject {
     }
 
     readonly property color surfaceGlass: Qt.alpha(surface, surfaceOpacity)
-    readonly property color surfaceGlassHover: Qt.alpha(surfaceHover, 0.55)
+    readonly property color surfaceGlassHover: Qt.alpha(surfaceHover, surfaceOpacity)
 
     readonly property color glassTintTop: {
         const mixed = Qt.tint(glassBody, Qt.rgba(accent.r, accent.g, accent.b, 0.10));
@@ -326,9 +326,11 @@ QtObject {
 
     readonly property int pillHeight: 38
 
+    readonly property int barHeight: 40
+
     readonly property int moduleHeight: 36
 
-    readonly property int barMarginTop: 5
+    readonly property int barMarginTop: 0
 
     // Was a hardcoded 18, identical to radiusLarge.
     readonly property int radiusMenu: radiusLarge
@@ -394,6 +396,25 @@ QtObject {
     readonly property int durOpen: 220
 
     readonly property int durClose: 150
+
+    readonly property real hoverScale: 1.06
+    readonly property real pressScale: 0.92
+
+    function feelScale(hovered, pressed) {
+        if (pressed)
+            return 0.92;
+        if (hovered)
+            return 1.06;
+        return 1;
+    }
+
+    function feelSink(hovered, pressed) {
+        if (pressed)
+            return 1.4;
+        if (hovered)
+            return -1.1;
+        return 0;
+    }
 
 
     // Collapsing Bar

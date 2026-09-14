@@ -35,7 +35,7 @@ Item {
 
     property int itemCount: 0
 
-    readonly property int headerHeight: 46
+    readonly property int headerHeight: root.startMenu ? 64 : 46
     readonly property int separatorHeight: 1
 
     // Row height each launcher actually renders: delegate height plus the view's
@@ -58,6 +58,10 @@ Item {
     property int columns: 1
     property int selectedIndex: 0
     property Component contentComponent: null
+    property Component footerComponent: null
+    property bool startMenu: false
+    property int forcedHeight: 0
+    property int footerHeight: 0
 
     property alias query: input.text
 
@@ -72,11 +76,11 @@ Item {
 
     readonly property int visibleRows: Math.min(root.columns > 1 ? root.gridMaxRows : root.listMaxRows, root.fittableRows, root.wantedRows)
 
-    readonly property int targetCardHeight: root.headerHeight + root.separatorHeight + root.contentMargins + root.visibleRows * root.rowExtent
+    readonly property int targetCardHeight: root.headerHeight + (root.startMenu ? 0 : root.separatorHeight) + root.contentMargins + root.visibleRows * root.rowExtent + root.footerHeight
 
     // The height Bar animates its surface to. Not animated here: a second
     // animation on the same dimension is what made the old popup look unstable.
-    readonly property int viewHeight: Math.max(root.cardMinHeight, Math.min(root.cardMaxHeight, root.targetCardHeight))
+    readonly property int viewHeight: root.forcedHeight > 0 ? root.forcedHeight : Math.max(root.cardMinHeight, Math.min(root.cardMaxHeight, root.targetCardHeight))
 
     readonly property bool open: Core.PopupManager.isOpen(root.launcherId)
 
@@ -203,33 +207,42 @@ Item {
             width: parent.width
             height: root.headerHeight
 
+            Rectangle {
+                id: searchPill
+
+                visible: root.startMenu
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.leftMargin: 18
+                anchors.rightMargin: 18
+                height: 40
+                radius: height / 2
+                color: Core.Theme.surface
+                border.width: 1
+                border.color: Core.Theme.border
+            }
+
             Text {
                 id: prompt
 
-                anchors.left: parent.left
-
-                anchors.leftMargin: Core.Theme.padding + 2
-
+                anchors.left: root.startMenu ? searchPill.left : parent.left
+                anchors.leftMargin: root.startMenu ? 14 : Core.Theme.padding + 2
                 anchors.verticalCenter: parent.verticalCenter
 
                 text: root.promptIcon
-
-                color: Core.Theme.accent
-
+                color: root.startMenu ? Core.Theme.foregroundMuted : Core.Theme.accent
                 font.family: Core.Theme.iconFont
-
-                font.pixelSize: Core.Theme.iconSize
+                font.pixelSize: root.startMenu ? Core.Theme.iconSizeSmall : Core.Theme.iconSize
             }
 
             Row {
                 id: counter
 
+                visible: !root.startMenu
                 anchors.right: parent.right
-
                 anchors.rightMargin: Core.Theme.padding + 2
-
                 anchors.verticalCenter: parent.verticalCenter
-
                 spacing: 8
 
                 Text {
@@ -252,17 +265,15 @@ Item {
 
                     visible: root.headerActionVisible && root.headerActionIcon !== ""
 
-                    color: headerActionMouse.containsMouse ? Core.Theme.surfaceGlassHover : "transparent"
+                    color: "transparent"
 
-                    border.width: headerActionMouse.containsMouse ? Core.Theme.borderWidth : 0
-
-                    border.color: Core.Theme.borderActive
-
-                    Behavior on color {
-                        ColorAnimation {
-                            duration: 120
-                            easing.type: Easing.OutQuint
-                        }
+                    Tactile {
+                        anchors.fill: parent
+                        radius: headerAction.width / 2
+                        hovered: headerActionMouse.containsMouse
+                        pressed: headerActionMouse.pressed
+                        hoverScale: 1.12
+                        pressScale: 0.86
                     }
 
                     Text {
@@ -297,13 +308,9 @@ Item {
                 id: input
 
                 anchors.left: prompt.right
-
                 anchors.leftMargin: Core.Theme.padding
-
-                anchors.right: counter.left
-
-                anchors.rightMargin: Core.Theme.padding
-
+                anchors.right: root.startMenu ? searchPill.right : counter.left
+                anchors.rightMargin: root.startMenu ? 16 : Core.Theme.padding
                 anchors.verticalCenter: parent.verticalCenter
 
                 focus: true
@@ -314,9 +321,8 @@ Item {
 
                 color: Core.Theme.foreground
 
-                font.family: Core.Theme.fontMono
-
-                font.pixelSize: Core.Theme.fontSizeLarge
+                font.family: root.startMenu ? Core.Theme.fontFamily : Core.Theme.fontMono
+                font.pixelSize: root.startMenu ? Core.Theme.fontSize : Core.Theme.fontSizeLarge
 
                 onTextChanged: {
                     root.selectedIndex = 0;
@@ -334,9 +340,8 @@ Item {
 
                     color: Core.Theme.foregroundFaint
 
-                    font.family: Core.Theme.fontMono
-
-                    font.pixelSize: Core.Theme.fontSizeLarge
+                    font.family: root.startMenu ? Core.Theme.fontFamily : Core.Theme.fontMono
+                    font.pixelSize: root.startMenu ? Core.Theme.fontSize : Core.Theme.fontSizeLarge
                 }
 
                 Keys.onPressed: function (event) {
@@ -435,19 +440,23 @@ Item {
 
         Rectangle {
             width: parent.width
-            height: root.separatorHeight
-
+            height: root.startMenu ? 0 : root.separatorHeight
+            visible: !root.startMenu
             color: Core.Theme.separator
         }
 
         Loader {
             width: parent.width
-
-            height: Math.max(0, parent.height - header.height - root.separatorHeight)
-
-            active: root.open
-
+            height: Math.max(0, parent.height - header.height - (root.startMenu ? 0 : root.separatorHeight) - root.footerHeight)
+            active: true
             sourceComponent: root.contentComponent
+        }
+
+        Loader {
+            width: parent.width
+            height: root.footerHeight
+            active: root.footerHeight > 0
+            sourceComponent: root.footerComponent
         }
     }
 }

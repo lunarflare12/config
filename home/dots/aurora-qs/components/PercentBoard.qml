@@ -6,6 +6,7 @@ import "../services" as Services
 Rectangle {
     id: board
 
+    property string icon: ""
     property string title: "Metric"
     property color seriesColor: Core.Theme.accent
     property var values: []
@@ -13,7 +14,7 @@ Rectangle {
     property string detailText: ""
     property int hoverIndex: -1
 
-    radius: 16
+    radius: Core.Theme.radiusRow
     color: Core.Theme.surface
     border.color: Core.Theme.accent
     border.width: 1
@@ -29,16 +30,49 @@ Rectangle {
         return Math.round(ratio * (count - 1));
     }
 
-    Text {
-        id: titleLabel
+    Item {
+        id: titleRow
+
         anchors.left: parent.left
+        anchors.right: parent.right
         anchors.top: parent.top
-        anchors.margins: 12
-        text: board.title
-        color: Core.Theme.foreground
-        font.family: Core.Theme.fontFamily
-        font.pixelSize: 10
-        font.bold: true
+        anchors.leftMargin: 12
+        anchors.rightMargin: 48
+        anchors.topMargin: 10
+        height: 18
+
+        MetricIcon {
+            id: iconLabel
+
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
+
+            visible: board.icon !== ""
+            width: visible ? 16 : 0
+            height: 16
+
+            name: board.icon
+            color: board.seriesColor
+        }
+
+        Text {
+            id: titleLabel
+
+            anchors.left: iconLabel.right
+            anchors.leftMargin: iconLabel.visible ? 6 : 0
+            anchors.verticalCenter: parent.verticalCenter
+
+            width: Math.max(0, parent.width - iconLabel.width - (iconLabel.visible ? 6 : 0))
+            text: board.title
+            elide: Text.ElideRight
+            color: Core.Theme.foreground
+
+            font.family: Core.Theme.fontFamily
+            font.pixelSize: Core.Theme.fontSizeSmall
+            font.weight: Font.DemiBold
+
+            renderType: Text.QtRendering
+        }
     }
 
     Text {
@@ -48,14 +82,15 @@ Rectangle {
         text: "100%"
         color: Core.Theme.foregroundFaint
         font.family: Core.Theme.fontFamily
-        font.pixelSize: 9
+        font.pixelSize: Core.Theme.fontSizeSmall
+        renderType: Text.NativeRendering
     }
 
     Item {
         id: graphArea
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.top: titleLabel.bottom
+        anchors.top: titleRow.bottom
         anchors.bottom: legend.top
         anchors.leftMargin: 12
         anchors.rightMargin: 12
@@ -73,17 +108,7 @@ Rectangle {
                 const padTop = 4;
                 const padBottom = 4;
                 const chartHeight = height - padTop - padBottom;
-                const values = board.values;
-                if (values.length < 2) {
-                    context.strokeStyle = Core.Theme.accent;
-                    context.setLineDash([3, 3]);
-                    context.strokeRect(0.5, 0.5, width - 1, height - 1);
-                    context.setLineDash([]);
-                    context.fillStyle = Core.Theme.foregroundFaint;
-                    context.font = "9px \"" + Core.Theme.fontFamily + "\"";
-                    context.fillText("Collecting samples…", 8, height / 2);
-                    return;
-                }
+                const values = board.values.length >= 2 ? board.values : [board.currentValue, board.currentValue];
 
                 const xAt = index => index * (width - 1) / (values.length - 1);
                 const yAt = value => padTop + chartHeight - (Math.max(0, Math.min(100, value)) / 100) * chartHeight;
@@ -146,6 +171,7 @@ Rectangle {
             Connections {
                 target: board
                 function onValuesChanged() { graph.requestPaint(); }
+                function onCurrentValueChanged() { graph.requestPaint(); }
                 function onHoverIndexChanged() { graph.requestPaint(); }
                 function onSeriesColorChanged() { graph.requestPaint(); }
             }
@@ -196,8 +222,9 @@ Rectangle {
                 text: (board.values[board.hoverIndex] || 0) + "%"
                 color: "white"
                 font.family: Core.Theme.fontFamily
-                font.pixelSize: 10
+                font.pixelSize: Core.Theme.fontSizeSmall
                 font.bold: true
+                renderType: Text.NativeRendering
             }
         }
     }
@@ -229,7 +256,8 @@ Rectangle {
                 text: board.currentValue + "%" + (board.detailText !== "" ? "  ·  " + board.detailText : "")
                 color: Core.Theme.foreground
                 font.family: Core.Theme.fontFamily
-                font.pixelSize: 9
+                font.pixelSize: Core.Theme.fontSizeSmall
+                renderType: Text.NativeRendering
                 anchors.verticalCenter: parent.verticalCenter
             }
         }

@@ -16,11 +16,30 @@ let
       runHook preInstall
       mkdir -p $out/share/sddm/themes/glyph
       cp -r . $out/share/sddm/themes/glyph/
+      font=$(find ${pkgs.nerd-fonts.symbols-only} -name 'SymbolsNerdFont-Regular.ttf' | head -n 1)
+      if [ -z "$font" ]; then
+        echo "SymbolsNerdFont-Regular.ttf missing from nerd-fonts.symbols-only" >&2
+        exit 1
+      fi
+      rm -f $out/share/sddm/themes/glyph/assets/fonts/SymbolsNerdFont.ttf
+      cp "$font" $out/share/sddm/themes/glyph/assets/fonts/SymbolsNerdFont.ttf
       runHook postInstall
     '';
   };
 in
 {
+  nixpkgs.overlays = [
+    (final: prev: {
+      hyprlandPlugins = prev.hyprlandPlugins // {
+        csgo-vulkan-fix = prev.hyprlandPlugins.csgo-vulkan-fix.overrideAttrs (old: {
+          postPatch = (old.postPatch or "") + ''
+            cp ${../home/dots/hypr/plugins/csgo-vulkan-fix/main.cpp} main.cpp
+          '';
+        });
+      };
+    })
+  ];
+
   programs.hyprland = {
     enable = true;
     withUWSM = true;
@@ -72,7 +91,6 @@ in
   environment.systemPackages = [
     glyphSddmTheme
     pkgs.kdePackages.breeze
-    pkgs.ddcutil
   ];
 
   xdg.portal = {
@@ -90,6 +108,7 @@ in
         "org.freedesktop.impl.portal.ScreenCast" = [ "hyprland" ];
         "org.freedesktop.impl.portal.Screenshot" = [ "hyprland" ];
         "org.freedesktop.impl.portal.FileChooser" = [ "gtk" ];
+        "org.freedesktop.impl.portal.Settings" = [ "gtk" ];
       };
       hyprland = {
         default = [
@@ -99,6 +118,7 @@ in
         "org.freedesktop.impl.portal.ScreenCast" = [ "hyprland" ];
         "org.freedesktop.impl.portal.Screenshot" = [ "hyprland" ];
         "org.freedesktop.impl.portal.FileChooser" = [ "gtk" ];
+        "org.freedesktop.impl.portal.Settings" = [ "gtk" ];
       };
     };
   };
@@ -132,6 +152,7 @@ in
 
   fonts.packages = with pkgs; [
     nerd-fonts.jetbrains-mono
+    nerd-fonts.hack
     inter
     noto-fonts-color-emoji
   ];
@@ -148,5 +169,10 @@ in
     MOZ_ENABLE_WAYLAND = "1";
     QT_QPA_PLATFORM = "wayland";
     GDK_BACKEND = "wayland";
+    GTK_THEME = "Adwaita:dark";
+    GTK_APPLICATION_PREFER_DARK_THEME = "1";
+    QT_QPA_PLATFORMTHEME = "qt6ct";
+    QT_STYLE_OVERRIDE = "kvantum";
+    ADW_DEBUG_COLOR_SCHEME = "prefer-dark";
   };
 }

@@ -104,6 +104,15 @@ Item {
             border.width: Core.Theme.borderWidth
             border.color: Core.Theme.accentForeground
 
+            Tactile {
+                anchors.fill: parent
+                radius: width / 2
+                hovered: sliderMouse.containsMouse
+                pressed: root.dragging
+                hoverScale: 1.18
+                pressScale: 0.86
+            }
+
             Behavior on width {
                 NumberAnimation {
                     duration: 150

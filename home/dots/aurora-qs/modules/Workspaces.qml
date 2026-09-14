@@ -4,20 +4,215 @@ import Quickshell
 import Quickshell.Hyprland
 
 import "../core" as Core
+import "../services" as Services
+import "../components" as Components
 
 Item {
     id: root
 
-    implicitWidth: row.implicitWidth + 8
+    property var screen: null
+
+    readonly property int cell: 26
+    readonly property int pill: 22
+    readonly property int count: Core.Session.workspacesPerMonitor
+    readonly property string monitorName: Core.Session.monitorNameForScreen(root.screen)
+    readonly property int base: Core.Session.monitorIndex(root.monitorName) * Core.Session.workspacesPerMonitor
+    readonly property int activeGlobal: {
+        const _ = (Hyprland.monitors && Hyprland.monitors.values) ? Hyprland.monitors.values.length : 0;
+        const __ = Hyprland.focusedWorkspace ? Hyprland.focusedWorkspace.id : 0;
+        return Core.Session.activeWorkspaceOnMonitor(root.monitorName);
+    }
+    readonly property int activeLocal: {
+        const id = root.activeGlobal;
+        if (!(id >= 1))
+            return 1;
+        return ((id - 1) % root.count) + 1;
+    }
+    readonly property real destX: (root.activeLocal - 1) * root.cell + (root.cell - root.pill) / 2
+
+    property real pillX: 0
+    property real pillW: 22
+    property bool pillReady: false
+
+    implicitWidth: root.cell * root.count
     implicitHeight: Core.Theme.moduleHeight
 
-    readonly property int count: 10
+    function flowTo(toX) {
+        flowAnim.stop();
+        const fromX = root.pillX;
+        const fromW = root.pillW;
+        const toW = root.pill;
+        const left = Math.min(fromX, toX);
+        const right = Math.max(fromX + fromW, toX + toW);
+        const stretch = Math.max(toW, right - left);
+
+        stretchX.from = fromX;
+        stretchX.to = left;
+        stretchW.from = fromW;
+        stretchW.to = stretch;
+        settleX.from = left;
+        settleX.to = toX;
+        settleW.from = stretch;
+        settleW.to = toW;
+        flowAnim.start();
+    }
+
+    onDestXChanged: {
+        if (!root.pillReady) {
+            root.pillX = root.destX;
+            root.pillW = root.pill;
+            return;
+        }
+        if (Math.abs(root.destX - root.pillX) < 0.5 && Math.abs(root.pillW - root.pill) < 0.5)
+            return;
+        root.flowTo(root.destX);
+    }
+
+    Component.onCompleted: {
+        root.pillX = root.destX;
+        root.pillW = root.pill;
+        Qt.callLater(function () {
+            root.pillReady = true;
+        });
+    }
+
+    SequentialAnimation {
+        id: flowAnim
+
+        ParallelAnimation {
+            NumberAnimation {
+                id: stretchX
+                target: root
+                property: "pillX"
+                duration: 140
+                easing.type: Easing.OutCubic
+            }
+            NumberAnimation {
+                id: stretchW
+                target: root
+                property: "pillW"
+                duration: 140
+                easing.type: Easing.OutCubic
+            }
+        }
+
+        ParallelAnimation {
+            NumberAnimation {
+                id: settleX
+                target: root
+                property: "pillX"
+                duration: 180
+                easing.type: Easing.InOutCubic
+            }
+            NumberAnimation {
+                id: settleW
+                target: root
+                property: "pillW"
+                duration: 180
+                easing.type: Easing.InOutCubic
+            }
+        }
+    }
+
+    function windowsOn(globalId) {
+        const out = [];
+        const tops = (Hyprland.toplevels && Hyprland.toplevels.values) ? Hyprland.toplevels.values : [];
+        for (let i = 0; i < tops.length; i++) {
+            const t = tops[i];
+            const ipc = t.lastIpcObject || {};
+            if (ipc.mapped === false || ipc.hidden === true)
+                continue;
+            const id = t.workspace ? Number(t.workspace.id) : Number(ipc.workspace && ipc.workspace.id);
+            if (id !== globalId)
+                continue;
+            out.push(t);
+        }
+        return out;
+    }
+
+    function occupiedAt(localWs) {
+        if (localWs < 1 || localWs > root.count)
+            return false;
+        const _ = (Hyprland.toplevels && Hyprland.toplevels.values) ? Hyprland.toplevels.values.length : 0;
+        return root.windowsOn(root.base + localWs).length > 0;
+    }
+
+    function iconToplevel(wins) {
+        let best = null;
+        let bestScore = -1;
+        for (let i = 0; i < wins.length; i++) {
+            const t = wins[i];
+            const ipc = t.lastIpcObject || {};
+            const cls = String(ipc.class || ipc.initialClass || "").toLowerCase();
+            const title = String(t.title || ipc.title || "").toLowerCase();
+            if (cls.indexOf("crashmailer") !== -1 || cls.indexOf("steamwebhelper") !== -1)
+                continue;
+            const size = ipc.size || [0, 0];
+            let score = Number(size[0]) * Number(size[1]);
+            if (cls.indexOf("gamescope") !== -1 || cls.indexOf("steam_app_") !== -1 || cls.indexOf("overwatch") !== -1)
+                score += 1000000000;
+            if (title.indexOf("overwatch") !== -1 || title.indexOf("paladin") !== -1 || title.indexOf("dota") !== -1)
+                score += 1000000000;
+            if (score > bestScore) {
+                bestScore = score;
+                best = t;
+            }
+        }
+        return best || (wins.length ? wins[0] : null);
+    }
+
+    // Occupied track sits behind the active pill so consecutive desks
+    // stay one capsule, including the focused workspace.
+    Row {
+        anchors.centerIn: parent
+        spacing: 0
+        z: 0
+
+        Repeater {
+            model: root.count
+
+            delegate: Item {
+                id: track
+
+                required property int index
+
+                readonly property int localWs: index + 1
+                readonly property bool occupied: root.occupiedAt(track.localWs)
+                readonly property bool prevOccupied: root.occupiedAt(track.localWs - 1)
+                readonly property bool nextOccupied: root.occupiedAt(track.localWs + 1)
+
+                width: root.cell
+                height: root.pill
+
+                Rectangle {
+                    anchors.fill: parent
+                    color: track.occupied ? Qt.alpha(Core.Theme.accent, 0.32) : "transparent"
+                    topLeftRadius: track.prevOccupied ? 0 : root.pill / 2
+                    topRightRadius: track.nextOccupied ? 0 : root.pill / 2
+                    bottomLeftRadius: track.prevOccupied ? 0 : root.pill / 2
+                    bottomRightRadius: track.nextOccupied ? 0 : root.pill / 2
+                }
+            }
+        }
+    }
+
+    Rectangle {
+        id: activePill
+
+        x: root.pillX
+        y: Math.round((parent.height - height) / 2)
+        width: root.pillW
+        height: root.pill
+        radius: height / 2
+        color: Core.Theme.accent
+        z: 1
+    }
 
     Row {
         id: row
-
         anchors.centerIn: parent
-        spacing: 2
+        spacing: 0
+        z: 2
 
         Repeater {
             model: root.count
@@ -27,64 +222,73 @@ Item {
 
                 required property int index
 
-                readonly property int workspace: index + 1
-                readonly property var hypr: {
-                    const list = (Hyprland.workspaces && Hyprland.workspaces.values) ? Hyprland.workspaces.values : [];
-                    for (let i = 0; i < list.length; i++) {
-                        if (Number(list[i].id) === cell.workspace)
-                            return list[i];
-                    }
-                    return null;
+                readonly property int localWs: index + 1
+                readonly property int workspace: root.base + cell.localWs
+                readonly property var windows: {
+                    const _ = (Hyprland.toplevels && Hyprland.toplevels.values) ? Hyprland.toplevels.values.length : 0;
+                    return root.windowsOn(cell.workspace);
                 }
-                readonly property bool focused: Hyprland.focusedWorkspace && Number(Hyprland.focusedWorkspace.id) === cell.workspace
-                readonly property bool occupied: {
-                    if (!cell.hypr)
-                        return false;
-                    const ipc = cell.hypr.lastIpcObject || {};
-                    const windows = ipc.windows;
-                    if (typeof windows === "number")
-                        return windows > 0;
-                    const tops = cell.hypr.toplevels;
-                    if (tops && tops.values)
-                        return tops.values.length > 0;
-                    return true;
+                readonly property bool occupied: cell.windows.length > 0
+                readonly property bool focused: root.activeGlobal === cell.workspace
+                readonly property string iconSource: {
+                    if (cell.windows.length === 0)
+                        return "";
+                    return Services.AppsService.iconPathForWindow(root.iconToplevel(cell.windows));
                 }
 
-                width: 16
-                height: 22
+                width: root.cell
+                height: root.pill
 
-                Rectangle {
-                    anchors.centerIn: parent
-                    width: cell.focused ? 16 : 14
-                    height: cell.focused ? 16 : 14
-                    radius: height / 2
-                    color: cell.focused ? Core.Theme.accent : (cell.occupied ? Core.Theme.surfaceActive : "transparent")
-                    border.width: cell.focused ? 0 : 1
-                    border.color: cell.occupied ? Core.Theme.borderFocus : Core.Theme.border
-
-                    Behavior on color {
-                        ColorAnimation {
-                            duration: 120
-                            easing.type: Easing.OutQuint
-                        }
-                    }
+                Components.Tactile {
+                    anchors.fill: parent
+                    radius: root.pill / 2
+                    hovered: cellMouse.containsMouse
+                    pressed: cellMouse.pressed
+                    active: cell.focused
+                    hoverScale: 1.14
+                    pressScale: 0.84
+                    activeFill: "transparent"
                 }
 
                 Text {
                     anchors.centerIn: parent
-                    text: cell.workspace === 10 ? "0" : String(cell.workspace)
+                    text: cell.localWs === 10 ? "0" : String(cell.localWs)
                     color: cell.focused ? Core.Theme.accentForeground : (cell.occupied ? Core.Theme.text : Core.Theme.textMuted)
                     font.family: Core.Theme.fontFamily
-                    font.pixelSize: Core.Theme.fontSizeSmall
+                    font.pixelSize: 11
                     font.weight: cell.focused ? Font.DemiBold : Font.Medium
                     renderType: Text.QtRendering
                 }
 
+                Image {
+                    id: appIcon
+                    width: 10
+                    height: 10
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.top: parent.top
+                    anchors.topMargin: -2
+                    visible: cell.occupied && status === Image.Ready
+                    asynchronous: true
+                    cache: true
+                    fillMode: Image.PreserveAspectFit
+                    source: cell.iconSource
+                    mipmap: true
+                    smooth: true
+                }
+
                 MouseArea {
+                    id: cellMouse
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: Hyprland.dispatch("workspace " + cell.workspace)
+                    acceptedButtons: Qt.LeftButton | Qt.RightButton
+                    onClicked: function (event) {
+                        if (event.button === Qt.RightButton) {
+                            Core.Session.toggleOverview();
+                            return;
+                        }
+                        Core.Session.focusLocalWorkspace(root.monitorName, cell.localWs);
+                    }
                 }
             }
         }

@@ -165,23 +165,15 @@ Components.PopupSurface {
                     height: 28
 
                     radius: 14
+                    color: "transparent"
 
-                    color: prevMouse.containsMouse ? Core.Theme.surfaceGlassHover : "transparent"
-
-                    Behavior on color {
-                        ColorAnimation {
-                            duration: 100
-                            easing.type: Easing.OutQuint
-                        }
-                    }
-
-                    scale: prevMouse.pressed ? 0.88 : 1.0
-
-                    Behavior on scale {
-                        NumberAnimation {
-                            duration: 110
-                            easing.type: Easing.OutQuint
-                        }
+                    Components.Tactile {
+                        anchors.fill: parent
+                        radius: 14
+                        hovered: prevMouse.containsMouse
+                        pressed: prevMouse.pressed
+                        hoverScale: 1.12
+                        pressScale: 0.86
                     }
 
                     Text {
@@ -267,23 +259,15 @@ Components.PopupSurface {
                     height: 28
 
                     radius: 14
+                    color: "transparent"
 
-                    color: nextMouse.containsMouse ? Core.Theme.surfaceGlassHover : "transparent"
-
-                    Behavior on color {
-                        ColorAnimation {
-                            duration: 100
-                            easing.type: Easing.OutQuint
-                        }
-                    }
-
-                    scale: nextMouse.pressed ? 0.88 : 1.0
-
-                    Behavior on scale {
-                        NumberAnimation {
-                            duration: 110
-                            easing.type: Easing.OutQuint
-                        }
+                    Components.Tactile {
+                        anchors.fill: parent
+                        radius: 14
+                        hovered: nextMouse.containsMouse
+                        pressed: nextMouse.pressed
+                        hoverScale: 1.12
+                        pressScale: 0.86
                     }
 
                     Text {
@@ -387,7 +371,7 @@ Components.PopupSurface {
                         width: dayGrid.cell
                         height: 32
 
-                        Rectangle {
+                        Components.Tactile {
                             id: dayBg
 
                             anchors.centerIn: parent
@@ -399,17 +383,12 @@ Components.PopupSurface {
 
                             visible: dayCell.filled
 
-                            color: dayCell.today ? Core.Theme.accent : (dayMouse.containsMouse ? Core.Theme.surfaceGlassHover : "transparent")
-
-                            Behavior on color {
-                                ColorAnimation {
-                                    duration: 120
-                                    easing.type: Easing.OutQuint
-                                }
-                            }
-
-                            // Today's marker springs in on open.
-                            scale: dayCell.today ? 1.0 : 1.0
+                            hovered: dayMouse.containsMouse
+                            pressed: dayMouse.pressed
+                            active: dayCell.today
+                            activeFill: Core.Theme.accent
+                            hoverScale: 1.12
+                            pressScale: 0.86
 
                             Component.onCompleted: {
                                 if (!dayCell.today)
@@ -481,10 +460,18 @@ Components.PopupSurface {
 
                     width: 100
                     height: 26
-
                     radius: 13
+                    color: "transparent"
 
-                    color: todayMouse.containsMouse ? Core.Theme.surfaceGlassHover : Core.Theme.surfaceGlass
+                    Components.Tactile {
+                        anchors.fill: parent
+                        radius: 13
+                        hovered: todayMouse.containsMouse
+                        pressed: todayMouse.pressed
+                        active: true
+                        hoverScale: 1.06
+                        pressScale: 0.92
+                    }
 
                     Text {
                         anchors.centerIn: parent

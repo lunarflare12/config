@@ -1,4 +1,16 @@
-hl.window_rule({ name = "suppress-maximize", match = { class = ".*" }, suppress_event = "maximize" })
+local GAME_MONITOR = "DP-1"
+-- Local 4 on the ultrawide (HDMI owns 1-10, DP-1 owns 11-20).
+local GAME_WORKSPACE = "14"
+local GAME_CLASS = "^(steam_app_|[Pp]aladins\\.exe|[Oo]verwatch|dota2)"
+-- Nix wraps the binary as .gamescope-wrapped; class match is whole-string.
+local GAMESCOPE_CLASS = ".*gamescope.*"
+local ALL_GAME_CLASS = "^(steam_app_|.*gamescope.*|[Pp]aladins\\.exe|[Oo]verwatch|dota2)"
+
+hl.window_rule({
+    name = "suppress-maximize",
+    match = { class = "negative:" .. ALL_GAME_CLASS },
+    suppress_event = "maximize",
+})
 hl.window_rule({ name = "fix-xwayland-drags", match = { class = "^$", title = "^$", xwayland = true, float = true, fullscreen = false, pin = false }, no_focus = true })
 
 for _, rule in ipairs({
@@ -6,8 +18,7 @@ for _, rule in ipairs({
     { name = "float-media", match = { title = "^(imv|mpv|danmufloat|termfloat|nemo|ncmpcpp)$" }, float = true, size = "960 540", move = "25%- 0" },
     { name = "float-waydroid", match = { class = "^(Waydroid)$" }, float = true, size = "1280 720", center = true },
     { name = "float-pavucontrol", match = { class = "^(org.pulseaudio.pavucontrol|pavucontrol-qt)$" }, float = true },
-    { name = "float-flameshot", match = { class = "^(flameshot)$" }, float = true, pin = true },
-    { name = "float-satty", match = { class = "^(com.gabm.satty|satty)$" }, float = true, center = true },
+    { name = "float-satty", match = { class = "^(com.gabm.satty|satty)$" }, float = true, pin = true, no_anim = true },
     { name = "float-serashell-settings", match = { title = "^Serashell$" }, float = true, center = true },
     { name = "float-picture-in-picture", match = { class = "^()$", title = "^(Picture in picture)$" }, float = true },
     { name = "float-save-file", match = { class = "^()$", title = "^(Save File)$" }, float = true },
@@ -27,7 +38,141 @@ for _, rule in ipairs({
     { name = "float-thunar-create", match = { class = "^(thunar)$", title = "^(Create.*)$" }, float = true },
     { name = "float-thunar-properties", match = { class = "^(thunar)$", title = "^(Properties)$" }, float = true, size = "600 500" },
     { name = "center-thunar-dialogs", match = { class = "^(thunar)$", title = "^(Rename.*|File Operation Progress|Confirm.*|Question|Create.*|Properties)$" }, center = true },
-    { name = "games-tearing", match = { class = "^(steam_app_|gamescope)" }, immediate = true, no_anim = true, no_blur = true, opaque = true, force_rgbx = true, decorate = false, rounding = 0, border_size = 0, idle_inhibit = "fullscreen", render_unfocused = true, focus_on_activate = true, no_auto_hdr = true, no_vrr = true },
 }) do
     hl.window_rule(rule)
+end
+
+-- Pin games to the ultrawide. Internal maximize + client fullscreen: the game
+-- thinks it is exclusive FS (raw mouse, no bar). sync_fullscreen must stay
+-- off or this collapses back to real exclusive and NVIDIA direct_scanout
+-- blanks the other output.
+-- Do not set move/size here: that tiles the window under the bar and kills FS.
+local function game_rule(name, match, extra)
+    local rule = {
+        name = name,
+        match = match,
+        monitor = GAME_MONITOR,
+        workspace = 14,
+        fullscreen_state = "1 2",
+        sync_fullscreen = false,
+        content = "game",
+        immediate = true,
+        no_anim = true,
+        no_blur = true,
+        opaque = true,
+        force_rgbx = true,
+        decorate = false,
+        rounding = 0,
+        border_size = 0,
+        idle_inhibit = "fullscreen",
+        render_unfocused = true,
+        focus_on_activate = true,
+        no_auto_hdr = true,
+    }
+    if extra then
+        for k, v in pairs(extra) do
+            rule[k] = v
+        end
+    end
+    hl.window_rule(rule)
+end
+
+game_rule("games-class", { class = GAME_CLASS }, { confine_pointer = true })
+game_rule("gamescope-class", { class = GAMESCOPE_CLASS }, { confine_pointer = false, no_vrr = true })
+game_rule("games-initial-class", { initial_class = GAME_CLASS }, { confine_pointer = true })
+game_rule("gamescope-initial-class", { initial_class = GAMESCOPE_CLASS }, { confine_pointer = false, no_vrr = true })
+
+-- Overwatch: compositor maximize, client stays windowed 1920. Client FS (2)
+-- makes DXGI match the 2560 output and Use219=0 pillarboxes. no_max_size
+-- stops ICCCM max=1920 from shrinking the Hyprland window.
+local OW_CLASS = "^(steam_app_2357570|[Oo]verwatch)"
+game_rule("overwatch-class", { class = OW_CLASS }, {
+    confine_pointer = true,
+    fullscreen_state = "1 0",
+    no_max_size = true,
+    -- Keep the compositor window at 2560. The game still renders 1920;
+    -- csgo-vulkan-fix stretches that buffer. Without this, Wine parks the
+    -- 1920 window on the right of the ultrawide (black bar on the left).
+    suppress_event = "x11configurerequest",
+})
+game_rule("overwatch-initial-class", { initial_class = OW_CLASS }, {
+    confine_pointer = true,
+    fullscreen_state = "1 0",
+    no_max_size = true,
+    suppress_event = "x11configurerequest",
+})
+
+-- Albion 2FA/login: Unity Input System drops text in exclusive FS.
+-- Confine also eats the click that focuses the code field.
+local ALBION_CLASS = "^(steam_app_761890|[Aa]lbion)"
+game_rule("albion-class", { class = ALBION_CLASS }, {
+    confine_pointer = false,
+    fullscreen_state = "1 0",
+    no_max_size = true,
+    suppress_event = "x11configurerequest",
+})
+game_rule("albion-initial-class", { initial_class = ALBION_CLASS }, {
+    confine_pointer = false,
+    fullscreen_state = "1 0",
+    no_max_size = true,
+    suppress_event = "x11configurerequest",
+})
+
+local function pin_game(w, client_fs)
+    pcall(function()
+        hl.dispatch(hl.dsp.window.move({ workspace = 14, window = w }))
+    end)
+    pcall(function()
+        hl.dispatch(hl.dsp.focus({ workspace = 14 }))
+    end)
+    pcall(function()
+        hl.dispatch(hl.dsp.window.fullscreen_state({ window = w, internal = 1, client = client_fs }))
+    end)
+end
+
+local function game_to_desk(win)
+    if not win then
+        return
+    end
+    local w = win.window or win
+    local cls = string.lower(tostring(w.initial_class or "") .. " " .. tostring(w.class or ""))
+    local title = string.lower(tostring(w.title or ""))
+    -- Nested gamescope first: title is "Overwatch" but client FS must stay 2.
+    -- Do not listen to window.fullscreen — re-dispatching there fights 1 2 vs 1 0.
+    if cls:find("gamescope", 1, true) then
+        pin_game(w, 2)
+        return
+    end
+    if cls:find("steam_app_2357570", 1, true) or cls:find("overwatch", 1, true) then
+        pin_game(w, 0)
+        return
+    end
+    if cls:find("steam_app_761890", 1, true) or cls:find("albion", 1, true) then
+        pin_game(w, 0)
+        return
+    end
+    if cls:find("steam_app_", 1, true) or cls:find("paladins", 1, true) or cls:find("dota2", 1, true) or title:find("overwatch", 1, true) then
+        pin_game(w, 2)
+    end
+end
+
+if _G.aurora_game_open then
+    pcall(function()
+        _G.aurora_game_open:remove()
+    end)
+end
+_G.aurora_game_open = hl.on("window.open", game_to_desk)
+if _G.aurora_game_open_early then
+    pcall(function()
+        _G.aurora_game_open_early:remove()
+    end)
+end
+pcall(function()
+    _G.aurora_game_open_early = hl.on("window.open_early", game_to_desk)
+end)
+if _G.aurora_game_fs then
+    pcall(function()
+        _G.aurora_game_fs:remove()
+    end)
+    _G.aurora_game_fs = nil
 end

@@ -122,13 +122,15 @@ Item {
 
                     radius: height / 2
 
-                    color: chipMouse.containsMouse ? Core.Theme.surfaceGlassHover : Core.Theme.surfaceGlass
+                    color: "transparent"
 
-                    Behavior on color {
-                        ColorAnimation {
-                            duration: 120
-                            easing.type: Easing.OutQuint
-                        }
+                    Tactile {
+                        anchors.fill: parent
+                        radius: height / 2
+                        hovered: chipMouse.containsMouse
+                        pressed: chipMouse.pressed
+                        hoverScale: 1.08
+                        pressScale: 0.9
                     }
 
                     Image {
@@ -192,13 +194,15 @@ Item {
 
                 radius: height / 2
 
-                color: replyChipMouse.containsMouse ? Core.Theme.surfaceGlassHover : Core.Theme.surfaceGlass
+                color: "transparent"
 
-                Behavior on color {
-                    ColorAnimation {
-                        duration: 120
-                        easing.type: Easing.OutQuint
-                    }
+                Tactile {
+                    anchors.fill: parent
+                    radius: height / 2
+                    hovered: replyChipMouse.containsMouse
+                    pressed: replyChipMouse.pressed
+                    hoverScale: 1.08
+                    pressScale: 0.9
                 }
 
                 Text {

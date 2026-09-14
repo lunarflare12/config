@@ -1,12 +1,10 @@
 import QtQuick
-import QtQuick.Layouts
 
 import Quickshell
 
 import "../core" as Core
 import "../services" as Services
-
-// Brightness (bar module)
+import "../components" as Components
 
 Item {
     id: root
@@ -14,50 +12,35 @@ Item {
     implicitWidth: 58
     implicitHeight: Core.Theme.moduleHeight
 
-    readonly property int level: Services.BrightnessService.level
+    readonly property var svc: Services.BrightnessService
+    readonly property bool menuOpen: Core.PopupManager.isOpen("brightness")
 
-    Rectangle {
+    Components.Tactile {
         anchors.fill: parent
-
-        radius: height / 2
-
-        color: mouse.containsMouse ? Core.Theme.surfaceGlassHover : "transparent"
-
-        Behavior on color {
-            ColorAnimation {
-                duration: 100
-                easing.type: Easing.OutQuint
-            }
-        }
+        hovered: mouse.containsMouse
+        pressed: mouse.pressed
+        active: root.menuOpen
     }
 
-    RowLayout {
+    Row {
         anchors.centerIn: parent
-
         spacing: 5
 
         Text {
-            // Ramps with the level instead of showing the same sun at 5% and at 100%.
-            text: Core.Icons.forBrightness(Services.BrightnessService.fraction)
-
+            anchors.verticalCenter: parent.verticalCenter
+            text: Core.Icons.forBrightness(root.svc.fraction)
             font.family: Core.Theme.iconFont
-
             font.pixelSize: Core.Theme.iconSize
-
-            color: Core.Theme.accent
+            color: root.menuOpen ? Core.Theme.accent : Core.Theme.foreground
         }
 
         Text {
-            text: root.level + "%"
-
+            anchors.verticalCenter: parent.verticalCenter
+            text: root.svc.level + "%"
             font.family: Core.Theme.fontFamily
-
             font.pixelSize: Core.Theme.fontSize
-
             font.weight: Font.Medium
-
             color: Core.Theme.foreground
-
             renderType: Text.QtRendering
         }
     }
@@ -66,19 +49,27 @@ Item {
         id: mouse
 
         anchors.fill: parent
-
         hoverEnabled: true
-
         cursorShape: Qt.PointingHandCursor
+        acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
 
-        acceptedButtons: Qt.LeftButton
+        onClicked: function (event) {
+            if (event.button === Qt.RightButton) {
+                root.svc.cycle();
+                return;
+            }
+            if (event.button === Qt.MiddleButton) {
+                root.svc.step(false);
+                return;
+            }
+            const p = root.mapToItem(null, 0, root.height);
+            Core.PopupManager.toggle("brightness", p.x + root.width / 2, p.y + Core.Theme.barMarginTop, root);
+        }
 
         onWheel: function (event) {
             if (event.angleDelta.y === 0)
                 return;
-            Services.BrightnessService.step(event.angleDelta.y > 0);
+            root.svc.step(event.angleDelta.y > 0);
         }
-
-        onClicked: Services.BrightnessService.step(true)
     }
 }

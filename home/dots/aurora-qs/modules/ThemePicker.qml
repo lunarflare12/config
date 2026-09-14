@@ -122,16 +122,15 @@ Components.LauncherView {
                 // neighbours.
                 z: row.selected ? 2 : 0
 
-                // Zoom on selection, kept small on purpose: the row is nearly
-                // card-wide, so a few percent is already a lot of travel. The
-                // miniature below carries the rest of it.
-                scale: row.selected ? 1.03 : 1.0
-
-                Behavior on scale {
-                    NumberAnimation {
-                        duration: 240
-                        easing.type: Easing.OutQuint
-                    }
+                Components.Tactile {
+                    anchors.fill: parent
+                    radius: row.radius
+                    hovered: themeRowMouse.containsMouse
+                    pressed: themeRowMouse.pressed
+                    active: row.selected
+                    restScale: row.selected ? 1.03 : 1.0
+                    hoverScale: 1.05
+                    pressScale: 0.96
                 }
 
                 // A partially generated themes.json must not break layout, so every read has a fallback.
@@ -339,7 +338,11 @@ Components.LauncherView {
                 }
 
                 MouseArea {
+                    id: themeRowMouse
+
                     anchors.fill: parent
+
+                    hoverEnabled: true
 
                     cursorShape: Qt.PointingHandCursor
 

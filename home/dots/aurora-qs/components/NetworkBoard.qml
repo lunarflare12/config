@@ -5,7 +5,7 @@ import "../services" as Services
 Rectangle {
     id: board
 
-    radius: 16
+    radius: Core.Theme.radiusRow
     color: Core.Theme.surface
     border.color: Core.Theme.accent
     border.width: 1
@@ -72,16 +72,44 @@ Rectangle {
         return padTop + chartHeight - (Services.SystemMonitor.toMbit(kib) / maxValue) * chartHeight
     }
 
-    Text {
-        id: title
+    Item {
+        id: titleRow
+
         anchors.left: parent.left
+        anchors.right: parent.right
         anchors.top: parent.top
-        anchors.margins: 12
-        text: "󰈀  Network"
-        color: Core.Theme.foreground
-        font.family: Core.Theme.fontFamily
-        font.pixelSize: 10
-        font.bold: true
+        anchors.leftMargin: 12
+        anchors.rightMargin: 80
+        anchors.topMargin: 10
+        height: 18
+
+        MetricIcon {
+            id: titleIcon
+
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
+
+            width: 16
+            height: 16
+
+            name: "network"
+            color: board.downloadColor
+        }
+
+        Text {
+            anchors.left: titleIcon.right
+            anchors.leftMargin: 6
+            anchors.verticalCenter: parent.verticalCenter
+
+            text: "Network"
+            color: Core.Theme.foreground
+
+            font.family: Core.Theme.fontFamily
+            font.pixelSize: Core.Theme.fontSizeSmall
+            font.weight: Font.DemiBold
+
+            renderType: Text.QtRendering
+        }
     }
 
     Text {
@@ -91,14 +119,15 @@ Rectangle {
         text: board.maxMbit + " Mbit/s"
         color: Core.Theme.foregroundFaint
         font.family: Core.Theme.fontFamily
-        font.pixelSize: 9
+        font.pixelSize: Core.Theme.fontSizeSmall
+        renderType: Text.NativeRendering
     }
 
     Item {
         id: graphArea
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.top: title.bottom
+        anchors.top: titleRow.bottom
         anchors.bottom: legend.top
         anchors.leftMargin: 12
         anchors.rightMargin: 12
@@ -116,19 +145,9 @@ Rectangle {
                 const padTop = 4
                 const padBottom = 4
                 const chartHeight = height - padTop - padBottom
-                const downloads = board.downloads
-                const uploads = board.uploads
+                const downloads = board.downloads.length >= 2 ? board.downloads : [Services.SystemMonitor.download, Services.SystemMonitor.download]
+                const uploads = board.uploads.length >= 2 ? board.uploads : [Services.SystemMonitor.upload, Services.SystemMonitor.upload]
                 const points = Math.max(downloads.length, uploads.length)
-                if (points < 2) {
-                    context.strokeStyle = Core.Theme.accent
-                    context.setLineDash([3, 3])
-                    context.strokeRect(0.5, 0.5, width - 1, height - 1)
-                    context.setLineDash([])
-                    context.fillStyle = Core.Theme.foregroundFaint
-                    context.font = "9px \"" + Core.Theme.fontFamily + "\""
-                    context.fillText("Collecting traffic…", 8, height / 2)
-                    return
-                }
 
                 const maxValue = Math.max(board.maxMbit, 0.001)
                 const xAt = index => index * (width - 1) / (points - 1)
@@ -279,7 +298,8 @@ Rectangle {
                     text: board.formatClock(board.timestamps[board.hoverIndex] || 0)
                     color: "#A0A0A5"
                     font.family: Core.Theme.fontFamily
-                    font.pixelSize: 9
+                    font.pixelSize: Core.Theme.fontSizeSmall
+                    renderType: Text.NativeRendering
                 }
 
                 Row {
@@ -290,20 +310,21 @@ Rectangle {
                         radius: 7
                         color: board.downloadColor
                         anchors.verticalCenter: parent.verticalCenter
-                        Text {
+                        MetricIcon {
                             anchors.centerIn: parent
-                            text: "󰁅"
+                            width: 10
+                            height: 10
+                            name: "download"
                             color: "white"
-                            font.family: Core.Theme.fontFamily
-                            font.pixelSize: 9
                         }
                     }
                     Text {
                         text: Services.SystemMonitor.formatMbit(board.downloads[board.hoverIndex] || 0)
                         color: "white"
                         font.family: Core.Theme.fontFamily
-                        font.pixelSize: 10
+                        font.pixelSize: Core.Theme.fontSizeSmall
                         font.bold: true
+                        renderType: Text.NativeRendering
                         anchors.verticalCenter: parent.verticalCenter
                     }
                 }
@@ -316,20 +337,21 @@ Rectangle {
                         radius: 7
                         color: board.uploadColor
                         anchors.verticalCenter: parent.verticalCenter
-                        Text {
+                        MetricIcon {
                             anchors.centerIn: parent
-                            text: "󰁝"
+                            width: 10
+                            height: 10
+                            name: "upload"
                             color: "white"
-                            font.family: Core.Theme.fontFamily
-                            font.pixelSize: 9
                         }
                     }
                     Text {
                         text: Services.SystemMonitor.formatMbit(board.uploads[board.hoverIndex] || 0)
                         color: "white"
                         font.family: Core.Theme.fontFamily
-                        font.pixelSize: 10
+                        font.pixelSize: Core.Theme.fontSizeSmall
                         font.bold: true
+                        renderType: Text.NativeRendering
                         anchors.verticalCenter: parent.verticalCenter
                     }
                 }
@@ -353,7 +375,8 @@ Rectangle {
             text: board.formatClock(timestamps.length ? timestamps[0] : 0)
             color: Core.Theme.foregroundFaint
             font.family: Core.Theme.fontFamily
-            font.pixelSize: 8
+            font.pixelSize: Core.Theme.fontSizeSmall
+            renderType: Text.NativeRendering
         }
 
         Text {
@@ -362,7 +385,8 @@ Rectangle {
             text: board.formatClock(timestamps.length ? timestamps[timestamps.length - 1] : 0)
             color: Core.Theme.foregroundFaint
             font.family: Core.Theme.fontFamily
-            font.pixelSize: 8
+            font.pixelSize: Core.Theme.fontSizeSmall
+            renderType: Text.NativeRendering
         }
 
         Row {
@@ -377,7 +401,8 @@ Rectangle {
                     text: "Download: " + Services.SystemMonitor.formatMbit(Services.SystemMonitor.download)
                     color: Core.Theme.foreground
                     font.family: Core.Theme.fontFamily
-                    font.pixelSize: 9
+                    font.pixelSize: Core.Theme.fontSizeSmall
+                    renderType: Text.NativeRendering
                     anchors.verticalCenter: parent.verticalCenter
                 }
             }
@@ -389,7 +414,8 @@ Rectangle {
                     text: "Upload: " + Services.SystemMonitor.formatMbit(Services.SystemMonitor.upload)
                     color: Core.Theme.foreground
                     font.family: Core.Theme.fontFamily
-                    font.pixelSize: 9
+                    font.pixelSize: Core.Theme.fontSizeSmall
+                    renderType: Text.NativeRendering
                     anchors.verticalCenter: parent.verticalCenter
                 }
             }

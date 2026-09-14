@@ -11,6 +11,8 @@ import "../modules" as Modules
 PanelWindow {
     id: root
 
+    screen: Core.Session.screenObject(Core.Session.focusedMonitorName())
+
     anchors {
         top: true
         left: true
@@ -26,7 +28,7 @@ PanelWindow {
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: root.launcherOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
-    readonly property var launchers: [appLauncher, wallpaperPicker, themePicker, clipboardView, emojiPicker]
+    readonly property var launchers: [appLauncher, wallpaperPicker, themePicker, clipboardView, emojiPicker, powerMenu]
 
     readonly property var activeLauncher: {
         const list = root.launchers;
@@ -50,11 +52,11 @@ PanelWindow {
         id: card
 
         anchors.horizontalCenter: parent.horizontalCenter
-        y: Core.Theme.barHeight + Core.Theme.popupGap + 8
+        y: (root.activeLauncher && root.activeLauncher.startMenu) ? Math.max(Core.Theme.barHeight + 16, Math.round((root.height - height) * 0.16)) : Core.Theme.barHeight + Core.Theme.popupGap + 8
 
         width: root.activeLauncher ? root.activeLauncher.cardWidth : 460
         height: root.activeLauncher ? root.activeLauncher.viewHeight : 110
-        radius: Core.Theme.radiusLarge
+        radius: Core.Theme.radiusMenu
         color: "transparent"
         antialiasing: true
         clip: true
@@ -73,6 +75,7 @@ PanelWindow {
         Glass {
             anchors.fill: parent
             radius: parent.radius
+            strength: 1.0
         }
 
         Item {
@@ -100,6 +103,11 @@ PanelWindow {
 
             Modules.EmojiPicker {
                 id: emojiPicker
+                anchors.fill: parent
+            }
+
+            Modules.PowerMenu {
+                id: powerMenu
                 anchors.fill: parent
             }
         }

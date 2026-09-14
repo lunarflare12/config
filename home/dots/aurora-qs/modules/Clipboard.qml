@@ -176,24 +176,19 @@ Components.LauncherView {
 
                     radius: Core.Theme.radiusRow
 
-                    color: row.selected ? Core.Theme.surfaceGlass : "transparent"
-
-                    scale: row.selected ? 1.02 : 1.0
+                    color: "transparent"
 
                     z: row.selected ? 2 : 0
 
-                    Behavior on scale {
-                        NumberAnimation {
-                            duration: 180
-                            easing.type: Easing.OutQuint
-                        }
-                    }
-
-                    Behavior on color {
-                        ColorAnimation {
-                            duration: Core.Theme.durFast
-                            easing.type: Easing.OutQuint
-                        }
+                    Components.Tactile {
+                        anchors.fill: parent
+                        radius: row.radius
+                        hovered: clipRowMouse.containsMouse
+                        pressed: clipRowMouse.pressed
+                        active: row.selected
+                        restScale: row.selected ? 1.02 : 1.0
+                        hoverScale: 1.03
+                        pressScale: 0.96
                     }
 
                     Rectangle {
@@ -277,8 +272,12 @@ Components.LauncherView {
                     }
 
                     MouseArea {
+                        id: clipRowMouse
+
                         anchors.fill: parent
                         anchors.rightMargin: 36
+
+                        hoverEnabled: true
 
                         cursorShape: Qt.PointingHandCursor
 
@@ -340,7 +339,16 @@ Components.LauncherView {
 
                             radius: Core.Theme.radiusRow
 
-                            color: cancelMouse.containsMouse ? Core.Theme.surfaceGlassHover : Core.Theme.surfaceGlass
+                            color: "transparent"
+
+                            Components.Tactile {
+                                anchors.fill: parent
+                                radius: Core.Theme.radiusRow
+                                hovered: cancelMouse.containsMouse
+                                pressed: cancelMouse.pressed
+                                hoverScale: 1.06
+                                pressScale: 0.92
+                            }
 
                             Text {
                                 anchors.centerIn: parent
@@ -374,7 +382,18 @@ Components.LauncherView {
 
                             radius: Core.Theme.radiusRow
 
-                            color: clearConfirmMouse.containsMouse ? Core.Theme.danger : Core.Theme.surfaceGlass
+                            color: "transparent"
+
+                            Components.Tactile {
+                                anchors.fill: parent
+                                radius: Core.Theme.radiusRow
+                                hovered: clearConfirmMouse.containsMouse
+                                pressed: clearConfirmMouse.pressed
+                                active: true
+                                activeFill: Core.Theme.danger
+                                hoverScale: 1.06
+                                pressScale: 0.92
+                            }
 
                             Text {
                                 anchors.centerIn: parent

@@ -242,22 +242,15 @@ Components.PopupSurface {
 
                         radius: Core.Theme.radiusRow
 
-                        color: noteMouse.containsMouse ? Core.Theme.surfaceGlassHover : Core.Theme.surfaceGlass
+                        color: "transparent"
 
-                        Behavior on color {
-                            ColorAnimation {
-                                duration: 120
-                                easing.type: Easing.OutQuint
-                            }
-                        }
-
-                        scale: noteMouse.pressed ? 0.97 : 1.0
-
-                        Behavior on scale {
-                            NumberAnimation {
-                                duration: 110
-                                easing.type: Easing.OutQuint
-                            }
+                        Components.Tactile {
+                            anchors.fill: parent
+                            radius: Core.Theme.radiusRow
+                            hovered: noteMouse.containsMouse
+                            pressed: noteMouse.pressed
+                            hoverScale: 1.02
+                            pressScale: 0.97
                         }
 
                         // Urgency stripe

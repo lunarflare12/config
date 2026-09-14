@@ -51,13 +51,17 @@ in
   };
 
   boot.kernelParams = [ "nvidia-drm.fbdev=1" ];
+
+  # Aquamarine splits AQ_DRM_DEVICES on ":", so PCI by-path names cannot be used.
+  services.udev.extraRules = ''
+    SUBSYSTEM=="drm", KERNEL=="card[0-9]*", ATTRS{vendor}=="0x10de", SYMLINK+="dri/nvidia-card"
+  '';
   boot.extraModprobeConfig = ''
-    options nvidia NVreg_UsePageAttributeTable=1
     options nvidia NVreg_RegistryDwords="RMUseSwI2c=0x01;RMI2cSpeed=100"
   '';
 
   environment.sessionVariables = {
-    AQ_DRM_DEVICES = "/dev/dri/card1";
+    AQ_DRM_DEVICES = "/dev/dri/nvidia-card";
     LIBVA_DRIVER_NAME = "nvidia";
     NVD_BACKEND = "direct";
     GBM_BACKEND = "nvidia-drm";

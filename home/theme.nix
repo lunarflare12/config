@@ -1,4 +1,4 @@
-{ lib, pkgs, ... }:
+{ config, lib, pkgs, ... }:
 
 let
   themeData = import ../lib/themes.nix;
@@ -622,6 +622,55 @@ in
   xdg.configFile = {
     "aurora/themes.json".text = builtins.toJSON themeData;
     "aurora/themes.list".text = themeList + "\n";
+
+    "environment.d/20-dark-theme.conf".text = ''
+      GTK_THEME=Adwaita:dark
+      GTK_APPLICATION_PREFER_DARK_THEME=1
+      QT_QPA_PLATFORMTHEME=qt6ct
+      QT_STYLE_OVERRIDE=kvantum
+      ADW_DEBUG_COLOR_SCHEME=prefer-dark
+    '';
+
+    "xdg-desktop-portal/portals.conf".text = ''
+      [preferred]
+      default=hyprland;gtk
+      org.freedesktop.impl.portal.Settings=gtk
+      org.freedesktop.impl.portal.FileChooser=gtk
+      org.freedesktop.impl.portal.ScreenCast=hyprland
+      org.freedesktop.impl.portal.Screenshot=hyprland
+    '';
+
+    "qt6ct/qt6ct.conf".text = ''
+      [Appearance]
+      color_scheme_path=${config.xdg.configHome}/qt6ct/colors/darker.conf
+      custom_palette=true
+      icon_theme=Colloid-Dark
+      standard_dialogs=xdgdesktopportal
+      style=kvantum
+    '';
+
+    "qt6ct/colors/darker.conf".text = ''
+      [ColorScheme]
+      active_colors=#ffffffff, #ff424245, #ff979797, #ff5e5c5b, #ff302f2e, #ff4a4947, #ffffffff, #ffffffff, #ffffffff, #ff3d3d3d, #ff222020, #ffe7e4e0, #ff12608a, #fff9f9f9, #ff0986d3, #ffa70b06, #ff5c5b5a, #ffffffff, #ff3f3f36, #ffffffff, #80ffffff
+      disabled_colors=#ff808080, #ff424245, #ff979797, #ff5e5c5b, #ff302f2e, #ff4a4947, #ff808080, #ffffffff, #ff808080, #ff3d3d3d, #ff222020, #ffe7e4e0, #ff12608a, #ff808080, #ff0986d3, #ffa70b06, #ff5c5b5a, #ffffffff, #ff3f3f36, #ffffffff, #80ffffff
+      inactive_colors=#ffffffff, #ff424245, #ff979797, #ff5e5c5b, #ff302f2e, #ff4a4947, #ffffffff, #ffffffff, #ffffffff, #ff3d3d3d, #ff222020, #ffe7e4e0, #ff12608a, #fff9f9f9, #ff0986d3, #ffa70b06, #ff5c5b5a, #ffffffff, #ff3f3f36, #ffffffff, #80ffffff
+    '';
+
+    "qt5ct/qt5ct.conf".text = ''
+      [Appearance]
+      color_scheme_path=${config.xdg.configHome}/qt5ct/colors/darker.conf
+      custom_palette=true
+      icon_theme=Colloid-Dark
+      standard_dialogs=xdgdesktopportal
+      style=kvantum
+    '';
+
+    "qt5ct/colors/darker.conf".text = ''
+      [ColorScheme]
+      active_colors=#ffffffff, #ff424245, #ff979797, #ff5e5c5b, #ff302f2e, #ff4a4947, #ffffffff, #ffffffff, #ffffffff, #ff3d3d3d, #ff222020, #ffe7e4e0, #ff12608a, #fff9f9f9, #ff0986d3, #ffa70b06, #ff5c5b5a, #ffffffff, #ff3f3f36, #ffffffff, #80ffffff
+      disabled_colors=#ff808080, #ff424245, #ff979797, #ff5e5c5b, #ff302f2e, #ff4a4947, #ff808080, #ffffffff, #ff808080, #ff3d3d3d, #ff222020, #ffe7e4e0, #ff12608a, #ff808080, #ff0986d3, #ffa70b06, #ff5c5b5a, #ffffffff, #ff3f3f36, #ffffffff, #80ffffff
+      inactive_colors=#ffffffff, #ff424245, #ff979797, #ff5e5c5b, #ff302f2e, #ff4a4947, #ffffffff, #ffffffff, #ffffffff, #ff3d3d3d, #ff222020, #ffe7e4e0, #ff12608a, #fff9f9f9, #ff0986d3, #ffa70b06, #ff5c5b5a, #ffffffff, #ff3f3f36, #ffffffff, #80ffffff
+    '';
   }
 
   // generatedLuaFiles
@@ -644,7 +693,16 @@ in
     };
     gtk4.extraConfig = {
       gtk-application-prefer-dark-theme = 1;
+      gtk-theme-name = "Adwaita-dark";
     };
+  };
+
+  home.sessionVariables = {
+    GTK_THEME = "Adwaita:dark";
+    GTK_APPLICATION_PREFER_DARK_THEME = "1";
+    QT_QPA_PLATFORMTHEME = "qt6ct";
+    QT_STYLE_OVERRIDE = "kvantum";
+    ADW_DEBUG_COLOR_SCHEME = "prefer-dark";
   };
 
   dconf.settings."org/gnome/desktop/interface" = {

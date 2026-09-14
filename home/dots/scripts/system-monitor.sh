@@ -53,6 +53,8 @@ vramUsed=0
 vramTotal=0
 du=0
 dt=0
+hu=0
+ht=0
 
 if [[ $light -eq 0 ]]; then
   if command -v nvidia-smi >/dev/null 2>&1; then
@@ -66,8 +68,11 @@ if [[ $light -eq 0 ]]; then
   read -r du dt < <(df -B1 --output=used,size / 2>/dev/null | awk 'NR == 2 { print $1, $2 }')
   du=${du:-0}
   dt=${dt:-0}
+  read -r hu ht < <(df -B1 --output=used,size /home 2>/dev/null | awk 'NR == 2 { print $1, $2 }')
+  hu=${hu:-0}
+  ht=${ht:-0}
 fi
 
-printf '%s %s %s %s %s %s %s %s %s %s %s %s %s %s %s\n' \
+printf '%s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s\n' \
   "$total" "$idle" "$mt" "$ma" "$cpuTempC" "$rx" "$tx" \
-  "$gpuUtil" "$gpuTemp" "$vramUsed" "$vramTotal" "$st" "$sf" "$du" "$dt"
+  "$gpuUtil" "$gpuTemp" "$vramUsed" "$vramTotal" "$st" "$sf" "$du" "$dt" "$hu" "$ht"

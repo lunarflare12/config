@@ -2,34 +2,37 @@ import QtQuick
 
 import "../core" as Core
 import "../services" as Services
+import "../components" as Components
 
 Item {
     id: root
 
-    implicitWidth: 30
+    implicitWidth: chip.implicitWidth + 8
     implicitHeight: Core.Theme.moduleHeight
 
     readonly property bool menuOpen: Core.PopupManager.isOpen("memory")
-
-    Rectangle {
-        anchors.fill: parent
-        radius: height / 2
-        color: root.menuOpen ? Core.Theme.surfaceGlass : mouse.containsMouse ? Core.Theme.surfaceGlassHover : "transparent"
-
-        Behavior on color {
-            ColorAnimation {
-                duration: 120
-                easing.type: Easing.OutQuint
-            }
-        }
+    readonly property int used: Services.SystemMonitor.memory
+    readonly property color valueColor: {
+        if (root.used >= 90)
+            return Core.Theme.error;
+        if (root.used >= 80)
+            return Core.Theme.warning;
+        return root.menuOpen ? Core.Theme.accent : Core.Theme.foreground;
     }
 
-    Text {
+    Components.Tactile {
+        anchors.fill: parent
+        hovered: mouse.containsMouse
+        pressed: mouse.pressed
+        active: root.menuOpen
+    }
+
+    Components.ResourceChip {
+        id: chip
         anchors.centerIn: parent
-        text: "󰍛"
-        font.family: Core.Theme.iconFont
-        font.pixelSize: Core.Theme.iconSize
-        color: Core.Theme.foreground
+        iconName: "ram"
+        percent: root.used
+        ink: root.valueColor
     }
 
     MouseArea {
@@ -41,7 +44,7 @@ Item {
 
         onClicked: {
             const p = root.mapToItem(null, 0, root.height);
-            Core.PopupManager.toggle("memory", p.x + root.width / 2, p.y + Core.Theme.barMarginTop);
+            Core.PopupManager.toggle("memory", p.x + root.width / 2, p.y + Core.Theme.barMarginTop, root);
         }
     }
 }

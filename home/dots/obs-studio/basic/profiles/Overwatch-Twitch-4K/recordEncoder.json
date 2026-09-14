@@ -1,10 +1,9 @@
 {
-    "bitrate": 40000,
+    "bitrate": 15000,
     "keyint_sec": 2,
     "preset": "p5",
-    "profile": "main",
-    "rate_control": "CQP",
-    "cqp": 18,
+    "profile": "high",
+    "rate_control": "CBR",
     "psycho_aq": true,
     "lookahead": true,
     "bf": 2,

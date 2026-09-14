@@ -1,347 +1,613 @@
 {
-    "current_scene": "Overwatch",
-    "current_program_scene": "Overwatch",
-    "current_preview_scene": null,
-    "groups": [],
-    "modules": {
-        "auto-scene-switcher": {},
-        "output-timer": {},
-        "scripts-tool": []
-    },
     "name": "Overwatch",
-    "preview_locked": false,
-    "quick_transitions": [],
-    "saved_projectors": [],
-    "scaling_enabled": false,
-    "scaling_level": 0,
-    "scaling_off_x": 0.0,
-    "scaling_off_y": 0.0,
-    "scene_order": [
-        {"name": "Overwatch"},
-        {"name": "Overwatch Vertical"},
-        {"name": "Starting Soon"}
-    ],
+    "DesktopAudioDevice1": {
+        "prev_ver": 537001986,
+        "name": "Desktop Audio",
+        "uuid": "a1c2e3f4-1111-4222-8333-abc111111111",
+        "id": "pulse_output_capture",
+        "versioned_id": "pulse_output_capture",
+        "settings": {
+            "device_id": "default"
+        },
+        "mixers": 255,
+        "sync": 0,
+        "flags": 0,
+        "volume": 1.0,
+        "balance": 0.5,
+        "enabled": true,
+        "muted": false,
+        "push-to-mute": false,
+        "push-to-mute-delay": 0,
+        "push-to-talk": false,
+        "push-to-talk-delay": 0,
+        "hotkeys": {
+            "libobs.mute": [],
+            "libobs.unmute": [],
+            "libobs.push-to-mute": [],
+            "libobs.push-to-talk": []
+        },
+        "deinterlace_mode": 0,
+        "deinterlace_field_order": 0,
+        "monitoring_type": 0,
+        "private_settings": {}
+    },
+    "AuxAudioDevice1": {
+        "prev_ver": 537001986,
+        "name": "Mic/Aux",
+        "uuid": "a1c2e3f4-1111-4222-8333-abc222222222",
+        "id": "pulse_input_capture",
+        "versioned_id": "pulse_input_capture",
+        "settings": {
+            "device_id": "default"
+        },
+        "mixers": 255,
+        "sync": 0,
+        "flags": 0,
+        "volume": 1.0,
+        "balance": 0.5,
+        "enabled": true,
+        "muted": false,
+        "push-to-mute": false,
+        "push-to-mute-delay": 0,
+        "push-to-talk": false,
+        "push-to-talk-delay": 0,
+        "hotkeys": {
+            "libobs.mute": [],
+            "libobs.unmute": [],
+            "libobs.push-to-mute": [],
+            "libobs.push-to-talk": []
+        },
+        "deinterlace_mode": 0,
+        "deinterlace_field_order": 0,
+        "monitoring_type": 0,
+        "private_settings": {}
+    },
     "sources": [
         {
-            "balance": 0.5,
-            "deinterlace_field_order": 0,
-            "deinterlace_mode": 0,
-            "enabled": true,
-            "flags": 0,
-            "hotkeys": {},
-            "id": "linux-vkcapture",
-            "mixers": 255,
-            "monitoring_type": 0,
-            "muted": false,
-            "name": "Game Capture",
-            "prev_ver": 536870912,
-            "private_settings": {},
-            "push-to-mute": false,
-            "push-to-mute-delay": 0,
-            "push-to-talk": false,
-            "push-to-talk-delay": 0,
-            "settings": {},
-            "sync": 0,
-            "versioned_id": "linux-vkcapture",
-            "volume": 1.0
-        },
-        {
-            "balance": 0.5,
-            "deinterlace_field_order": 0,
-            "deinterlace_mode": 0,
-            "enabled": true,
-            "flags": 0,
-            "hotkeys": {},
-            "id": "pipewire-desktop-capture-source",
-            "mixers": 0,
-            "monitoring_type": 0,
-            "muted": false,
+            "prev_ver": 537001986,
             "name": "Display Capture",
-            "prev_ver": 536870912,
-            "private_settings": {},
+            "uuid": "a1c2e3f4-1111-4222-8333-abc333333333",
+            "id": "pipewire-desktop-capture-source",
+            "versioned_id": "pipewire-desktop-capture-source",
+            "settings": {
+                "ShowCursor": true,
+                "RestoreToken": ""
+            },
+            "mixers": 0,
+            "sync": 0,
+            "flags": 0,
+            "volume": 1.0,
+            "balance": 0.5,
+            "enabled": true,
+            "muted": false,
             "push-to-mute": false,
             "push-to-mute-delay": 0,
             "push-to-talk": false,
             "push-to-talk-delay": 0,
-            "settings": {
-                "ShowCursor": true
-            },
-            "sync": 0,
-            "versioned_id": "pipewire-desktop-capture-source",
-            "volume": 1.0
+            "hotkeys": {},
+            "deinterlace_mode": 0,
+            "deinterlace_field_order": 0,
+            "monitoring_type": 0,
+            "private_settings": {}
         },
         {
-            "balance": 0.5,
-            "deinterlace_field_order": 0,
-            "deinterlace_mode": 0,
-            "enabled": true,
-            "flags": 0,
-            "hotkeys": {},
-            "id": "color_source_v3",
+            "prev_ver": 537001986,
+            "name": "Game Capture",
+            "uuid": "a1c2e3f4-1111-4222-8333-abc444444444",
+            "id": "pipewire-window-capture-source",
+            "versioned_id": "pipewire-window-capture-source",
+            "settings": {
+                "ShowCursor": true,
+                "RestoreToken": ""
+            },
             "mixers": 0,
-            "monitoring_type": 0,
+            "sync": 0,
+            "flags": 0,
+            "volume": 1.0,
+            "balance": 0.5,
+            "enabled": true,
             "muted": false,
-            "name": "Background",
-            "prev_ver": 536870912,
-            "private_settings": {},
             "push-to-mute": false,
             "push-to-mute-delay": 0,
             "push-to-talk": false,
             "push-to-talk-delay": 0,
+            "hotkeys": {},
+            "deinterlace_mode": 0,
+            "deinterlace_field_order": 0,
+            "monitoring_type": 0,
+            "private_settings": {}
+        },
+        {
+            "prev_ver": 537001986,
+            "name": "Background",
+            "uuid": "a1c2e3f4-1111-4222-8333-abc555555555",
+            "id": "color_source",
+            "versioned_id": "color_source_v3",
             "settings": {
                 "color": 4278190080,
-                "height": 2160,
-                "width": 3840
+                "width": 3840,
+                "height": 2160
             },
-            "sync": 0,
-            "versioned_id": "color_source_v3",
-            "volume": 1.0
-        },
-        {
-            "balance": 0.5,
-            "deinterlace_field_order": 0,
-            "deinterlace_mode": 0,
-            "enabled": true,
-            "flags": 0,
-            "hotkeys": {},
-            "id": "text_ft2_source_v2",
             "mixers": 0,
-            "monitoring_type": 0,
+            "sync": 0,
+            "flags": 0,
+            "volume": 1.0,
+            "balance": 0.5,
+            "enabled": true,
             "muted": false,
-            "name": "Starting Text",
-            "prev_ver": 536870912,
-            "private_settings": {},
             "push-to-mute": false,
             "push-to-mute-delay": 0,
             "push-to-talk": false,
             "push-to-talk-delay": 0,
+            "hotkeys": {},
+            "deinterlace_mode": 0,
+            "deinterlace_field_order": 0,
+            "monitoring_type": 0,
+            "private_settings": {}
+        },
+        {
+            "prev_ver": 537001986,
+            "name": "Starting Text",
+            "uuid": "a1c2e3f4-1111-4222-8333-abc666666666",
+            "id": "text_ft2_source",
+            "versioned_id": "text_ft2_source_v2",
             "settings": {
+                "text": "OVERWATCH  —  STARTING SOON",
                 "font": {
                     "face": "JetBrainsMono Nerd Font",
                     "flags": 0,
                     "size": 128,
                     "style": "Regular"
                 },
-                "text": "OVERWATCH  —  STARTING SOON",
                 "color1": 4294967295,
                 "color2": 4294967295
             },
-            "sync": 0,
-            "versioned_id": "text_ft2_source_v2",
-            "volume": 1.0
-        },
-        {
-            "balance": 0.5,
-            "deinterlace_field_order": 0,
-            "deinterlace_mode": 0,
-            "enabled": true,
-            "flags": 0,
-            "hotkeys": {},
-            "id": "scene",
             "mixers": 0,
-            "monitoring_type": 0,
+            "sync": 0,
+            "flags": 0,
+            "volume": 1.0,
+            "balance": 0.5,
+            "enabled": true,
             "muted": false,
-            "name": "Overwatch",
-            "prev_ver": 536870912,
-            "private_settings": {},
             "push-to-mute": false,
             "push-to-mute-delay": 0,
             "push-to-talk": false,
             "push-to-talk-delay": 0,
+            "hotkeys": {},
+            "deinterlace_mode": 0,
+            "deinterlace_field_order": 0,
+            "monitoring_type": 0,
+            "private_settings": {}
+        },
+        {
+            "prev_ver": 537001986,
+            "name": "Overwatch",
+            "uuid": "a1c2e3f4-1111-4222-8333-abc777777777",
+            "id": "scene",
+            "versioned_id": "scene",
             "settings": {
+                "id_counter": 2,
                 "custom_size": false,
-                "id_counter": 3,
                 "items": [
                     {
-                        "align": 5,
-                        "blending_method": 0,
-                        "blending_mode": 0,
-                        "bounds": {"x": 3840.0, "y": 2160.0},
-                        "bounds_align": 0,
-                        "bounds_type": 2,
-                        "crop_bottom": 0,
-                        "crop_left": 0,
-                        "crop_right": 0,
-                        "crop_top": 0,
-                        "group_item_backup": false,
-                        "hide_transition": {"duration": 0},
-                        "id": 1,
-                        "locked": false,
                         "name": "Game Capture",
-                        "pos": {"x": 0.0, "y": 0.0},
-                        "private_settings": {},
+                        "source_uuid": "a1c2e3f4-1111-4222-8333-abc444444444",
+                        "visible": false,
+                        "locked": false,
                         "rot": 0.0,
-                        "scale": {"x": 1.0, "y": 1.0},
-                        "scale_filter": "lanczos",
-                        "show_transition": {"duration": 0},
-                        "update_transform": false,
-                        "visible": true
+                        "scale_ref": {
+                            "x": 2560.0,
+                            "y": 1080.0
+                        },
+                        "align": 5,
+                        "bounds_type": 0,
+                        "bounds_align": 0,
+                        "bounds_crop": false,
+                        "crop_left": 0,
+                        "crop_top": 0,
+                        "crop_right": 0,
+                        "crop_bottom": 0,
+                        "id": 1,
+                        "group_item_backup": false,
+                        "pos": {
+                            "x": 960.0,
+                            "y": 540.0
+                        },
+                        "pos_rel": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "scale": {
+                            "x": 1.0,
+                            "y": 1.0
+                        },
+                        "scale_rel": {
+                            "x": 1.0,
+                            "y": 1.0
+                        },
+                        "bounds": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "bounds_rel": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "scale_filter": "disable",
+                        "blend_method": "default",
+                        "blend_type": "normal",
+                        "show_transition": {
+                            "duration": 0
+                        },
+                        "hide_transition": {
+                            "duration": 0
+                        },
+                        "private_settings": {}
                     },
                     {
-                        "align": 5,
-                        "blending_method": 0,
-                        "blending_mode": 0,
-                        "bounds": {"x": 3840.0, "y": 2160.0},
-                        "bounds_align": 0,
-                        "bounds_type": 2,
-                        "crop_bottom": 0,
-                        "crop_left": 0,
-                        "crop_right": 0,
-                        "crop_top": 0,
-                        "group_item_backup": false,
-                        "hide_transition": {"duration": 0},
-                        "id": 2,
-                        "locked": false,
                         "name": "Display Capture",
-                        "pos": {"x": 0.0, "y": 0.0},
-                        "private_settings": {},
+                        "source_uuid": "a1c2e3f4-1111-4222-8333-abc333333333",
+                        "visible": true,
+                        "locked": false,
                         "rot": 0.0,
-                        "scale": {"x": 1.0, "y": 1.0},
-                        "scale_filter": "lanczos",
-                        "show_transition": {"duration": 0},
-                        "update_transform": false,
-                        "visible": false
+                        "scale_ref": {
+                            "x": 2560.0,
+                            "y": 1080.0
+                        },
+                        "align": 5,
+                        "bounds_type": 0,
+                        "bounds_align": 0,
+                        "bounds_crop": false,
+                        "crop_left": 0,
+                        "crop_top": 0,
+                        "crop_right": 0,
+                        "crop_bottom": 0,
+                        "id": 2,
+                        "group_item_backup": false,
+                        "pos": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "pos_rel": {
+                            "x": -1.7777777910232544,
+                            "y": -1.0
+                        },
+                        "scale": {
+                            "x": 0.75,
+                            "y": 1.0
+                        },
+                        "scale_rel": {
+                            "x": 0.75,
+                            "y": 1.0
+                        },
+                        "bounds": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "bounds_rel": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "scale_filter": "disable",
+                        "blend_method": "default",
+                        "blend_type": "normal",
+                        "show_transition": {
+                            "duration": 0
+                        },
+                        "hide_transition": {
+                            "duration": 0
+                        },
+                        "private_settings": {}
                     }
                 ]
             },
-            "sync": 0,
-            "versioned_id": "scene",
-            "volume": 1.0
-        },
-        {
-            "balance": 0.5,
-            "deinterlace_field_order": 0,
-            "deinterlace_mode": 0,
-            "enabled": true,
-            "flags": 0,
-            "hotkeys": {},
-            "id": "scene",
             "mixers": 0,
-            "monitoring_type": 0,
+            "sync": 0,
+            "flags": 0,
+            "volume": 1.0,
+            "balance": 0.5,
+            "enabled": true,
             "muted": false,
-            "name": "Overwatch Vertical",
-            "prev_ver": 536870912,
-            "private_settings": {},
             "push-to-mute": false,
             "push-to-mute-delay": 0,
             "push-to-talk": false,
             "push-to-talk-delay": 0,
+            "hotkeys": {
+                "OBSBasic.SelectScene": [],
+                "libobs.show_scene_item.1": [],
+                "libobs.hide_scene_item.1": [],
+                "libobs.show_scene_item.2": [],
+                "libobs.hide_scene_item.2": []
+            },
+            "deinterlace_mode": 0,
+            "deinterlace_field_order": 0,
+            "monitoring_type": 0,
+            "canvas_uuid": "6c69626f-6273-4c00-9d88-c5136d61696e",
+            "private_settings": {}
+        },
+        {
+            "prev_ver": 537001986,
+            "name": "Overwatch Vertical",
+            "uuid": "a1c2e3f4-1111-4222-8333-abc888888888",
+            "id": "scene",
+            "versioned_id": "scene",
             "settings": {
+                "id_counter": 1,
                 "custom_size": true,
                 "cx": 1080,
                 "cy": 1920,
-                "id_counter": 2,
                 "items": [
                     {
-                        "align": 5,
-                        "blending_method": 0,
-                        "blending_mode": 0,
-                        "bounds": {"x": 1080.0, "y": 1920.0},
-                        "bounds_align": 0,
-                        "bounds_type": 3,
-                        "crop_bottom": 0,
-                        "crop_left": 0,
-                        "crop_right": 0,
-                        "crop_top": 0,
-                        "group_item_backup": false,
-                        "hide_transition": {"duration": 0},
-                        "id": 1,
-                        "locked": false,
                         "name": "Game Capture",
-                        "pos": {"x": 0.0, "y": 0.0},
-                        "private_settings": {},
+                        "source_uuid": "a1c2e3f4-1111-4222-8333-abc444444444",
+                        "visible": true,
+                        "locked": false,
                         "rot": 0.0,
-                        "scale": {"x": 1.0, "y": 1.0},
+                        "scale_ref": {
+                            "x": 1080.0,
+                            "y": 1920.0
+                        },
+                        "align": 5,
+                        "bounds_type": 3,
+                        "bounds_align": 0,
+                        "bounds_crop": false,
+                        "crop_left": 0,
+                        "crop_top": 0,
+                        "crop_right": 0,
+                        "crop_bottom": 0,
+                        "id": 1,
+                        "group_item_backup": false,
+                        "pos": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "pos_rel": {
+                            "x": -0.5625,
+                            "y": -1.0
+                        },
+                        "scale": {
+                            "x": 1.0,
+                            "y": 1.0
+                        },
+                        "scale_rel": {
+                            "x": 1.0,
+                            "y": 1.0
+                        },
+                        "bounds": {
+                            "x": 1080.0,
+                            "y": 1920.0
+                        },
+                        "bounds_rel": {
+                            "x": 1.125,
+                            "y": 2.0
+                        },
                         "scale_filter": "lanczos",
-                        "show_transition": {"duration": 0},
-                        "update_transform": false,
-                        "visible": true
+                        "blend_method": "default",
+                        "blend_type": "normal",
+                        "show_transition": {
+                            "duration": 0
+                        },
+                        "hide_transition": {
+                            "duration": 0
+                        },
+                        "private_settings": {}
                     }
                 ]
             },
-            "sync": 0,
-            "versioned_id": "scene",
-            "volume": 1.0
-        },
-        {
-            "balance": 0.5,
-            "deinterlace_field_order": 0,
-            "deinterlace_mode": 0,
-            "enabled": true,
-            "flags": 0,
-            "hotkeys": {},
-            "id": "scene",
             "mixers": 0,
-            "monitoring_type": 0,
+            "sync": 0,
+            "flags": 0,
+            "volume": 1.0,
+            "balance": 0.5,
+            "enabled": true,
             "muted": false,
-            "name": "Starting Soon",
-            "prev_ver": 536870912,
-            "private_settings": {},
             "push-to-mute": false,
             "push-to-mute-delay": 0,
             "push-to-talk": false,
             "push-to-talk-delay": 0,
+            "hotkeys": {
+                "OBSBasic.SelectScene": [],
+                "libobs.show_scene_item.1": [],
+                "libobs.hide_scene_item.1": []
+            },
+            "deinterlace_mode": 0,
+            "deinterlace_field_order": 0,
+            "monitoring_type": 0,
+            "canvas_uuid": "6c69626f-6273-4c00-9d88-c5136d61696e",
+            "private_settings": {}
+        },
+        {
+            "prev_ver": 537001986,
+            "name": "Starting Soon",
+            "uuid": "a1c2e3f4-1111-4222-8333-abc999999999",
+            "id": "scene",
+            "versioned_id": "scene",
             "settings": {
-                "custom_size": false,
                 "id_counter": 2,
+                "custom_size": false,
                 "items": [
                     {
-                        "align": 5,
-                        "blending_method": 0,
-                        "blending_mode": 0,
-                        "bounds": {"x": 3840.0, "y": 2160.0},
-                        "bounds_align": 0,
-                        "bounds_type": 1,
-                        "crop_bottom": 0,
-                        "crop_left": 0,
-                        "crop_right": 0,
-                        "crop_top": 0,
-                        "group_item_backup": false,
-                        "hide_transition": {"duration": 0},
-                        "id": 1,
-                        "locked": true,
                         "name": "Background",
-                        "pos": {"x": 0.0, "y": 0.0},
-                        "private_settings": {},
+                        "source_uuid": "a1c2e3f4-1111-4222-8333-abc555555555",
+                        "visible": true,
+                        "locked": true,
                         "rot": 0.0,
-                        "scale": {"x": 1.0, "y": 1.0},
+                        "scale_ref": {
+                            "x": 3840.0,
+                            "y": 2160.0
+                        },
+                        "align": 5,
+                        "bounds_type": 1,
+                        "bounds_align": 0,
+                        "bounds_crop": false,
+                        "crop_left": 0,
+                        "crop_top": 0,
+                        "crop_right": 0,
+                        "crop_bottom": 0,
+                        "id": 1,
+                        "group_item_backup": false,
+                        "pos": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "pos_rel": {
+                            "x": -1.7777777910232544,
+                            "y": -1.0
+                        },
+                        "scale": {
+                            "x": 0.5,
+                            "y": 0.5
+                        },
+                        "scale_rel": {
+                            "x": 1.0,
+                            "y": 1.0
+                        },
+                        "bounds": {
+                            "x": 1920.0,
+                            "y": 1080.0
+                        },
+                        "bounds_rel": {
+                            "x": 3.555555582046509,
+                            "y": 2.0
+                        },
                         "scale_filter": "disable",
-                        "show_transition": {"duration": 0},
-                        "update_transform": false,
-                        "visible": true
+                        "blend_method": "default",
+                        "blend_type": "normal",
+                        "show_transition": {
+                            "duration": 0
+                        },
+                        "hide_transition": {
+                            "duration": 0
+                        },
+                        "private_settings": {}
                     },
                     {
-                        "align": 5,
-                        "blending_method": 0,
-                        "blending_mode": 0,
-                        "bounds": {"x": 0.0, "y": 0.0},
-                        "bounds_align": 0,
-                        "bounds_type": 0,
-                        "crop_bottom": 0,
-                        "crop_left": 0,
-                        "crop_right": 0,
-                        "crop_top": 0,
-                        "group_item_backup": false,
-                        "hide_transition": {"duration": 0},
-                        "id": 2,
-                        "locked": false,
                         "name": "Starting Text",
-                        "pos": {"x": 640.0, "y": 980.0},
-                        "private_settings": {},
+                        "source_uuid": "a1c2e3f4-1111-4222-8333-abc666666666",
+                        "visible": true,
+                        "locked": false,
                         "rot": 0.0,
-                        "scale": {"x": 1.0, "y": 1.0},
+                        "scale_ref": {
+                            "x": 3840.0,
+                            "y": 2160.0
+                        },
+                        "align": 5,
+                        "bounds_type": 0,
+                        "bounds_align": 0,
+                        "bounds_crop": false,
+                        "crop_left": 0,
+                        "crop_top": 0,
+                        "crop_right": 0,
+                        "crop_bottom": 0,
+                        "id": 2,
+                        "group_item_backup": false,
+                        "pos": {
+                            "x": 320.0,
+                            "y": 490.0
+                        },
+                        "pos_rel": {
+                            "x": -1.185185194015503,
+                            "y": -0.09259259700775146
+                        },
+                        "scale": {
+                            "x": 0.5,
+                            "y": 0.5
+                        },
+                        "scale_rel": {
+                            "x": 1.0,
+                            "y": 1.0
+                        },
+                        "bounds": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "bounds_rel": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
                         "scale_filter": "disable",
-                        "show_transition": {"duration": 0},
-                        "update_transform": false,
-                        "visible": true
+                        "blend_method": "default",
+                        "blend_type": "normal",
+                        "show_transition": {
+                            "duration": 0
+                        },
+                        "hide_transition": {
+                            "duration": 0
+                        },
+                        "private_settings": {}
                     }
                 ]
             },
+            "mixers": 0,
             "sync": 0,
-            "versioned_id": "scene",
-            "volume": 1.0
+            "flags": 0,
+            "volume": 1.0,
+            "balance": 0.5,
+            "enabled": true,
+            "muted": false,
+            "push-to-mute": false,
+            "push-to-mute-delay": 0,
+            "push-to-talk": false,
+            "push-to-talk-delay": 0,
+            "hotkeys": {
+                "OBSBasic.SelectScene": [],
+                "libobs.show_scene_item.1": [],
+                "libobs.hide_scene_item.1": [],
+                "libobs.show_scene_item.2": [],
+                "libobs.hide_scene_item.2": []
+            },
+            "deinterlace_mode": 0,
+            "deinterlace_field_order": 0,
+            "monitoring_type": 0,
+            "canvas_uuid": "6c69626f-6273-4c00-9d88-c5136d61696e",
+            "private_settings": {}
         }
     ],
+    "groups": [],
+    "scene_order": [
+        {
+            "name": "Overwatch"
+        },
+        {
+            "name": "Overwatch Vertical"
+        },
+        {
+            "name": "Starting Soon"
+        }
+    ],
+    "current_scene": "Overwatch",
+    "current_program_scene": "Overwatch",
+    "canvases": [],
+    "current_transition": "Fade",
     "transition_duration": 300,
-    "transitions": []
+    "transitions": [],
+    "quick_transitions": [],
+    "saved_projectors": [],
+    "preview_locked": false,
+    "scaling_enabled": false,
+    "scaling_level": -9,
+    "scaling_off_x": 0.0,
+    "scaling_off_y": 0.0,
+    "virtual-camera": {
+        "type2": 3
+    },
+    "modules": {
+        "scripts-tool": [],
+        "output-timer": {
+            "streamTimerHours": 0,
+            "streamTimerMinutes": 0,
+            "streamTimerSeconds": 0,
+            "recordTimerHours": 0,
+            "recordTimerMinutes": 0,
+            "recordTimerSeconds": 0,
+            "autoStartStreamTimer": false,
+            "autoStartRecordTimer": false,
+            "pauseRecordTimer": false
+        }
+    },
+    "resolution": {
+        "x": 3840,
+        "y": 2160
+    },
+    "version": 2
 }

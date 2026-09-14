@@ -40,6 +40,7 @@ Item {
             font.family: Core.Theme.fontFamily
             font.pixelSize: Core.Theme.fontSizeLarge
             font.weight: Font.DemiBold
+            renderType: Text.NativeRendering
 
             color: Core.Theme.foreground
         }
@@ -55,6 +56,7 @@ Item {
 
             font.family: Core.Theme.fontFamily
             font.pixelSize: Core.Theme.fontSizeSmall
+            renderType: Text.NativeRendering
 
             color: Core.Theme.foregroundMuted
         }
@@ -79,14 +81,15 @@ Item {
                 height: 28
 
                 radius: 14
+                color: "transparent"
 
-                color: btnMouse.containsMouse ? Core.Theme.surfaceHover : "transparent"
-
-                Behavior on color {
-                    ColorAnimation {
-                        duration: 100
-                        easing.type: Easing.OutQuint
-                    }
+                Tactile {
+                    anchors.fill: parent
+                    radius: 14
+                    hovered: btnMouse.containsMouse
+                    pressed: btnMouse.pressed
+                    hoverScale: 1.12
+                    pressScale: 0.86
                 }
 
                 Text {
@@ -98,6 +101,8 @@ Item {
 
                     font.family: Core.Theme.iconFont
                     font.pixelSize: Core.Theme.iconSizeSmall
+                    font.hintingPreference: Font.PreferNoHinting
+                    renderType: Text.QtRendering
 
                     color: Core.Theme.foregroundMuted
 
@@ -109,15 +114,6 @@ Item {
                         to: 360
 
                         duration: 1000
-                    }
-                }
-
-                scale: btnMouse.pressed ? 0.88 : 1.0
-
-                Behavior on scale {
-                    NumberAnimation {
-                        duration: 110
-                        easing.type: Easing.OutQuint
                     }
                 }
 

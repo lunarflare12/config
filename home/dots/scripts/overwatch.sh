@@ -6,217 +6,159 @@ set -euo pipefail
 HOME="${HOME:-/home/dd}"
 XDG_CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
 XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+# shellcheck source=/dev/null
+. "${BASH_SOURCE[0]%/*}/game-lib.sh"
 
-pkill -f 'fossilize_replay.*/shadercache/2357570/' >/dev/null 2>&1 || true
+game_block_fossilize
+game_low_latency
+# Do not wait for gamemoded: hide the bar and drop reserved zone before Proton maps.
+if [ -x "${BASH_SOURCE[0]%/*}/gamemode-start.sh" ]; then
+  "${BASH_SOURCE[0]%/*}/gamemode-start.sh" >/dev/null 2>&1 || true
+fi
 
 export PROTON_ENABLE_NVAPI="${PROTON_ENABLE_NVAPI:-1}"
 export PROTON_HIDE_NVIDIA_GPU="${PROTON_HIDE_NVIDIA_GPU:-0}"
 export PROTON_ENABLE_NGX_UPDATER=0
+# Reflex / ForceSync / MaxFramesAllowed=1 stall the 8-thread 7700.
+export DXVK_NVAPI_VKREFLEX=0
+# Fossilize layer inside the match hitchs the 8-thread 7700.
+export DISABLE_VK_LAYER_VALVE_steam_fossilize_1=1
+# No /dev/ntsync on this kernel; Wine probing it adds extra waits.
+export PROTON_NO_NTSYNC=1
+export DXVK_FILTER_DEVICE_NAME="${DXVK_FILTER_DEVICE_NAME:-NVIDIA}"
 export __GL_SYNC_TO_VBLANK=0
+export __GL_SYNC_DISPLAY_DEVICE="${__GL_SYNC_DISPLAY_DEVICE:-DP-1}"
 export __GL_SHARPEN_ENABLE=0
 export DXVK_HDR=0
 export DXVK_STATE_CACHE=1
-export DXVK_STATE_CACHE_PATH="${DXVK_STATE_CACHE_PATH:-$XDG_CACHE_HOME/dxvk}"
+# Disk cache cap. 32GiB made the NVIDIA driver keep a huge working set in RAM.
+export __GL_SHADER_DISK_CACHE=1
+export __GL_SHADER_DISK_CACHE_SKIP_CLEANUP=1
+export __GL_SHADER_DISK_CACHE_SIZE="${__GL_SHADER_DISK_CACHE_SIZE:-8589934592}"
+# One limiter only: Overwatch FrameRateCap=205. DXVK_FRAME_RATE on top of that
+# beats against the 200Hz compositor and microstutters.
+unset DXVK_FRAME_RATE || true
+# Xiaomi DP-1 is not VRR/GSYNC capable.
+export __GL_GSYNC_ALLOWED=0
+export __GL_VRR_ALLOWED=0
+export WINEFSYNC=1
+export WINEESYNC=1
+export PROTON_NO_ESYNC=0
+export PROTON_NO_FSYNC=0
+# Proton's Xalia overlay (xalia.exe) sits on the input path.
+export PROTON_NO_XALIA=1
+export PROTON_USE_XALIA=0
+unset __GL_MaxFramesAllowed || true
+nvidia-settings -a "[gpu:0]/GPUPowerMizerMode=1" >/dev/null 2>&1 || true
 
-mkdir -p "$DXVK_STATE_CACHE_PATH" "$XDG_CONFIG_HOME/dxvk"
+ow_dxvk_prefix="/steam/steamapps/compatdata/2357570/pfx/drive_c/users/steamuser/AppData/Local/dxvk"
+ow_nv_cache="${XDG_CACHE_HOME}/steam-shadercache/2357570/nvidiav1"
+mkdir -p "$ow_dxvk_prefix" "$XDG_CONFIG_HOME/dxvk" "$ow_nv_cache"
+# Use the prefix cache the game already writes (~600MiB). The extra
+# ~/.cache/dxvk/overwatch dir stayed empty, so first-load compiled cold.
+export DXVK_STATE_CACHE_PATH="$ow_dxvk_prefix"
+export PROTON_DXVK_CONFIG_FILE="$XDG_CONFIG_HOME/dxvk/overwatch.conf"
+export DXVK_CONFIG_FILE="$PROTON_DXVK_CONFIG_FILE"
+export __GL_SHADER_DISK_CACHE_PATH="$ow_nv_cache"
 
-export DXVK_CONFIG_FILE="$XDG_CONFIG_HOME/dxvk/overwatch.conf"
-export PROTON_DXVK_CONFIG_FILE="$DXVK_CONFIG_FILE"
+read -r phys_w phys_h refresh _ <<<"$(game_monitor)"
+# 16:9 stretched onto the 2560x1080 panel. The game stays at 1920x1080
+# with Use219=0 (1:1 zooms / FOV 103). Nested SDL gamescope does the
+# stretch (same as Paladins). Borderless so the Xiaomi does not modeset 1920@120.
+width=1920
+height=1080
+use_219=0
+# User-requested lock: 205 FPS, not refresh-3 and not uncapped.
+fps_cap=205
 
-python3 - <<'PY'
-import json
-import os
-import re
-import subprocess
-from pathlib import Path
+cat >"$DXVK_CONFIG_FILE" <<EOF
+dxgi.syncInterval = 0
+dxgi.maxFrameLatency = 2
+dxvk.tearFree = False
+dxvk.enableGraphicsPipelineLibrary = True
+dxvk.numCompilerThreads = 3
+dxvk.maxDeviceMemory = 8192
+dxvk.maxSharedMemory = 3072
+EOF
 
-ini_path = Path("/steam/steamapps/compatdata/2357570/pfx/drive_c/users/steamuser/Documents/Overwatch/Settings/Settings_v0.ini")
-dxvk_path = Path(os.environ["DXVK_CONFIG_FILE"])
-monitors_lua = Path(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config"))) / "hypr/config/monitors.lua"
+ini="/steam/steamapps/compatdata/2357570/pfx/drive_c/users/steamuser/Documents/Overwatch/Settings/Settings_v0.ini"
+game_ini_set "$ini" "[Render.13]" "FullScreenWidth" "\"${width}\""
+game_ini_set "$ini" "[Render.13]" "FullScreenHeight" "\"${height}\""
+game_ini_set "$ini" "[Render.13]" "WindowedWidth" "\"${width}\""
+game_ini_set "$ini" "[Render.13]" "WindowedHeight" "\"${height}\""
+game_ini_set "$ini" "[Render.13]" "FullScreenRefresh" "\"${refresh}\""
+game_ini_set "$ini" "[Render.13]" "WindowedRefresh" "\"${refresh}\""
+game_ini_set "$ini" "[Render.13]" "Use219AspectRatio" "\"${use_219}\""
+# Borderless 1920x1080. Exclusive 1920 modeset drops the Xiaomi to 120Hz.
+game_ini_set "$ini" "[Render.13]" "FullscreenWindow" "\"1\""
+game_ini_set "$ini" "[Render.13]" "FullscreenWindowEnabled" "\"1\""
+game_ini_set "$ini" "[Render.13]" "FieldOfView" "\"103.000000\""
+game_ini_set "$ini" "[Render.13]" "HorizontalFOV" "\"103.000000\""
+game_ini_set "$ini" "[Render.13]" "AADetail" "\"2\""
+game_ini_set "$ini" "[Render.13]" "BroadcastMarginBottom" "\"1.000000\""
+game_ini_set "$ini" "[Render.13]" "BroadcastMarginLeft" "\"1.000000\""
+game_ini_set "$ini" "[Render.13]" "BroadcastMarginRight" "\"1.000000\""
+game_ini_set "$ini" "[Render.13]" "BroadcastMarginTop" "\"1.000000\""
+game_ini_set "$ini" "[Render.13]" "LimitToRefresh" "\"0\""
+game_ini_set "$ini" "[Render.13]" "UseVSync" "\"0\""
+game_ini_set "$ini" "[Render.13]" "FrameRateCap" "\"${fps_cap}\""
+game_ini_set "$ini" "[Render.13]" "ReduceBuffering" "\"0\""
+game_ini_set "$ini" "[Render.13]" "CpuForceSyncEnabled" "\"0\""
+game_ini_set "$ini" "[Render.13]" "NVIDIAReflex" "\"0\""
+game_ini_set "$ini" "[Render.13]" "ReflexMode" "\"0\""
+game_ini_set "$ini" "[Input.1]" "HighTickInput" "\"1\""
 
+game_wine_warp "/steam/steamapps/compatdata/2357570/pfx/user.reg" disable
+game_x_primary "$phys_w" "$phys_h"
+game_strip_overlay
+game_place_overwatch
 
-def compositor_env():
-    env = {
-        "HOME": os.environ.get("HOME", "/home/dd"),
-        "PATH": "/run/current-system/sw/bin:/usr/bin:/bin",
-        "XDG_RUNTIME_DIR": os.environ.get("XDG_RUNTIME_DIR", "/run/user/1000"),
-        "HYPRLAND_INSTANCE_SIGNATURE": os.environ.get("HYPRLAND_INSTANCE_SIGNATURE", ""),
-        "DISPLAY": os.environ.get("DISPLAY", ":0"),
-        "XAUTHORITY": os.environ.get("XAUTHORITY", ""),
-        "WAYLAND_DISPLAY": os.environ.get("WAYLAND_DISPLAY", ""),
-    }
-    runtime = Path(env["XDG_RUNTIME_DIR"]) / "hypr"
-    if not env["HYPRLAND_INSTANCE_SIGNATURE"] and runtime.is_dir():
-        for d in runtime.iterdir():
-            if (d / ".socket.sock").exists() or (d / ".socket.ipc.sock").exists():
-                env["HYPRLAND_INSTANCE_SIGNATURE"] = d.name
-                break
-    return {k: v for k, v in env.items() if v}
-
-
-def hypr_monitors():
-    hyprctl = "/run/current-system/sw/bin/hyprctl"
-    if not os.access(hyprctl, os.X_OK):
-        return []
-    try:
-        out = subprocess.check_output([hyprctl, "-j", "monitors"], env=compositor_env(), text=True)
-        return json.loads(out)
-    except Exception:
-        return []
-
-
-def fallback_monitor():
-    text = monitors_lua.read_text() if monitors_lua.exists() else ""
-    match = re.search(r'mode = "(\d+)x(\d+)@([0-9.]+)Hz"', text)
-    if match:
-        return {
-            "width": int(match.group(1)),
-            "height": int(match.group(2)),
-            "refreshRate": float(match.group(3)),
-            "name": "DP-1",
-        }
-    return {"width": 2560, "height": 1080, "refreshRate": 200.0, "name": "DP-1"}
-
-
-def pick_monitor(mons):
-    active = [m for m in mons if not m.get("disabled")]
-    if not active:
-        return fallback_monitor()
-    return max(
-        active,
-        key=lambda m: (int(m.get("width") or 0) * int(m.get("height") or 0), float(m.get("refreshRate") or 0)),
-    )
-
-
-def upsert_keys(src, keys):
-    lines = src.splitlines()
-    seen = set()
-    out = []
-    in_render = False
-    for line in lines:
-        stripped = line.strip()
-        if stripped.startswith("[") and stripped.endswith("]"):
-            in_render = stripped == "[Render.13]"
-        if in_render and "=" in line:
-            key = line.split("=", 1)[0].strip()
-            if key in keys:
-                pad = line[: len(line) - len(line.lstrip())]
-                out.append(f"{pad}{key} = {keys[key]}")
-                seen.add(key)
-                continue
-        out.append(line)
-    missing = [k for k in keys if k not in seen]
-    if missing:
-        insert_at = None
-        for i, line in enumerate(out):
-            if line.strip() == "[Render.13]":
-                insert_at = i + 1
-                break
-        if insert_at is None:
-            out.extend(["", "[Render.13]"])
-            insert_at = len(out)
-        for key in missing:
-            out.insert(insert_at, f"{key} = {keys[key]}")
-            insert_at += 1
-    return "\n".join(out) + "\n"
-
-
-def set_x_primary(width, height):
-    candidates = [
-        "xrandr",
-        "/run/current-system/sw/bin/xrandr",
-        "/nix/store/6j7x7hg0d5mrrphqfl6mlxvsmlfg22ag-xrandr-1.5.4/bin/xrandr",
-    ]
-    xrandr = next((p for p in candidates if p == "xrandr" or os.access(p, os.X_OK)), None)
-    if xrandr == "xrandr":
-        from shutil import which
-        xrandr = which("xrandr")
-    if not xrandr:
-        return
-    try:
-        query = subprocess.check_output([xrandr, "--query"], env=compositor_env(), text=True, stderr=subprocess.DEVNULL)
-    except Exception:
-        return
-    target = None
-    for line in query.splitlines():
-        if " connected" not in line or "disconnected" in line:
-            continue
-        name = line.split()[0]
-        if f"{width}x{height}" in line:
-            target = name
-            break
-    if not target:
-        return
-    try:
-        subprocess.check_call([xrandr, "--output", target, "--primary"], env=compositor_env(), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    except Exception:
-        pass
-
-
-mon = pick_monitor(hypr_monitors())
-width = int(mon["width"])
-height = int(mon["height"])
-refresh = int(round(float(mon.get("refreshRate") or 60)))
-use_219 = "1" if (width / max(height, 1)) >= 2.0 else "0"
-
-dxvk_path.write_text(
-    "\n".join(
-        [
-            "dxgi.syncInterval = 0",
-            "dxgi.maxFrameLatency = 1",
-            "dxgi.maxFrameRate = 0",
-            "d3d11.maxFrameRate = 0",
-            f"dxgi.forceRefreshRate = {refresh}",
-            "dxvk.enableGraphicsPipelineLibrary = True",
-            "dxvk.numCompilerThreads = 6",
-            "",
-        ]
-    )
-)
-try:
-    Path("/steam/steamapps/common/Overwatch/dxvk.conf").write_text(dxvk_path.read_text())
-except OSError:
-    pass
-
-ini_path.parent.mkdir(parents=True, exist_ok=True)
-text = ini_path.read_text() if ini_path.exists() else "[Render.13]\n"
-ini_path.write_text(
-    upsert_keys(
-        text,
-        {
-            "FullScreenWidth": f'"{width}"',
-            "FullScreenHeight": f'"{height}"',
-            "FullScreenRefresh": f'"{refresh}"',
-            "WindowedRefresh": f'"{refresh}"',
-            "Use219AspectRatio": f'"{use_219}"',
-            "LimitToRefresh": '"0"',
-            "UseVSync": '"0"',
-            "FrameRateCap": '"0"',
-        },
-    )
-)
-set_x_primary(width, height)
-PY
-
-if [ -n "${LD_PRELOAD:-}" ]; then
-  filtered=""
-  old_ifs=$IFS
-  IFS=:
-  for p in $LD_PRELOAD; do
-    case "$p" in
-      *gameoverlayrenderer*) ;;
-      "") ;;
-      *)
-        if [ -z "$filtered" ]; then
-          filtered=$p
-        else
-          filtered="$filtered:$p"
-        fi
-        ;;
-    esac
-  done
-  IFS=$old_ifs
-  export LD_PRELOAD="$filtered"
+# Hyprland csgo-vulkan-fix cannot stretch Proton/DXVK Overwatch: the X11
+# window stays 1920x1080+1920+40 inside a 2560 compositor box (black bar).
+# Paladins already stretches with nested SDL gamescope. Same recipe, not
+# the 2560=2560 / Wayland-WSI wrap that parked the GPU in P5.
+# Do not pass unknown gamescope flags: 3.16.28 exits on --fade-duration
+# and Steam thinks Overwatch closed.
+gs=$(game_gamescope || true)
+if [ -n "$gs" ] && [ "${phys_w:-0}" -ge 2560 ]; then
+  export ENABLE_GAMESCOPE_WSI=0
+  export SDL_VIDEODRIVER=x11
+  gs_display=$(game_display_index "$phys_w" "$phys_h")
+  gs_display=${gs_display:-0}
+  gs_rt=()
+  [ "$gs" = /run/wrappers/bin/gamescope ] && gs_rt=(--rt)
+  {
+    echo "$(date -Iseconds) gs=$gs rt=${gs_rt[*]:-} display=$gs_display phys=${phys_w}x${phys_h}@${refresh:-} steam=${SteamAppId:-}"
+  } >>"${XDG_CACHE_HOME}/aurora/overwatch-launch.log" 2>/dev/null || true
+  if command -v gamemoderun >/dev/null 2>&1; then
+    set -- gamemoderun "$@"
+  fi
+  # Nested -r 200 is the present rate of the stretch window on DP-1,
+  # not the game FPS cap (that stays 205). Without -r, SDL gamescope
+  # drops to ~10 FPS. -o 200 keeps nested refresh if Steam steals focus.
+  # Proton borderless does not hide the X cursor, so gamescope stays in
+  # absolute mode and the Hyprland pointer walks around the reticle.
+  # --force-grab-cursor is relative look, pointer stays centered/hidden.
+  # Do not pair it with MouseWarpOverride=force (pins to the corner).
+  exec "$gs" \
+    --backend sdl \
+    -w "$width" \
+    -h "$height" \
+    -W "$phys_w" \
+    -H "$phys_h" \
+    -r 200 \
+    -o 200 \
+    -f \
+    -S stretch \
+    -F linear \
+    --display-index "$gs_display" \
+    -O DP-1 \
+    --cursor-scale-height "$height" \
+    --force-grab-cursor \
+    --force-windows-fullscreen \
+    --immediate-flips \
+    "${gs_rt[@]}" \
+    -- "$@"
 fi
 
 if command -v gamemoderun >/dev/null 2>&1; then

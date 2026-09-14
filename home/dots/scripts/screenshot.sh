@@ -6,50 +6,31 @@ mkdir -p "$SCREENSHOT_DIR"
 
 MODE="${1:-region}"
 TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
-FILENAME="screenshot_${TIMESTAMP}.png"
-SCREENSHOT_PATH="$SCREENSHOT_DIR/$FILENAME"
+SCREENSHOT_PATH="$SCREENSHOT_DIR/screenshot_${TIMESTAMP}.png"
 
-freeze_pid=""
+# Old hyprpicker used -z to freeze the screen. Current hyprpicker -z is
+# --no-zoom on the color picker, which steals the pointer from slurp.
+pkill -x slurp >/dev/null 2>&1 || true
+pkill -x hyprpicker >/dev/null 2>&1 || true
 
 cleanup() {
-  if [[ -n "${freeze_pid}" ]]; then
-    kill "${freeze_pid}" 2>/dev/null || true
-  fi
-  pkill -x hyprpicker 2>/dev/null || true
-  pkill -x slurp 2>/dev/null || true
+  pkill -x slurp >/dev/null 2>&1 || true
 }
-
 trap cleanup EXIT INT TERM HUP
-
-freeze() {
-  hyprpicker -r -z >/dev/null 2>&1 &
-  freeze_pid=$!
-  sleep 0.05
-}
-
-thaw() {
-  if [[ -n "${freeze_pid}" ]]; then
-    kill "${freeze_pid}" 2>/dev/null || true
-    freeze_pid=""
-  fi
-  pkill -x hyprpicker 2>/dev/null || true
-}
 
 edit() {
   local src=$1
-  thaw
   satty \
     --filename "$src" \
     --output-filename "$SCREENSHOT_PATH" \
+    --fullscreen current-screen \
     --early-exit all \
     --copy-command wl-copy \
-    --actions-on-enter save-to-clipboard \
-    --actions-on-enter save-to-file \
-    --actions-on-escape save-to-clipboard \
-    --actions-on-escape exit \
-    --fullscreen current \
-    --notification-thumbnail screenshot \
-    --disable-notifications
+    --actions-on-enter save-to-clipboard,save-to-file \
+    --actions-on-escape save-to-clipboard,exit \
+    --floating-hack \
+    --no-window-decoration \
+    --initial-tool crop
 }
 
 focused_output() {
@@ -66,29 +47,36 @@ window_at_point() {
   ' | head -n 1
 }
 
+capture() {
+  grim "$@" "$SCREENSHOT_PATH"
+  wl-copy -t image/png < "$SCREENSHOT_PATH" >/dev/null 2>&1 || true
+  edit "$SCREENSHOT_PATH"
+}
+
 case "$MODE" in
   region | annotate | region-edit | edit)
-    freeze
-    geo=$(slurp) || exit 1
-    grim -g "$geo" "$SCREENSHOT_PATH"
-    edit "$SCREENSHOT_PATH"
+    geo=$(slurp -d) || exit 0
+    [[ -n "$geo" ]] || exit 0
+    capture -g "$geo"
     ;;
   window)
-    freeze
-    point=$(slurp -p -f '%x,%y') || exit 1
+    point=$(slurp -p -f '%x,%y') || exit 0
+    [[ -n "$point" ]] || exit 0
     px=${point%%,*}
     py=${point##*,}
     geo=$(window_at_point "$px" "$py")
     if [[ -z "$geo" ]]; then
       geo=$(hyprctl -j activewindow | jq -r '"\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"')
     fi
-    grim -g "$geo" "$SCREENSHOT_PATH"
-    edit "$SCREENSHOT_PATH"
+    capture -g "$geo"
     ;;
   output | monitor-active | screen)
     out=$(focused_output)
-    grim ${out:+-o "$out"} "$SCREENSHOT_PATH"
-    edit "$SCREENSHOT_PATH"
+    if [[ -n "$out" ]]; then
+      capture -o "$out"
+    else
+      capture
+    fi
     ;;
   *)
     echo "Usage: $(basename "$0") <region|window|output>" >&2

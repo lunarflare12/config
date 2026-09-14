@@ -4,6 +4,7 @@ import Quickshell
 
 import "../core" as Core
 import "../services" as Services
+import "../components" as Components
 
 // Notification center bar module (leftmost slot)
 
@@ -22,19 +23,11 @@ Item {
     // Do-not-disturb is shared with the panel through PopupManager.
     readonly property bool dnd: Core.PopupManager.dnd
 
-    Rectangle {
+    Components.Tactile {
         anchors.fill: parent
-
-        radius: height / 2
-
-        color: root.menuOpen ? Core.Theme.surfaceGlass : mouse.containsMouse ? Core.Theme.surfaceGlassHover : "transparent"
-
-        Behavior on color {
-            ColorAnimation {
-                duration: 120
-                easing.type: Easing.OutQuint
-            }
-        }
+        hovered: mouse.containsMouse
+        pressed: mouse.pressed
+        active: root.menuOpen
     }
 
     Text {
@@ -147,7 +140,7 @@ Item {
 
             const p = root.mapToItem(null, 0, root.height);
 
-            Core.PopupManager.toggle("notifications", p.x + root.width / 2, p.y + Core.Theme.barMarginTop);
+            Core.PopupManager.toggle("notifications", p.x + root.width / 2, p.y + Core.Theme.barMarginTop, root);
         }
     }
 

@@ -11,80 +11,13 @@ let
     name = "brightnessctl";
     runtimeInputs = [
       pkgs.coreutils
+      pkgs.python3
       pkgs.hyprland
       pkgs.hyprsunset
+      pkgs.ddcutil
     ];
     text = ''
-      STATE_DIR="''${XDG_STATE_HOME:-$HOME/.local/state}"
-      STATE="$STATE_DIR/monitor-brightness"
-      mkdir -p "$STATE_DIR"
-
-      current=100
-      if [[ -f "$STATE" ]]; then
-        current=$(tr -cd '0-9' < "$STATE" || true)
-      fi
-      [[ -z "$current" ]] && current=100
-
-      clamp() {
-        local v=$1
-        if ! [[ "$v" =~ ^[0-9]+$ ]]; then
-          v=$current
-        fi
-        if [ "$v" -lt 10 ]; then v=10; fi
-        if [ "$v" -gt 100 ]; then v=100; fi
-        printf '%s' "$v"
-      }
-
-      apply() {
-        local v
-        v=$(clamp "$1")
-        hyprctl hyprsunset gamma "$v" >/dev/null 2>&1 || true
-        printf '%s\n' "$v" > "$STATE"
-        current=$v
-      }
-
-      machine=0
-      action=""
-      value=""
-      for arg in "$@"; do
-        case "$arg" in
-          -m|--machine) machine=1 ;;
-          set|info|-l|--list) action="$arg" ;;
-          *) value="$arg" ;;
-        esac
-      done
-
-      case "$action" in
-        set)
-          case "$value" in
-            +*)
-              n=''${value#+}
-              n=''${n%"%"}
-              apply $((current + n))
-              ;;
-            *%+)
-              n=''${value%"%+"}
-              apply $((current + n))
-              ;;
-            *%-)
-              n=''${value%"%-"}
-              apply $((current - n))
-              ;;
-            *%)
-              n=''${value%"%"}
-              apply "$n"
-              ;;
-            *)
-              apply "$value"
-              ;;
-          esac
-          ;;
-      esac
-
-      printf '%s\n' "$current" > "$STATE"
-      if [[ "$machine" -eq 1 ]]; then
-        echo "hypr,backlight,$current,''${current}%,100"
-      fi
+      exec python3 ${./dots/scripts/monitor-brightness} "$@"
     '';
   };
 
@@ -135,29 +68,15 @@ let
     PY
   '';
 
-  quickshellConfig = pkgs.runCommand "aurora-quickshell-config" { } ''
-    mkdir -p "$out"
-    cp -r ${./dots/aurora-qs}/. "$out/"
-    chmod -R u+w "$out"
-    mkdir -p "$out/assets"
-    cp ${emojiDatabase} "$out/assets/emoji.json"
-    chmod -R u-w "$out"
-  '';
+  auroraQsDir = "${config.home.homeDirectory}/config/home/dots/aurora-qs";
 in
 {
+  # Flakes omit untracked QML. Point ~/.config/quickshell at the git tree so
+  # reboot, qs ipc, and live edits all use the same files.
   xdg.configFile."quickshell" = {
-    source = quickshellConfig;
+    source = config.lib.file.mkOutOfStoreSymlink auroraQsDir;
     force = true;
   };
-
-
-  xdg.configFile."dunst/dunstrc".source = ./dots/dunst/dunstrc;
-  xdg.configFile."dunst/themes/dark.conf".source = ./dots/dunst/themes/dark.conf;
-  xdg.configFile."dunst/themes/light.conf".source = ./dots/dunst/themes/light.conf;
-
-  xdg.configFile."mako".source = ./dots/mako;
-  xdg.configFile."mako".recursive = true;
-  xdg.configFile."mako".force = true;
 
   xdg.configFile."Kvantum".source = ./dots/kvantum;
   xdg.configFile."Kvantum".recursive = true;
@@ -183,16 +102,39 @@ in
     exit-immediately-if-empty=yes
   '';
 
-  xdg.configFile."scripts".source = ./dots/scripts;
-  xdg.configFile."scripts".recursive = true;
+  xdg.configFile."scripts" = {
+    source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/config/home/dots/scripts";
+    force = true;
+  };
+
+  # Last generation wrote a directory of store copies. Move it so this
+  # generation can place the git-tree symlink.
+  home.activation.replaceScriptsStoreDir = lib.hm.dag.entryBefore [ "checkLinkTargets" ] ''
+    scripts="${config.xdg.configHome}/scripts"
+    if [ -d "$scripts" ] && [ ! -L "$scripts" ]; then
+      backup="$scripts.store-dir.bak"
+      rm -rf "$backup"
+      mv "$scripts" "$backup"
+    fi
+  '';
+
+  xdg.configFile."satty/config.toml" = {
+    source = ./dots/satty/config.toml;
+    force = true;
+  };
 
   home.file.".wall".source = ./dots/wallpapers;
   home.file.".wall".recursive = true;
 
+  xdg.dataFile."icons/hicolor/512x512/apps/keymapp.png" = {
+    source = ./dots/aurora-qs/assets/keymapp.png;
+    force = true;
+  };
+
   xdg.dataFile."dbus-1/services/org.freedesktop.Notifications.service".text = ''
     [D-BUS Service]
     Name=org.freedesktop.Notifications
-    Exec=${pkgs.quickshell}/bin/qs
+    Exec=${pkgs.systemd}/bin/systemctl --user start quickshell.service
     SystemdService=quickshell.service
   '';
 
@@ -205,8 +147,15 @@ in
     };
   };
 
+  xdg.configFile."autostart/nm-applet.desktop".text = ''
+    [Desktop Entry]
+    Hidden=true
+  '';
+
   systemd.user.services.quickshell = {
     Unit = {
+      # home-manager must not restart this unit: NVIDIA SIGTRAPs Electron.
+      X-SwitchMethod = "keep-old";
       Description = "Quickshell desktop shell and notification daemon";
       After = [
         "graphical-session.target"
@@ -220,7 +169,9 @@ in
     };
     Service = {
       Type = "exec";
-      ExecStart = "${lib.getExe pkgs.quickshell}";
+      # Hyprland also kicks this unit. Without --no-duplicate a second
+      # process starts and draws a second bar on the same monitor.
+      ExecStart = "${lib.getExe pkgs.quickshell} --no-duplicate";
       Restart = "on-failure";
       RestartSec = 2;
       Slice = "session.slice";
@@ -245,7 +196,10 @@ in
   systemd.user.services.awww = {
     Unit = {
       Description = "Wallpaper daemon";
-      After = [ "graphical-session.target" ];
+      After = [
+        "graphical-session.target"
+        "wayland-wm@hyprland.desktop.service"
+      ];
       PartOf = [ "graphical-session.target" ];
       ConditionEnvironment = "WAYLAND_DISPLAY";
     };
@@ -268,50 +222,18 @@ in
     Install.WantedBy = [ "graphical-session.target" ];
   };
 
-  systemd.user.services.wallpaper = {
-    Unit = {
-      Description = "Set wallpaper";
-      After = [
-        "graphical-session.target"
-        "awww.service"
-      ];
-      Wants = [ "awww.service" ];
-      PartOf = [
-        "graphical-session.target"
-        "awww.service"
-      ];
-      BindsTo = [ "awww.service" ];
-      ConditionEnvironment = "WAYLAND_DISPLAY";
-    };
-    Service = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-      ExecStart = "${pkgs.writeShellScript "load-wallpaper" ''
-        export PATH="${lib.makeBinPath [
-          pkgs.awww
-          pkgs.coreutils
-          pkgs.findutils
-        ]}:$PATH"
-        exec ${config.home.homeDirectory}/.config/scripts/load-wallpaper.sh
-      ''}";
-    };
-    Install.WantedBy = [ "graphical-session.target" ];
-  };
-
   home.activation.serashellState = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    mkdir -p "${config.xdg.configHome}/fuzzel" "${config.xdg.configHome}/dunst/dunstrc.d"
-    mkdir -p "$HOME/.wall" "$HOME/Pictures/Screenshots" "$HOME/.cache/aurora"
+    mkdir -p "${config.xdg.configHome}/fuzzel"
+    mkdir -p "${auroraQsDir}/assets"
+    ln -sfn ${emojiDatabase} "${auroraQsDir}/assets/emoji.json"
+    mkdir -p "$HOME/.wall" "$HOME/Pictures/Screenshots" "$HOME/.cache/aurora" "$HOME/.local/state"
 
-    mkdir -p "$HOME/.local/state"
     if [ ! -f "$HOME/.local/state/monitor-brightness" ]; then
       echo 100 > "$HOME/.local/state/monitor-brightness"
     fi
 
     if [ ! -e "${config.xdg.configHome}/fuzzel/theme.ini" ]; then
       ln -sfn "${config.xdg.configHome}/fuzzel/themes/dark.ini" "${config.xdg.configHome}/fuzzel/theme.ini"
-    fi
-    if [ ! -L "${config.xdg.configHome}/dunst/dunstrc.d/99-theme.conf" ] && [ ! -e "${config.xdg.configHome}/dunst/dunstrc.d/99-theme.conf" ]; then
-      ln -sfn "${config.xdg.configHome}/dunst/themes/dark.conf" "${config.xdg.configHome}/dunst/dunstrc.d/99-theme.conf"
     fi
     if [ ! -s "$HOME/.wall/.current" ] && [ -s "$HOME/.wall/.current.default" ]; then
       cp -L "$HOME/.wall/.current.default" "$HOME/.wall/.current"
@@ -327,12 +249,10 @@ in
     cava
     wtype
     satty
-    flameshot
     awww
     fuzzel
     hyprsunset
     hyprpicker
-    hyprshot
     hyprpolkitagent
     grim
     slurp
@@ -342,11 +262,10 @@ in
     libnotify
     playerctl
     jq
-    networkmanagerapplet
     pavucontrol
     libsForQt5.qt5ct
+    libsForQt5.qtstyleplugin-kvantum
     kdePackages.qt6ct
     kdePackages.qtstyleplugin-kvantum
-    python3Packages.evdev
   ]);
 }

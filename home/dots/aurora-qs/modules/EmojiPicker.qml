@@ -114,24 +114,19 @@ Components.LauncherView {
 
                     radius: Core.Theme.radiusRow
 
-                    color: cell.selected ? Core.Theme.surfaceGlass : "transparent"
-
-                    scale: cell.selected ? 1.05 : 1.0
+                    color: "transparent"
 
                     z: cell.selected ? 2 : 0
 
-                    Behavior on scale {
-                        NumberAnimation {
-                            duration: 160
-                            easing.type: Easing.OutQuint
-                        }
-                    }
-
-                    Behavior on color {
-                        ColorAnimation {
-                            duration: Core.Theme.durFast
-                            easing.type: Easing.OutQuint
-                        }
+                    Components.Tactile {
+                        anchors.fill: parent
+                        radius: cell.radius
+                        hovered: emojiMouse.containsMouse
+                        pressed: emojiMouse.pressed
+                        active: cell.selected
+                        restScale: cell.selected ? 1.05 : 1.0
+                        hoverScale: 1.08
+                        pressScale: 0.9
                     }
 
                     Text {
@@ -175,7 +170,11 @@ Components.LauncherView {
                     }
 
                     MouseArea {
+                        id: emojiMouse
+
                         anchors.fill: parent
+
+                        hoverEnabled: true
 
                         cursorShape: Qt.PointingHandCursor
 

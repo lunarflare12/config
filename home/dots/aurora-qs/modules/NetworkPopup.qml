@@ -44,22 +44,28 @@ Components.PopupSurface {
 
             Components.ListRow {
                 width: parent.width
-                icon: "\udb80\ude00"
+                iconName: "ethernet"
                 title: popup.svc.ethConnection !== "" ? popup.svc.ethConnection : "Wired"
                 subtitle: {
+                    const mac = popup.svc.ethMac;
                     if (popup.svc.ethConnected) {
                         const parts = ["Connected"];
                         if (popup.svc.ethIp !== "")
                             parts.push(popup.svc.ethIp);
+                        if (mac !== "")
+                            parts.push(mac);
                         if (popup.svc.ethDevice !== "")
                             parts.push(popup.svc.ethDevice);
                         return parts.join(" · ");
                     }
                     if (popup.svc.ethState === "unavailable")
-                        return "Cable unplugged";
-                    return popup.svc.ethAvailable ? "Disconnected" : "No ethernet adapter";
+                        return mac !== "" ? "Unplugged · " + mac : "Cable unplugged";
+                    if (popup.svc.ethAvailable)
+                        return mac !== "" ? "Disconnected · " + mac : "Disconnected";
+                    return "No ethernet adapter";
                 }
-                trailing: popup.svc.ethConnected ? "\udb80\udd34" : ""
+                trailingName: popup.svc.ethConnected ? "check" : ""
+                trailing: ""
                 trailingColor: Core.Theme.success
                 active: popup.svc.ethConnected
                 dimmed: !popup.svc.ethAvailable

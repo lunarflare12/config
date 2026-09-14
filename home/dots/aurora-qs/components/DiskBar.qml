@@ -1,0 +1,84 @@
+import QtQuick
+
+import "../core" as Core
+import "../services" as Services
+
+Rectangle {
+    id: root
+
+    property string label: "/"
+    property real usedBytes: 0
+    property real totalBytes: 0
+
+    readonly property int percent: totalBytes > 0 ? Math.round(100 * usedBytes / totalBytes) : 0
+
+    visible: root.totalBytes > 0
+    implicitHeight: root.visible ? 52 : 0
+    height: implicitHeight
+    radius: Core.Theme.radiusRow
+    color: Core.Theme.surface
+    border.color: Core.Theme.accent
+    border.width: 1
+
+    Column {
+        anchors.fill: parent
+        anchors.margins: 12
+        spacing: 6
+
+        Item {
+            width: parent.width
+            height: 16
+
+            MetricIcon {
+                id: diskIcon
+
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+
+                width: 14
+                height: 14
+
+                name: "disk"
+                color: Core.Theme.accent
+            }
+
+            Text {
+                anchors.left: diskIcon.right
+                anchors.leftMargin: 6
+                anchors.verticalCenter: parent.verticalCenter
+                text: root.label + "  " + Services.SystemMonitor.formatBytes(root.usedBytes) + " / " + Services.SystemMonitor.formatBytes(root.totalBytes)
+                color: Core.Theme.foreground
+                font.family: Core.Theme.fontFamily
+                font.pixelSize: Core.Theme.fontSizeSmall
+                font.weight: Font.DemiBold
+                renderType: Text.QtRendering
+            }
+
+            Text {
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                text: root.percent + "%"
+                color: Core.Theme.foregroundFaint
+                font.family: Core.Theme.fontFamily
+                font.pixelSize: Core.Theme.fontSizeSmall
+                renderType: Text.NativeRendering
+            }
+        }
+
+        Rectangle {
+            width: parent.width
+            height: 8
+            radius: 4
+            color: Qt.rgba(Core.Theme.foreground.r, Core.Theme.foreground.g, Core.Theme.foreground.b, 0.12)
+
+            Rectangle {
+                anchors.left: parent.left
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                width: Math.max(0, Math.min(1, root.percent / 100.0)) * parent.width
+                radius: parent.radius
+                color: Core.Theme.accent
+            }
+        }
+    }
+}

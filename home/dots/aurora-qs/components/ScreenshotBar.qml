@@ -4,6 +4,7 @@ import Quickshell.Hyprland
 import Quickshell.Wayland
 
 import "../core" as Core
+import "../components" as Components
 
 PanelWindow {
     id: root
@@ -57,16 +58,16 @@ PanelWindow {
         anchors.bottomMargin: 28
         width: row.implicitWidth + 28
         height: 72
-        radius: 20
+        radius: Core.Theme.radiusMenu
         color: "transparent"
         border.width: Core.Theme.borderWidth
-        border.color: Core.Theme.border
+        border.color: Core.Theme.borderActive
         antialiasing: true
 
         Glass {
             anchors.fill: parent
             radius: parent.radius
-            strength: 0.9
+            strength: 1.0
         }
 
         Row {
@@ -76,9 +77,9 @@ PanelWindow {
 
             Repeater {
                 model: [
-                    { mode: "output", label: "Screen", icon: Core.Icons.computer },
-                    { mode: "window", label: "Window", icon: Core.Icons.overview },
-                    { mode: "region", label: "Selection", icon: Core.Icons.crop }
+                    { mode: "output", label: "Screen", icon: Qt.resolvedUrl("../assets/screenshot.png") },
+                    { mode: "window", label: "Window", icon: Qt.resolvedUrl("../assets/screenshot.png") },
+                    { mode: "region", label: "Selection", icon: Qt.resolvedUrl("../assets/satty.png") }
                 ]
 
                 delegate: Rectangle {
@@ -87,18 +88,29 @@ PanelWindow {
                     width: 108
                     height: 56
                     radius: 14
-                    color: mouse.containsMouse ? Core.Theme.surfaceGlassHover : "transparent"
+                    color: "transparent"
+
+                    Components.Tactile {
+                        anchors.fill: parent
+                        radius: 14
+                        hovered: mouse.containsMouse
+                        pressed: mouse.pressed
+                    }
 
                     Column {
                         anchors.centerIn: parent
                         spacing: 4
 
-                        Text {
+                        Image {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            text: btn.modelData.icon
-                            font.family: Core.Theme.iconFont
-                            font.pixelSize: 18
-                            color: Core.Theme.text
+                            width: 22
+                            height: 22
+                            source: btn.modelData.icon
+                            fillMode: Image.PreserveAspectFit
+                            asynchronous: true
+                            cache: true
+                            smooth: true
+                            mipmap: true
                         }
 
                         Text {

@@ -159,8 +159,12 @@ Singleton {
         } catch (e) {}
 
         try {
-            if (n.appIcon !== undefined && n.appIcon !== null && String(n.appIcon) !== "")
-                return Quickshell.iconPath(String(n.appIcon), true);
+            if (n.appIcon !== undefined && n.appIcon !== null && String(n.appIcon) !== "") {
+                const icon = String(n.appIcon);
+                if (icon.toLowerCase().indexOf("satty") !== -1)
+                    return "file://" + Quickshell.shellDir + "/assets/satty.png";
+                return Quickshell.iconPath(icon, true);
+            }
         } catch (e) {}
 
         return "";

@@ -196,8 +196,18 @@ Components.PopupSurface {
             // Output device picker
 
             Item {
+                id: outSection
                 width: parent.width
                 height: 22
+
+                Components.Tactile {
+                    anchors.fill: parent
+                    radius: 8
+                    hovered: outSecMouse.containsMouse
+                    pressed: outSecMouse.pressed
+                    hoverScale: 1.03
+                    pressScale: 0.94
+                }
 
                 Text {
                     anchors.left: parent.left
@@ -229,6 +239,8 @@ Components.PopupSurface {
                 }
 
                 MouseArea {
+                    id: outSecMouse
+
                     anchors.fill: parent
 
                     hoverEnabled: true
@@ -422,8 +434,18 @@ Components.PopupSurface {
             // Input device picker
 
             Item {
+                id: inSection
                 width: parent.width
                 height: 22
+
+                Components.Tactile {
+                    anchors.fill: parent
+                    radius: 8
+                    hovered: inSecMouse.containsMouse
+                    pressed: inSecMouse.pressed
+                    hoverScale: 1.03
+                    pressScale: 0.94
+                }
 
                 Text {
                     anchors.left: parent.left
@@ -453,6 +475,8 @@ Components.PopupSurface {
                 }
 
                 MouseArea {
+                    id: inSecMouse
+
                     anchors.fill: parent
 
                     hoverEnabled: true

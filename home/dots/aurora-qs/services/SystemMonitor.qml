@@ -11,6 +11,8 @@ Item {
     visible: false
 
     property int cpu: 0
+    property string cpuName: ""
+    property string gpuName: ""
     property int memory: 0
     property int temperature: -1
     property int gpu: 0
@@ -30,11 +32,19 @@ Item {
     property real diskUsedBytes: 0
     property real diskTotalBytes: 0
     property int disk: 0
+    property real homeDiskUsedBytes: 0
+    property real homeDiskTotalBytes: 0
+    property int homeDisk: 0
 
     property real previousTotal: 0
     property real previousIdle: 0
     property real previousReceived: 0
     property real previousSent: 0
+    property real previousTime: 0
+    property real downloadBytesPerSec: 0
+    property real uploadBytesPerSec: 0
+    readonly property string downloadRate: monitor.formatRate(monitor.downloadBytesPerSec)
+    readonly property string uploadRate: monitor.formatRate(monitor.uploadBytesPerSec)
 
     property var cpuHistory: []
     property var gpuHistory: []
@@ -50,14 +60,18 @@ Item {
 
     readonly property string scriptPath: (Quickshell.env("HOME") || "") + "/.config/scripts/system-monitor.sh"
 
-    // Icons do not show live numbers; full nvidia-smi polls only while a metrics card is open.
+    // Full nvidia-smi only while a metrics popup or the desktop boards are visible.
     readonly property bool metricsOpen: {
+        if (Core.Session.showDesktopMetrics)
+            return true;
         const id = Core.PopupManager.current;
         return id === "network" || id === "cpu" || id === "memory";
     }
 
     function append(history, value) {
         const next = history.slice();
+        if (next.length === 0)
+            next.push(value);
         next.push(value);
         return next.slice(-monitor.historyLimit);
     }
@@ -81,6 +95,35 @@ Item {
         return "0 Mbit/s";
     }
 
+    function formatRate(bytesPerSec) {
+        const n = Math.max(0, bytesPerSec);
+        if (n < 1024)
+            return n.toFixed(1) + "B/s";
+        if (n < 1024 * 1024)
+            return (n / 1024).toFixed(1) + "KB/s";
+        if (n < 1024 * 1024 * 1024)
+            return (n / (1024 * 1024)).toFixed(1) + "MB/s";
+        return (n / (1024 * 1024 * 1024)).toFixed(1) + "GB/s";
+    }
+
+    function tidyCpuName(raw) {
+        return String(raw || "").replace(/\s+/g, " ").replace(/\s+Processor$/i, "").trim();
+    }
+
+    function tidyGpuName(raw) {
+        return String(raw || "").replace(/\s+/g, " ").trim();
+    }
+
+    function readCpuName() {
+        try {
+            const text = String(cpuInfoFile.text());
+            const match = text.match(/^model name\s*:\s*(.+)$/m);
+            if (match)
+                monitor.cpuName = monitor.tidyCpuName(match[1]);
+        } catch (e) {
+        }
+    }
+
     function formatBytes(bytes) {
         if (bytes >= 1024 * 1024 * 1024)
             return (bytes / (1024 * 1024 * 1024)).toFixed(1) + " GB";
@@ -89,6 +132,27 @@ Item {
         if (bytes >= 1024)
             return (bytes / 1024).toFixed(0) + " KB";
         return Math.round(bytes) + " B";
+    }
+
+    FileView {
+        id: cpuInfoFile
+        path: "/proc/cpuinfo"
+        watchChanges: false
+        blockLoading: true
+        printErrors: false
+        onLoaded: monitor.readCpuName()
+    }
+
+    Process {
+        id: gpuNameProc
+        command: ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const line = this.text.trim().split("\n")[0] || "";
+                if (line !== "")
+                    monitor.gpuName = monitor.tidyGpuName(line);
+            }
+        }
     }
 
     Process {
@@ -116,6 +180,8 @@ Item {
                 const swapFreeKb = values[12];
                 const diskUsed = values[13];
                 const diskTotal = values[14];
+                const homeDiskUsed = values.length > 16 ? values[15] : 0;
+                const homeDiskTotal = values.length > 16 ? values[16] : 0;
 
                 const deltaTotal = total - monitor.previousTotal;
                 const deltaIdle = idle - monitor.previousIdle;
@@ -149,15 +215,26 @@ Item {
                     monitor.disk = Math.round(100 * diskUsed / diskTotal);
                 }
 
-                if (monitor.previousReceived > 0) {
-                    monitor.download = Math.max(0, (received - monitor.previousReceived) / 1024);
-                    monitor.upload = Math.max(0, (sent - monitor.previousSent) / 1024);
+                if (homeDiskTotal > 0) {
+                    monitor.homeDiskUsedBytes = homeDiskUsed;
+                    monitor.homeDiskTotalBytes = homeDiskTotal;
+                    monitor.homeDisk = Math.round(100 * homeDiskUsed / homeDiskTotal);
+                }
+
+                const now = Date.now();
+                const dt = Math.max(0.2, (now - monitor.previousTime) / 1000);
+                if (monitor.previousReceived > 0 && monitor.previousTime > 0) {
+                    monitor.downloadBytesPerSec = Math.max(0, (received - monitor.previousReceived) / dt);
+                    monitor.uploadBytesPerSec = Math.max(0, (sent - monitor.previousSent) / dt);
+                    monitor.download = monitor.downloadBytesPerSec / 1024;
+                    monitor.upload = monitor.uploadBytesPerSec / 1024;
                 }
 
                 monitor.previousTotal = total;
                 monitor.previousIdle = idle;
                 monitor.previousReceived = received;
                 monitor.previousSent = sent;
+                monitor.previousTime = now;
 
                 monitor.cpuHistory = monitor.append(monitor.cpuHistory, monitor.cpu);
                 monitor.gpuHistory = monitor.append(monitor.gpuHistory, monitor.gpu);
@@ -174,7 +251,7 @@ Item {
     }
 
     Timer {
-        interval: monitor.metricsOpen ? 1000 : 5000
+        interval: 1000
         running: true
         repeat: true
         triggeredOnStart: true
@@ -183,5 +260,16 @@ Item {
                 return;
             statsProcess.running = true;
         }
+    }
+
+    onMetricsOpenChanged: {
+        if (!monitor.metricsOpen || statsProcess.running)
+            return;
+        statsProcess.running = true;
+    }
+
+    Component.onCompleted: {
+        monitor.readCpuName();
+        gpuNameProc.running = true;
     }
 }

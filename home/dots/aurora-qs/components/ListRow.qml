@@ -8,9 +8,12 @@ Rectangle {
     id: root
 
     property string icon: ""
+    property string iconName: ""
     property string title: ""
     property string subtitle: ""
     property string trailing: ""
+    property string trailingName: ""
+    property string actionLabel: ""
 
     property color iconColor: Core.Theme.foreground
     property color trailingColor: Core.Theme.foregroundMuted
@@ -28,13 +31,16 @@ Rectangle {
 
     radius: Core.Theme.radiusRow
 
-    color: root.active ? Core.Theme.surfaceGlass : mouse.containsMouse ? Core.Theme.surfaceGlassHover : "transparent"
+    color: "transparent"
 
-    Behavior on color {
-        ColorAnimation {
-            duration: 110
-            easing.type: Easing.OutQuint
-        }
+    Tactile {
+        anchors.fill: parent
+        radius: root.radius
+        hovered: mouse.containsMouse
+        pressed: mouse.pressed
+        active: root.active
+        hoverScale: 1.02
+        pressScale: 0.95
     }
 
     opacity: root.dimmed ? 0.45 : 1.0
@@ -71,7 +77,7 @@ Rectangle {
 
     // Leading icon
 
-    Text {
+    Item {
         id: iconText
 
         anchors.left: parent.left
@@ -79,20 +85,7 @@ Rectangle {
         anchors.verticalCenter: parent.verticalCenter
 
         width: 20
-
-        text: root.icon
-
-        font.family: Core.Theme.iconFont
-        font.pixelSize: Core.Theme.iconSize
-
-        color: root.active ? Core.Theme.accent : root.iconColor
-
-        Behavior on color {
-            ColorAnimation {
-                duration: 150
-                easing.type: Easing.OutQuint
-            }
-        }
+        height: 20
 
         opacity: root.busy ? 0.0 : 1.0
 
@@ -100,6 +93,40 @@ Rectangle {
             NumberAnimation {
                 duration: 120
                 easing.type: Easing.OutQuint
+            }
+        }
+
+        MetricIcon {
+            anchors.centerIn: parent
+
+            width: 18
+            height: 18
+
+            visible: root.iconName !== ""
+
+            name: root.iconName
+            color: root.active ? Core.Theme.accent : root.iconColor
+        }
+
+        Text {
+            anchors.centerIn: parent
+
+            visible: root.iconName === ""
+
+            text: root.icon
+
+            font.family: Core.Theme.iconFont
+            font.pixelSize: Core.Theme.iconSize
+            font.hintingPreference: Font.PreferNoHinting
+            renderType: Text.QtRendering
+
+            color: root.active ? Core.Theme.accent : root.iconColor
+
+            Behavior on color {
+                ColorAnimation {
+                    duration: 150
+                    easing.type: Easing.OutQuint
+                }
             }
         }
     }
@@ -113,6 +140,8 @@ Rectangle {
 
         font.family: Core.Theme.iconFont
         font.pixelSize: Core.Theme.iconSize
+        font.hintingPreference: Font.PreferNoHinting
+        renderType: Text.QtRendering
 
         color: Core.Theme.accent
 
@@ -156,8 +185,8 @@ Rectangle {
 
             font.family: Core.Theme.fontFamily
             font.pixelSize: Core.Theme.fontSize
-
             font.weight: root.active ? Font.DemiBold : Font.Medium
+            renderType: Text.NativeRendering
 
             color: Core.Theme.foreground
         }
@@ -173,6 +202,7 @@ Rectangle {
 
             font.family: Core.Theme.fontFamily
             font.pixelSize: Core.Theme.fontSizeSmall
+            renderType: Text.NativeRendering
 
             color: root.active ? Core.Theme.accent : Core.Theme.foregroundMuted
         }
@@ -180,19 +210,56 @@ Rectangle {
 
     // Trailing badge
 
-    Text {
+    Item {
         id: trailingText
 
         anchors.right: parent.right
         anchors.rightMargin: 12
         anchors.verticalCenter: parent.verticalCenter
 
-        text: root.trailing
+        width: {
+            if (root.actionLabel !== "")
+                return Math.max(16, actionLabelText.implicitWidth);
+            if (root.trailingName !== "" || root.trailing !== "")
+                return 16;
+            return 0;
+        }
+        height: 16
 
-        font.family: Core.Theme.fontFamily
-        font.pixelSize: Core.Theme.fontSizeSmall
+        MetricIcon {
+            anchors.fill: parent
 
-        color: root.trailingColor
+            visible: root.actionLabel === "" && root.trailingName !== ""
+
+            name: root.trailingName
+            color: root.trailingColor
+        }
+
+        Text {
+            id: actionLabelText
+            anchors.centerIn: parent
+            visible: root.actionLabel !== ""
+            text: root.actionLabel
+            font.family: Core.Theme.fontFamily
+            font.pixelSize: Core.Theme.fontSizeSmall
+            font.weight: Font.DemiBold
+            renderType: Text.NativeRendering
+            color: root.trailingColor
+        }
+
+        Text {
+            anchors.centerIn: parent
+
+            visible: root.actionLabel === "" && root.trailingName === "" && root.trailing !== ""
+
+            text: root.trailing
+
+            font.family: Core.Theme.fontFamily
+            font.pixelSize: Core.Theme.fontSizeSmall
+            renderType: Text.QtRendering
+
+            color: root.trailingColor
+        }
     }
 
     // Interaction
@@ -217,17 +284,6 @@ Rectangle {
             }
 
             root.activated();
-        }
-    }
-
-    // Press feedback
-
-    scale: mouse.pressed ? 0.97 : 1.0
-
-    Behavior on scale {
-        NumberAnimation {
-            duration: 110
-            easing.type: Easing.OutQuint
         }
     }
 }

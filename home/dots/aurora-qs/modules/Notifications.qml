@@ -327,7 +327,7 @@ PanelWindow {
 
                     height: implicitHeight
 
-                    radius: 16
+                    radius: Core.Theme.radiusMenu
 
                     clip: true
 
@@ -348,6 +348,15 @@ PanelWindow {
                         radius: parent.radius
                     }
 
+                    Components.Tactile {
+                        anchors.fill: parent
+                        radius: parent.radius
+                        hovered: cardHover.hovered
+                        pressed: toastMouse.pressed
+                        hoverScale: 1.02
+                        pressScale: 0.97
+                    }
+
                     // Hover
 
                     HoverHandler {
@@ -362,7 +371,11 @@ PanelWindow {
                     // Mouse interaction
 
                     MouseArea {
+                        id: toastMouse
+
                         anchors.fill: parent
+
+                        hoverEnabled: true
 
                         acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
 

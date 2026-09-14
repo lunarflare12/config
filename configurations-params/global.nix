@@ -28,5 +28,11 @@
     kubectl = "kubectl";
     k9s = "k9s";
     awscli2 = "awscli2";
+    btop = "btop";
+    vagrant = "vagrant";
+    vlc = "vlc";
+    discord = "discord";
+    spotify = "spotify";
+    xournalpp = "xournalpp";
   };
 }

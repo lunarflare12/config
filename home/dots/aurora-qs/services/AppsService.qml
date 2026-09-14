@@ -59,21 +59,154 @@ QtObject {
 
     // Entries
 
-    readonly property var entries: {
+    property var entries: []
+
+    readonly property var rawApps: DesktopEntries.applications.values
+
+    onRawAppsChanged: root.rebuildEntries()
+
+    readonly property string finderIcon: "file://" + Quickshell.shellDir + "/assets/finder-icon.png"
+    readonly property string keymappIcon: "file://" + Quickshell.shellDir + "/assets/keymapp.png"
+    readonly property string sattyIcon: "file://" + Quickshell.shellDir + "/assets/satty.png"
+
+    function haystack(entry) {
+        return [
+            entry.id,
+            entry.name,
+            entry.execString,
+            entry.startupClass
+        ].join(" ").toLowerCase()
+    }
+
+    function isGuiApp(entry) {
+        if (entry.runInTerminal === true || entry.terminal === true)
+            return false
+
+        const cats = entry.categories
+        if (cats) {
+            for (let i = 0; i < cats.length; i++) {
+                const cat = String(cats[i]).toLowerCase()
+                if (cat === "consoleonly")
+                    return false
+            }
+        }
+
+        return true
+    }
+
+    function isJunk(entry) {
+        const text = root.haystack(entry)
+        const deny = [
+            "kvantum",
+            "qt5ct",
+            "qt6ct",
+            "qv4l2",
+            "qvidcap",
+            "nm-connection",
+            "uuctl",
+            "pavucontrol",
+            "zathura"
+        ]
+
+        for (let i = 0; i < deny.length; i++) {
+            if (text.indexOf(deny[i]) !== -1)
+                return true
+        }
+
+        return false
+    }
+
+    function isFileManager(entry) {
+        const text = root.haystack(entry)
+        if (text.indexOf("thunar") !== -1)
+            return true
+
+        const cats = entry.categories
+        if (cats) {
+            for (let i = 0; i < cats.length; i++) {
+                if (String(cats[i]).toLowerCase() === "filemanager")
+                    return true
+            }
+        }
+
+        return false
+    }
+
+    function isMainFileManager(entry) {
+        const id = String(entry.id || "").toLowerCase()
+        return id === "thunar" || id === "org.xfce.thunar"
+    }
+
+    function isKeymapp(entry) {
+        const text = root.haystack(entry)
+        return text.indexOf("keymapp") !== -1
+    }
+
+    function isSatty(entry) {
+        return root.haystack(entry).indexOf("satty") !== -1
+    }
+
+    function iconSource(entry) {
+        if (!entry)
+            return Quickshell.iconPath("application-x-executable")
+        if (root.isMainFileManager(entry))
+            return root.finderIcon
+        if (root.isKeymapp(entry))
+            return root.keymappIcon
+        if (root.isSatty(entry))
+            return root.sattyIcon
+        return Quickshell.iconPath(entry.icon, "application-x-executable")
+    }
+
+    function displayName(entry) {
+        if (root.isMainFileManager(entry))
+            return "Finder"
+        return entry && entry.name ? entry.name : "App"
+    }
+
+    function steamAppId(entry) {
+        const exec = String(entry && (entry.execString || entry.exec) || "").toLowerCase()
+        const match = exec.match(/rungameid\/(\d+)/)
+        return match ? match[1] : ""
+    }
+
+    function rebuildEntries() {
         const source = DesktopEntries.applications.values
         const out = []
+        const seenSteam = {}
+        const seenName = {}
 
         for (let i = 0; i < source.length; i++) {
             const entry = source[i]
             if (!entry)
                 continue
 
-            // NoDisplay entries are things like MIME handlers and settings panels that are not meant to be launched.
             if (entry.noDisplay === true)
                 continue
 
             if (!entry.name || entry.name.length === 0)
                 continue
+
+            if (!root.isGuiApp(entry))
+                continue
+
+            if (root.isJunk(entry))
+                continue
+
+            if (root.isFileManager(entry) && !root.isMainFileManager(entry))
+                continue
+
+            const steamId = root.steamAppId(entry)
+            if (steamId) {
+                if (seenSteam[steamId])
+                    continue
+                seenSteam[steamId] = true
+            } else {
+                const nameKey = String(entry.name).toLowerCase().replace(/®/g, "").trim()
+                if (seenName[nameKey])
+                    continue
+                seenName[nameKey] = true
+            }
 
             out.push(entry)
         }
@@ -91,7 +224,20 @@ QtObject {
             return 0
         })
 
-        return out
+        const cur = root.entries
+        if (cur.length === out.length) {
+            let same = true
+            for (let i = 0; i < out.length; i++) {
+                if (cur[i].id !== out[i].id) {
+                    same = false
+                    break
+                }
+            }
+            if (same)
+                return
+        }
+
+        root.entries = out
     }
 
     readonly property int count: root.entries.length
@@ -161,8 +307,23 @@ QtObject {
     function search(query) {
         const all = root.entries
 
-        if (!query || query.trim().length === 0)
-            return all
+        if (!query || query.trim().length === 0) {
+            const ranked = all.slice()
+            ranked.sort(function (a, b) {
+                const ua = root.usage[a.id] || 0
+                const ub = root.usage[b.id] || 0
+                if (ub !== ua)
+                    return ub - ua
+                const an = String(a.name || "").toLowerCase()
+                const bn = String(b.name || "").toLowerCase()
+                if (an < bn)
+                    return -1
+                if (an > bn)
+                    return 1
+                return 0
+            })
+            return ranked
+        }
 
         const q = query.trim().toLowerCase()
         const scored = []
@@ -205,5 +366,172 @@ QtObject {
         entry.execute()
     }
 
-    Component.onCompleted: root.loadUsage()
+    function steamIdFromClass(cls) {
+        const m = String(cls || "").match(/steam_app_(\d+)/i);
+        return m ? m[1] : "";
+    }
+
+    function entryForSteamId(appid) {
+        const id = String(appid || "");
+        if (!id)
+            return null;
+        const entries = root.entries;
+        for (let i = 0; i < entries.length; i++) {
+            const e = entries[i];
+            if (e && root.steamAppId(e) === id)
+                return e;
+        }
+        return null;
+    }
+
+    function entryForTitle(title) {
+        const t = String(title || "").toLowerCase().replace(/®/g, "").trim();
+        if (t.length < 4)
+            return null;
+        const entries = root.entries;
+        let best = null;
+        let bestLen = 0;
+        for (let i = 0; i < entries.length; i++) {
+            const e = entries[i];
+            if (!e)
+                continue;
+            const name = String(e.name || "").toLowerCase().replace(/®/g, "").trim();
+            if (name.length < 4)
+                continue;
+            if (name === t)
+                return e;
+            if (t.indexOf(name) !== -1 || name.indexOf(t) !== -1) {
+                const n = Math.min(name.length, t.length);
+                if (n > bestLen) {
+                    bestLen = n;
+                    best = e;
+                }
+            }
+        }
+        return bestLen >= 4 ? best : null;
+    }
+
+    function entryForClass(cls) {
+        const needle = String(cls || "").toLowerCase().trim();
+        if (!needle)
+            return null;
+        if (needle.indexOf("gamescope") !== -1)
+            return null;
+
+        const entries = root.entries;
+        let best = null;
+        let bestScore = 0;
+
+        for (let i = 0; i < entries.length; i++) {
+            const e = entries[i];
+            if (!e)
+                continue;
+            const id = String(e.id || "").toLowerCase();
+            const start = String(e.startupWmClass || e.startupClass || e.wmClass || "").toLowerCase();
+            const icon = String(e.icon || "").toLowerCase();
+            const name = String(e.name || "").toLowerCase().replace(/\s+/g, "");
+            const exec = String(e.execString || e.exec || "").toLowerCase();
+            let score = 0;
+            if (start && (start === needle || needle === start))
+                score = 100;
+            else if (id && (id === needle || id === needle.replace(/-/g, ".")))
+                score = 90;
+            else if (icon && icon === needle)
+                score = 80;
+            else if (start && start.length >= 4 && (needle === start || needle.indexOf(start) === 0 || start.indexOf(needle) === 0))
+                score = 70;
+            else if (id && id.length >= 4 && (id === needle || needle.indexOf(id) === 0))
+                score = 60;
+            else if (name && name.length >= 4 && name === needle.replace(/-/g, ""))
+                score = 50;
+            if (score > bestScore) {
+                bestScore = score;
+                best = e;
+            }
+        }
+
+        return best;
+    }
+
+    function gameAssetIcon(blob) {
+        const s = String(blob || "").toLowerCase();
+        if (s.indexOf("overwatch") !== -1 || s.indexOf("2357570") !== -1)
+            return "file://" + Quickshell.shellDir + "/assets/games/overwatch.png";
+        if (s.indexOf("paladin") !== -1 || s.indexOf("444090") !== -1)
+            return "file://" + Quickshell.shellDir + "/assets/games/paladins.png";
+        if (s.indexOf("terraria") !== -1 || s.indexOf("105600") !== -1)
+            return "file://" + Quickshell.shellDir + "/assets/games/terraria.png";
+        return "";
+    }
+
+    function iconFromEntry(entry) {
+        if (!entry)
+            return "";
+        if (root.isMainFileManager(entry))
+            return root.finderIcon;
+        if (root.isKeymapp(entry))
+            return root.keymappIcon;
+        if (root.isSatty(entry))
+            return root.sattyIcon;
+        if (entry.icon)
+            return Quickshell.iconPath(entry.icon, "application-x-executable");
+        return "";
+    }
+
+    function iconPathForClass(cls, title) {
+        const clsStr = String(cls || "");
+        const titleStr = String(title || "");
+        const needle = clsStr.toLowerCase();
+        const asset = root.gameAssetIcon(clsStr + " " + titleStr);
+        if (asset)
+            return asset;
+
+        const steamId = root.steamIdFromClass(clsStr);
+        if (steamId) {
+            const fromSteam = root.iconFromEntry(root.entryForSteamId(steamId));
+            if (fromSteam)
+                return fromSteam;
+            return Quickshell.iconPath("steam_icon_" + steamId, "steam");
+        }
+
+        if (needle.indexOf("gamescope") !== -1) {
+            const fromTitle = root.iconFromEntry(root.entryForTitle(titleStr));
+            if (fromTitle)
+                return fromTitle;
+            return Quickshell.iconPath("input-gaming", "application-x-executable");
+        }
+
+        const entry = root.entryForClass(clsStr) || root.entryForTitle(titleStr);
+        const fromEntry = root.iconFromEntry(entry);
+        if (fromEntry)
+            return fromEntry;
+        if (needle.indexOf("keymapp") !== -1)
+            return root.keymappIcon;
+        if (needle.indexOf("satty") !== -1)
+            return root.sattyIcon;
+        if (needle)
+            return Quickshell.iconPath(needle, "application-x-executable");
+        return Quickshell.iconPath("application-x-executable");
+    }
+
+    function iconPathForWindow(t) {
+        if (!t)
+            return Quickshell.iconPath("application-x-executable");
+        const ipc = t.lastIpcObject || {};
+        return root.iconPathForClass(ipc.class || ipc.initialClass || ipc.initial_class || "", t.title || ipc.title || "");
+    }
+
+    function nameForClass(cls, fallback) {
+        const entry = root.entryForClass(cls);
+        if (entry && root.isMainFileManager(entry))
+            return "Finder";
+        if (entry && entry.name)
+            return entry.name;
+        return fallback || cls || "Window";
+    }
+
+    Component.onCompleted: {
+        root.loadUsage()
+        root.rebuildEntries()
+    }
 }

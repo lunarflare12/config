@@ -37,7 +37,8 @@ Components.PopupSurface {
             Components.PercentBoard {
                 width: parent.width
                 height: 120
-                title: "󰻠  CPU"
+                icon: "cpu"
+                title: Services.SystemMonitor.cpuName !== "" ? Services.SystemMonitor.cpuName : "CPU"
                 seriesColor: "#CBA6F7"
                 values: Services.SystemMonitor.cpuHistory
                 currentValue: Services.SystemMonitor.cpu
@@ -47,7 +48,8 @@ Components.PopupSurface {
             Components.PercentBoard {
                 width: parent.width
                 height: 120
-                title: "󰢮  GPU"
+                icon: "gpu"
+                title: Services.SystemMonitor.gpuName !== "" ? Services.SystemMonitor.gpuName : "GPU"
                 seriesColor: "#89B4FA"
                 values: Services.SystemMonitor.gpuHistory
                 currentValue: Services.SystemMonitor.gpu

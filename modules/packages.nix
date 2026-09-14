@@ -23,6 +23,7 @@ let
     kubectl = pkgs.kubectl;
     k9s = pkgs.k9s;
     awscli2 = pkgs.awscli2;
+    btop = pkgs.btop;
     vesktop = pkgs.vesktop;
   };
 in

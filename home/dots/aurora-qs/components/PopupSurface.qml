@@ -39,6 +39,7 @@ PanelWindow {
     exclusionMode: ExclusionMode.Ignore
 
     visible: root.open
+    screen: Core.PopupManager.anchorScreen || (Quickshell.screens.length ? Quickshell.screens[0] : null)
 
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.namespace: "aurora-popup"
@@ -61,7 +62,7 @@ PanelWindow {
         }
     }
 
-    readonly property real barBottomY: Core.Theme.barMarginTop + 6 + Core.Theme.pillHeight + Core.Theme.borderWidth
+    readonly property real barBottomY: Core.Theme.barHeight + Core.Theme.popupGap
 
     readonly property real naturalHeight: contentHost.implicitHeight + Core.Theme.padding * 2
 
@@ -144,7 +145,7 @@ PanelWindow {
 
                     radius: parent.radius
 
-                    strength: 0.68
+                    strength: 1.0
                 }
             }
 
@@ -177,7 +178,9 @@ PanelWindow {
                     anchors.right: parent.right
                     anchors.top: parent.top
 
-                    active: root.open
+                    // Keep metric boards mounted so canvases do not flash
+                    // "Collecting samples" on every open.
+                    active: true
                     sourceComponent: root.contentComponent
                 }
             }
@@ -224,12 +227,12 @@ PanelWindow {
 
             y: Math.round(Math.max(6, Math.min(menuLayer.height - height - 6, menuLayer.targetY)))
 
-            radius: 14
+            radius: Core.Theme.radiusMenu
 
             color: "transparent"
 
             border.width: Core.Theme.borderWidth
-            border.color: Core.Theme.border
+            border.color: Core.Theme.borderActive
 
             antialiasing: true
 
@@ -298,15 +301,17 @@ PanelWindow {
                             Rectangle {
                                 height: 30
 
-                                radius: 9
+                                radius: Core.Theme.radiusRow
 
-                                color: entryMouse.containsMouse ? Core.Theme.surfaceHover : "transparent"
+                                color: "transparent"
 
-                                Behavior on color {
-                                    ColorAnimation {
-                                        duration: 90
-                                        easing.type: Easing.OutQuint
-                                    }
+                                Tactile {
+                                    anchors.fill: parent
+                                    radius: Core.Theme.radiusRow
+                                    hovered: entryMouse.containsMouse
+                                    pressed: entryMouse.pressed
+                                    hoverScale: 1.03
+                                    pressScale: 0.94
                                 }
 
                                 Row {

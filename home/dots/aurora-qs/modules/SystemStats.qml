@@ -12,7 +12,7 @@ Item {
     function openPopup(id, item) {
         const p = item.mapToItem(null, item.width / 2, item.height);
         Core.PopupManager.hoverKeep = true;
-        Core.PopupManager.open(id, p.x, p.y + Core.Theme.barMarginTop);
+        Core.PopupManager.open(id, p.x, p.y + Core.Theme.barMarginTop, item);
     }
 
     component StatIcon: Item {

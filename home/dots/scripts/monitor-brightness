@@ -1,0 +1,430 @@
+#!/usr/bin/env python3
+"""Per-monitor brightness for Aurora.
+
+Hardware DDC/CI when the display answers; hyprsunset gamma otherwise.
+Keeps a small JSON state so the shell can poll without waiting on ddcutil.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+
+STATE_DIR = os.environ.get("XDG_STATE_HOME") or os.path.join(os.environ.get("HOME", "/tmp"), ".local", "state")
+STATE_PATH = os.path.join(STATE_DIR, "aurora", "brightness.json")
+LEGACY_PATH = os.path.join(STATE_DIR, "monitor-brightness")
+
+HYPR_MIN = 10
+HYPR_MAX = 100
+DDC_MIN = 0
+DDC_MAX = 100
+
+
+def clamp(value: int, lo: int, hi: int) -> int:
+    return max(lo, min(hi, int(value)))
+
+
+def run(cmd: list[str], timeout: float = 4.0) -> str:
+    try:
+        proc = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=timeout)
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return ""
+    return (proc.stdout or "") + (proc.stderr if proc.returncode != 0 and not proc.stdout else "")
+
+
+def load_state() -> dict:
+    os.makedirs(os.path.dirname(STATE_PATH), exist_ok=True)
+    data = {"selected": "", "gamma": 100, "displays": {}, "ddc": {}, "updated": 0}
+
+    if os.path.isfile(STATE_PATH):
+        try:
+            with open(STATE_PATH, encoding="utf-8") as fh:
+                parsed = json.load(fh)
+            if isinstance(parsed, dict):
+                data.update(parsed)
+                if not isinstance(data.get("displays"), dict):
+                    data["displays"] = {}
+                if not isinstance(data.get("ddc"), dict):
+                    data["ddc"] = {}
+                return data
+        except (OSError, json.JSONDecodeError):
+            pass
+
+    if os.path.isfile(LEGACY_PATH):
+        try:
+            raw = open(LEGACY_PATH, encoding="utf-8").read().strip()
+            digits = re.sub(r"[^0-9]", "", raw)
+            if digits:
+                data["gamma"] = clamp(int(digits), HYPR_MIN, HYPR_MAX)
+        except OSError:
+            pass
+
+    return data
+
+
+def save_state(data: dict) -> None:
+    os.makedirs(os.path.dirname(STATE_PATH), exist_ok=True)
+    data["updated"] = int(time.time())
+    tmp = STATE_PATH + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(data, fh, ensure_ascii=False, separators=(",", ":"))
+        fh.write("\n")
+    os.replace(tmp, STATE_PATH)
+    try:
+        with open(LEGACY_PATH, "w", encoding="utf-8") as fh:
+            fh.write(str(int(data.get("gamma", 100))) + "\n")
+    except OSError:
+        pass
+
+
+def hypr_monitors() -> list[dict]:
+    text = run(["hyprctl", "monitors", "-j"], timeout=2.0).strip()
+    if not text:
+        return []
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(payload, list):
+        return []
+    out = []
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("name") or "").strip()
+        if not name:
+            continue
+        out.append(
+            {
+                "name": name,
+                "description": str(item.get("description") or "").strip(),
+                "focused": bool(item.get("focused")),
+                "x": int(item.get("x") or 0),
+            }
+        )
+    out.sort(key=lambda m: (m["x"], m["name"]))
+    return out
+
+
+def read_gamma() -> int | None:
+    text = run(["hyprctl", "hyprsunset", "gamma"], timeout=2.0).strip().splitlines()
+    for line in reversed(text):
+        digits = re.sub(r"[^0-9+-]", "", line.strip())
+        if not digits:
+            continue
+        try:
+            return clamp(int(digits), 0, 200)
+        except ValueError:
+            continue
+    return None
+
+
+def set_gamma(percent: int) -> None:
+    value = clamp(percent, HYPR_MIN, HYPR_MAX)
+    run(["hyprctl", "hyprsunset", "gamma", str(value)], timeout=2.0)
+
+
+def friendly_label(name: str, description: str) -> str:
+    if not description:
+        return name
+    tokens = description.split()
+    skip = {"corporation", "company", "consumer", "electronics", "inc", "ltd", "inc.", "ltd."}
+    if tokens and sum(ch.isdigit() for ch in tokens[-1]) >= 6:
+        tokens = tokens[:-1]
+    kept = [tok for tok in tokens if tok.lower() not in skip]
+    return " ".join(kept) if kept else name
+
+
+def parse_ddc_detect(text: str) -> dict[str, int | None]:
+    mapping: dict[str, int | None] = {}
+    bus: int | None = None
+    connector: str | None = None
+    valid = False
+
+    def commit() -> None:
+        if connector:
+            mapping[connector] = bus if valid and bus is not None else None
+
+    for raw in text.splitlines():
+        line = raw.strip()
+        if line.startswith("Invalid display") or re.match(r"Display\s+\d+", line):
+            commit()
+            bus = None
+            connector = None
+            valid = bool(re.match(r"Display\s+\d+", line))
+            continue
+        match = re.search(r"i2c-(\d+)", line, re.I)
+        if match:
+            bus = int(match.group(1))
+        match = re.search(r"(?:DRM connector|DRM_connector):\s*card\d+-(.+)", line, re.I)
+        if match:
+            connector = match.group(1).strip()
+    commit()
+    return mapping
+
+
+def discover_ddc(state: dict) -> dict:
+    text = run(["ddcutil", "detect", "--brief"], timeout=12.0)
+    mapping = parse_ddc_detect(text)
+    ddc = {}
+    for name, bus in mapping.items():
+        if bus is None:
+            continue
+        current = read_ddc(bus)
+        if current is None:
+            continue
+        ddc[name] = {"bus": int(bus)}
+        displays = state.setdefault("displays", {})
+        entry = displays.get(name) or {}
+        entry["percent"] = current
+        entry["backend"] = "ddc"
+        displays[name] = entry
+    state["ddc"] = ddc
+    return state
+
+
+def read_ddc(bus: int) -> int | None:
+    text = run(["ddcutil", "--bus", str(bus), "--brief", "--sleep-multiplier", ".2", "getvcp", "10"], timeout=5.0)
+    match = re.search(r"VCP\s+10\s+\S+\s+(\d+)\s+(\d+)", text)
+    if not match:
+        return None
+    cur = int(match.group(1))
+    maximum = int(match.group(2)) or 100
+    return clamp(round(cur * 100 / maximum), DDC_MIN, DDC_MAX)
+
+
+def set_ddc(bus: int, percent: int) -> None:
+    value = clamp(percent, DDC_MIN, DDC_MAX)
+    run(
+        [
+            "ddcutil",
+            "--bus",
+            str(bus),
+            "--noverify",
+            "--sleep-multiplier",
+            ".2",
+            "setvcp",
+            "10",
+            str(value),
+        ],
+        timeout=5.0,
+    )
+
+
+def backend_for(name: str, state: dict) -> tuple[str, int | None]:
+    info = (state.get("ddc") or {}).get(name)
+    if isinstance(info, dict) and info.get("bus") is not None:
+        return "ddc", int(info["bus"])
+    return "hypr", None
+
+
+def limits_for(backend: str) -> tuple[int, int]:
+    if backend == "ddc":
+        return DDC_MIN, DDC_MAX
+    return HYPR_MIN, HYPR_MAX
+
+
+def parse_spec(spec: str, current: int, lo: int, hi: int) -> int:
+    text = str(spec).strip()
+    if re.fullmatch(r"[+-]\d+%?", text):
+        delta = int(text.replace("%", ""))
+        return clamp(current + delta, lo, hi)
+    if text.endswith("%+"):
+        return clamp(current + int(text[:-2] or "0"), lo, hi)
+    if text.endswith("%-"):
+        return clamp(current - int(text[:-2] or "0"), lo, hi)
+    if text.endswith("%"):
+        return clamp(int(text[:-1] or "0"), lo, hi)
+    return clamp(int(text), lo, hi)
+
+
+def percent_of(name: str, backend: str, state: dict) -> int:
+    stored = ((state.get("displays") or {}).get(name) or {}).get("percent")
+    if backend == "hypr":
+        gamma = state.get("gamma", 100)
+        if stored is None:
+            return clamp(int(gamma), HYPR_MIN, HYPR_MAX)
+        return clamp(int(stored), HYPR_MIN, HYPR_MAX)
+    if stored is None:
+        return 100
+    return clamp(int(stored), DDC_MIN, DDC_MAX)
+
+
+def snapshot(state: dict, monitors: list[dict] | None = None) -> dict:
+    monitors = monitors if monitors is not None else hypr_monitors()
+    gamma = read_gamma()
+    if gamma is not None:
+        state["gamma"] = clamp(gamma, HYPR_MIN, HYPR_MAX)
+
+    names = [m["name"] for m in monitors]
+    selected = str(state.get("selected") or "")
+    focused = next((m["name"] for m in monitors if m.get("focused")), "")
+    if selected not in names:
+        selected = focused or (names[0] if names else "")
+    state["selected"] = selected
+
+    displays = []
+    stored = state.setdefault("displays", {})
+    for mon in monitors:
+        name = mon["name"]
+        backend, bus = backend_for(name, state)
+        percent = percent_of(name, backend, state)
+        entry = {
+            "name": name,
+            "label": friendly_label(name, mon.get("description") or ""),
+            "backend": backend,
+            "percent": percent,
+            "max": 100,
+            "selected": name == selected,
+        }
+        if bus is not None:
+            entry["bus"] = bus
+        displays.append(entry)
+        stored[name] = {"percent": percent, "backend": backend}
+
+    if not displays:
+        percent = clamp(int(state.get("gamma", 100)), HYPR_MIN, HYPR_MAX)
+        displays.append(
+            {
+                "name": "hypr",
+                "label": "Software overlay",
+                "backend": "hypr",
+                "percent": percent,
+                "max": 100,
+                "selected": True,
+            }
+        )
+        state["selected"] = "hypr"
+
+    selected_row = next((row for row in displays if row.get("selected")), displays[0])
+    return {
+        "selected": selected_row["name"],
+        "gamma": int(state.get("gamma", 100)),
+        "displays": displays,
+    }
+
+
+def apply_percent(state: dict, name: str, percent: int) -> dict:
+    monitors = hypr_monitors()
+    names = [m["name"] for m in monitors]
+    if not name:
+        name = str(state.get("selected") or "")
+    if name not in names and names:
+        name = names[0]
+    backend, bus = backend_for(name, state)
+    lo, hi = limits_for(backend)
+    value = clamp(percent, lo, hi)
+    stored = state.setdefault("displays", {})
+    if backend == "ddc" and bus is not None:
+        set_ddc(bus, value)
+        stored[name] = {"percent": value, "backend": "ddc"}
+    else:
+        stored[name] = {"percent": value, "backend": "hypr"}
+    state["selected"] = name
+    save_state(state)
+    return snapshot(state, monitors)
+
+
+def select_display(state: dict, name: str) -> dict:
+    state["selected"] = name
+    save_state(state)
+    return snapshot(state)
+
+
+def emit_json(payload: dict) -> None:
+    json.dump(payload, sys.stdout, ensure_ascii=False, separators=(",", ":"))
+    sys.stdout.write("\n")
+
+
+def emit_machine(payload: dict) -> None:
+    selected = payload.get("selected")
+    row = next((item for item in payload["displays"] if item["name"] == selected), payload["displays"][0])
+    print(f"{row['name']},{row['backend']},{row['percent']},{row['percent']}%,{row['max']}")
+
+
+def parse_args(argv: list[str]) -> dict:
+    machine = False
+    json_out = False
+    discover = False
+    action = ""
+    device = ""
+    select = ""
+    value = ""
+    i = 0
+    while i < len(argv):
+        arg = argv[i]
+        if arg in ("-m", "--machine"):
+            machine = True
+        elif arg in ("--json",):
+            json_out = True
+        elif arg in ("--discover",):
+            discover = True
+        elif arg in ("-d", "--device") and i + 1 < len(argv):
+            i += 1
+            device = argv[i]
+        elif arg == "--select" and i + 1 < len(argv):
+            i += 1
+            select = argv[i]
+        elif arg in ("set", "info", "-l", "--list"):
+            action = arg
+        elif arg.startswith("-"):
+            pass
+        else:
+            value = arg
+        i += 1
+    return {
+        "machine": machine,
+        "json": json_out,
+        "discover": discover,
+        "action": action,
+        "device": device,
+        "select": select,
+        "value": value,
+    }
+
+
+def main() -> int:
+    opts = parse_args(sys.argv[1:])
+    state = load_state()
+
+    if opts["discover"]:
+        set_gamma(100)
+        state["gamma"] = 100
+        state = discover_ddc(state)
+        save_state(state)
+
+    if opts["select"]:
+        payload = select_display(state, opts["select"])
+    elif opts["action"] == "set":
+        payload = snapshot(state)
+        target = opts["device"] or payload["selected"]
+        row = next((item for item in payload["displays"] if item["name"] == target), payload["displays"][0])
+        nxt = parse_spec(opts["value"] or "100%", int(row["percent"]), *limits_for(row["backend"]))
+        payload = apply_percent(state, row["name"], nxt)
+    else:
+        payload = snapshot(state)
+
+    if opts["json"]:
+        emit_json(payload)
+        return 0
+
+    if opts["machine"]:
+        emit_machine(payload)
+        return 0
+
+    for row in payload["displays"]:
+        mark = "*" if row.get("selected") else " "
+        kind = "hardware" if row["backend"] == "ddc" else "software"
+        print(f"{mark} {row['name']:10} {row['percent']:3}%  {kind}  {row['label']}")
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except KeyboardInterrupt:
+        raise SystemExit(130)

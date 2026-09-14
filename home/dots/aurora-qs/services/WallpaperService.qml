@@ -10,14 +10,15 @@ QtObject {
     id: root
 
     readonly property string home: Quickshell.env("HOME")
-    readonly property string wallpaperDirectory: root.home + "/.wall"
+    readonly property string wallpaperDirectory: root.home + "/Wallpapers"
+    readonly property string riceDirectory: root.home + "/.wall"
+    readonly property string thumbDirectory: root.home + "/.cache/aurora/wallpaper-thumbs"
     readonly property string statePath: root.home + "/.cache/aurora/current-wallpaper"
+    readonly property string thumbScript: root.home + "/.config/scripts/cache-wallpaper-thumbs.sh"
 
     property bool scanning: false
     property string error: ""
     property var wallpapers: []
-
-    // Applied wallpaper
 
     property FileView stateFile: FileView {
         path: root.statePath
@@ -35,15 +36,16 @@ QtObject {
         return raw.trim()
     }
 
-    // Scanning
-
     property Process scanProcess: Process {
         command: [
             "sh",
             "-c",
-            "find \"$1\" -maxdepth 1 -type f \\( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' -o -iname '*.gif' \\) ! -name '.*' -printf '%f\\t%p\\n' 2>/dev/null | sort -f",
+            "thumbdir=\"$3\"; mkdir -p \"$thumbdir\"; [ -x \"$4\" ] && \"$4\" \"$1\" \"$2\" >/dev/null 2>&1 || true; { find -L \"$1\" -maxdepth 1 -type f \\( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' -o -iname '*.gif' \\) ! -name '.*' -printf '%f\\t%p\\n'; find -L \"$2\" -maxdepth 1 -type f \\( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' -o -iname '*.gif' \\) ! -name '.*' -printf '%f\\t%p\\n'; } 2>/dev/null | awk -F '\\t' '!seen[$1]++' | sort -f | while IFS=$(printf '\\t') read -r name path; do stem=${name%.*}; thumb=\"$thumbdir/$stem.jpg\"; [ -f \"$thumb\" ] || thumb=$path; printf '%s\\t%s\\t%s\\n' \"$name\" \"$path\" \"$thumb\"; done",
             "sh",
-            root.wallpaperDirectory
+            root.wallpaperDirectory,
+            root.riceDirectory,
+            root.thumbDirectory,
+            root.thumbScript
         ]
 
         stdout: StdioCollector {
@@ -59,17 +61,31 @@ QtObject {
     }
 
     function refresh() {
-        if (root.scanning)
+        if (root.scanProcess.running)
             return
 
-        root.scanning = true
+        root.scanning = root.wallpapers.length === 0
         root.error = ""
         root.scanProcess.running = true
     }
 
+    function sameList(next) {
+        const cur = root.wallpapers
+        if (cur.length !== next.length)
+            return false
+
+        for (let i = 0; i < cur.length; i++) {
+            if (cur[i].path !== next[i].path || cur[i].thumb !== next[i].thumb)
+                return false
+        }
+
+        return true
+    }
+
     function ingest(text) {
         if (!text) {
-            root.wallpapers = []
+            if (root.wallpapers.length === 0)
+                root.wallpapers = []
             return
         }
 
@@ -81,26 +97,31 @@ QtObject {
             if (!line || line.trim().length === 0)
                 continue
 
-            const tab = line.indexOf("\t")
-            if (tab <= 0)
+            const parts = line.split("\t")
+            if (parts.length < 2)
                 continue
 
-            const name = line.substring(0, tab)
-            const path = line.substring(tab + 1)
+            const name = parts[0]
+            const path = parts[1]
+            const thumb = parts.length > 2 && parts[2].length > 0 ? parts[2] : path
 
             out.push({
                 "name": name,
                 "path": path,
+                "thumb": thumb,
                 "label": name.replace(/\.[^.]+$/, "")
             })
         }
 
+        if (root.sameList(out))
+            return
+
         root.wallpapers = out
     }
 
-    readonly property int count: root.wallpapers.length
+    Component.onCompleted: root.refresh()
 
-    // Search
+    readonly property int count: root.wallpapers.length
 
     function search(query) {
         const all = root.wallpapers
@@ -119,8 +140,6 @@ QtObject {
         return out
     }
 
-    // Actions
-
     function apply(path) {
         if (!path || path.length === 0)
             return
@@ -128,7 +147,7 @@ QtObject {
         Quickshell.execDetached([
             "sh",
             "-c",
-            "mkdir -p \"$(dirname \"$2\")\" \"$HOME/.wall\" && awww img \"$1\" --transition-type random --transition-fps 180 --transition-step 30 && printf '%s\\n' \"$1\" > \"$2\" && basename \"$1\" > \"$HOME/.wall/.current\"",
+            "mkdir -p \"$(dirname \"$2\")\" \"$HOME/Wallpapers\" && awww img \"$1\" --transition-type fade --transition-fps 60 --transition-step 30 && printf '%s\\n' \"$1\" > \"$2\" && basename \"$1\" > \"$HOME/.wall/.current\"",
             "sh",
             path,
             root.statePath

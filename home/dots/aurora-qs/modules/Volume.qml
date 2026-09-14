@@ -4,6 +4,7 @@ import Quickshell
 
 import "../core" as Core
 import "../services" as Services
+import "../components" as Components
 
 // Volume (bar module)
 
@@ -17,19 +18,11 @@ Item {
 
     readonly property bool menuOpen: Core.PopupManager.isOpen("audio")
 
-    Rectangle {
+    Components.Tactile {
         anchors.fill: parent
-
-        radius: height / 2
-
-        color: root.menuOpen ? Core.Theme.surfaceGlass : (mouse.containsMouse ? Core.Theme.surfaceGlassHover : "transparent")
-
-        Behavior on color {
-            ColorAnimation {
-                duration: 120
-                easing.type: Easing.OutQuint
-            }
-        }
+        hovered: mouse.containsMouse
+        pressed: mouse.pressed
+        active: root.menuOpen
     }
 
     Row {
@@ -149,7 +142,7 @@ Item {
             // used; the popup derives its own y from the theme.
             const p = root.mapToItem(null, 0, root.height);
 
-            Core.PopupManager.toggle("audio", p.x + root.width / 2, p.y + Core.Theme.barMarginTop);
+            Core.PopupManager.toggle("audio", p.x + root.width / 2, p.y + Core.Theme.barMarginTop, root);
         }
 
         onWheel: function (event) {

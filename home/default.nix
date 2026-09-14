@@ -17,6 +17,8 @@
     BROWSER = params.browser;
     EDITOR = "nvim";
     HYPRSHOT_DIR = "${config.home.homeDirectory}/Pictures/Screenshots";
+    VAGRANT_DEFAULT_PROVIDER = "libvirt";
+    LIBVIRT_DEFAULT_URI = "qemu:///system";
   };
 
   xdg.enable = true;
@@ -26,6 +28,8 @@
     "text/html" = "${params.browser}.desktop";
     "x-scheme-handler/http" = "${params.browser}.desktop";
     "x-scheme-handler/https" = "${params.browser}.desktop";
+    "application/pdf" = "org.pwmt.zathura.desktop";
+    "application/epub+zip" = "org.pwmt.zathura.desktop";
   };
 
   imports = [
@@ -36,5 +40,6 @@
     ./shell.nix
     ./apps.nix
     ./serashell.nix
+    ./obs.nix
   ];
 }

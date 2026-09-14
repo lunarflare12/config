@@ -8,8 +8,11 @@ import "../services" as Services
 Item {
     id: root
 
-    implicitWidth: Math.min(320, Math.max(80, label.implicitWidth + 16))
+    implicitWidth: Math.min(row.implicitWidth, 280)
     implicitHeight: Core.Theme.moduleHeight
+    clip: true
+
+    readonly property string nixosLogo: "file://" + Quickshell.shellDir + "/assets/nixos.svg"
 
     readonly property string appTitle: {
         const t = Hyprland.activeToplevel;
@@ -37,17 +40,33 @@ Item {
         return "Desktop";
     }
 
-    Text {
-        id: label
-        anchors.centerIn: parent
-        width: parent.width - 8
-        elide: Text.ElideRight
-        horizontalAlignment: Text.AlignHCenter
-        text: root.appTitle
-        color: Core.Theme.text
-        font.family: Core.Theme.fontFamily
-        font.pixelSize: Core.Theme.fontSize
-        font.weight: Font.DemiBold
-        renderType: Text.QtRendering
+    Row {
+        id: row
+        anchors.verticalCenter: parent.verticalCenter
+        spacing: 8
+
+        Image {
+            anchors.verticalCenter: parent.verticalCenter
+            width: Core.Theme.iconSizeMedium
+            height: Core.Theme.iconSizeMedium
+            source: root.nixosLogo
+            fillMode: Image.PreserveAspectFit
+            smooth: true
+            asynchronous: true
+            sourceSize.width: 64
+            sourceSize.height: 64
+        }
+
+        Text {
+            id: title
+            anchors.verticalCenter: parent.verticalCenter
+            elide: Text.ElideRight
+            text: root.appTitle
+            color: Core.Theme.text
+            font.family: Core.Theme.fontFamily
+            font.pixelSize: Core.Theme.fontSize
+            font.weight: Font.Medium
+            renderType: Text.QtRendering
+        }
     }
 }

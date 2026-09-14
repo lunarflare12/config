@@ -15,6 +15,11 @@ QtObject {
     readonly property string wifiNone: "\udb82\udd2f"     // F092F
 
     readonly property string ethernet: "\udb80\ude00"     // F0200
+    readonly property string cpu: "󰻠"
+    readonly property string gpu: "󰢮"
+    readonly property string ram: "󰍛"
+    readonly property string swap: "󰓡"
+    readonly property string disk: "󰋊"
 
     // Bluetooth
 
@@ -103,6 +108,9 @@ QtObject {
     readonly property string musicNote: "\udb80\udf87"    // F0387
     readonly property string download: "\udb80\uddda"     // F01DA
     readonly property string folder: "\udb80\ude4b"       // F024B
+    readonly property string file: "\udb80\ude13"         // F0213
+    readonly property string folderPlus: "\udb80\ude5a"   // F025A
+    readonly property string filePlus: "\udb80\ude24"     // F0224
     readonly property string terminal: "\udb80\udd8d"      // F018D
     readonly property string image: "\udb80\udee9"        // F02E9
     readonly property string power: "\udb81\udc25"        // F0425
@@ -185,8 +193,12 @@ QtObject {
     readonly property string calendar: "\udb80\udced"
     readonly property string info: "\udb80\udd7c"
     readonly property string gear: "\udb81\udc93"
+    readonly property string pencil: "\udb80\udfeb"
 
     readonly property string refresh: "\udb81\udc50"
+    readonly property string restart: "\udb81\udf09"      // F0709  md-restart
+    readonly property string logout: "\udb80\udf43"       // F0343  md-logout
+    readonly property string sleep: "\udb82\udd04"        // F0904  md-sleep
     readonly property string lock: "\udb80\udfba"
     readonly property string send: "\udb81\udc0c"
     readonly property string spinner: "\udb81\udd1e"
@@ -198,6 +210,8 @@ QtObject {
     readonly property string clipboard: "\udb80\udd47"
     readonly property string trash: "\udb80\uddb4"
     readonly property string emoji: "\uf118"
+    readonly property string overview: "\udb81\udee5"
+    readonly property string crop: "\udb80\udd3e"
 
     // Device classes (Bluetooth / battery peripherals)
 

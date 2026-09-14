@@ -4,13 +4,14 @@ import Quickshell
 
 import "../core" as Core
 import "../services" as Services
+import "../components" as Components
 
 // Clock (bar module)
 
 Item {
     id: root
 
-    implicitWidth: showSeconds ? 72 : 48
+    implicitWidth: timeRow.implicitWidth + 12
     implicitHeight: Core.Theme.moduleHeight
 
     property bool showSeconds: false
@@ -56,19 +57,11 @@ Item {
         precision: root.showSeconds ? SystemClock.Seconds : SystemClock.Minutes
     }
 
-    Rectangle {
+    Components.Tactile {
         anchors.fill: parent
-
-        radius: height / 2
-
-        color: root.menuOpen ? Core.Theme.surfaceGlass : (mouse.containsMouse ? Core.Theme.surfaceGlassHover : "transparent")
-
-        Behavior on color {
-            ColorAnimation {
-                duration: 120
-                easing.type: Easing.OutQuint
-            }
-        }
+        hovered: mouse.containsMouse
+        pressed: mouse.pressed
+        active: root.menuOpen
     }
 
     Row {
@@ -80,7 +73,7 @@ Item {
         spacing: 0
 
         Text {
-            text: Qt.formatDateTime(systemClock.date, "HH")
+            text: Qt.formatDateTime(systemClock.date, root.showSeconds ? "hh:mm:ss AP" : "hh:mm AP")
 
             color: root.menuOpen ? Core.Theme.accent : Core.Theme.clockHour
 
@@ -96,72 +89,6 @@ Item {
                     easing.type: Easing.OutQuint
                 }
             }
-        }
-
-        Text {
-            text: ":"
-
-            color: root.menuOpen ? Core.Theme.accent : Core.Theme.clockSeparator
-
-            font.family: Core.Theme.fontFamily
-            font.pixelSize: Core.Theme.fontSize
-            font.weight: Font.Medium
-
-            renderType: Text.QtRendering
-
-            Behavior on color {
-                ColorAnimation {
-                    duration: 120
-                    easing.type: Easing.OutQuint
-                }
-            }
-        }
-
-        Text {
-            text: Qt.formatDateTime(systemClock.date, "mm")
-
-            color: root.menuOpen ? Core.Theme.accent : Core.Theme.clockMinute
-
-            font.family: Core.Theme.fontFamily
-            font.pixelSize: Core.Theme.fontSize
-            font.weight: Font.Medium
-
-            renderType: Text.QtRendering
-
-            Behavior on color {
-                ColorAnimation {
-                    duration: 120
-                    easing.type: Easing.OutQuint
-                }
-            }
-        }
-
-        Text {
-            visible: root.showSeconds
-
-            text: ":"
-
-            color: Core.Theme.clockSeparator
-
-            font.family: Core.Theme.fontFamily
-            font.pixelSize: Core.Theme.fontSize
-            font.weight: Font.Medium
-
-            renderType: Text.QtRendering
-        }
-
-        Text {
-            visible: root.showSeconds
-
-            text: Qt.formatDateTime(systemClock.date, "ss")
-
-            color: Core.Theme.clockSecond
-
-            font.family: Core.Theme.fontFamily
-            font.pixelSize: Core.Theme.fontSize
-            font.weight: Font.Medium
-
-            renderType: Text.QtRendering
         }
     }
 
@@ -199,7 +126,7 @@ Item {
 
             const p = root.mapToItem(null, 0, root.height);
 
-            Core.PopupManager.toggle("calendar", p.x + root.width / 2, p.y + Core.Theme.barMarginTop);
+            Core.PopupManager.toggle("calendar", p.x + root.width / 2, p.y + Core.Theme.barMarginTop, root);
         }
     }
 }

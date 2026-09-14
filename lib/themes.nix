@@ -55,12 +55,12 @@
       fontSizeSmall = 10;
       fontSizeLarge = 15;
 
-      # LIQUID GLASS
+      # Opaque panels — no wallpaper showing through the bar or popups.
 
-      glassOpacity = 0.78;
-      surfaceOpacity = 0.45;
+      glassOpacity = 1.0;
+      surfaceOpacity = 1.0;
       glassLuminosity = 0.05;
-      glassGradientOpacity = 0.055;
+      glassGradientOpacity = 0.0;
       glassGrainOpacity = 0.0;
 
       # Flat glass.
@@ -68,7 +68,7 @@
       glassLensOpacity = 0.0;
       glassDepthOpacity = 0.0;
       glassRimOpacity = 0.0;
-      glassClarity = 0.08;
+      glassClarity = 0.0;
 
       # SHADOWS / WINDOWS
 
@@ -76,7 +76,7 @@
 
       windowOpacity = 0.96;
 
-      terminalOpacity = 0.52;
+      terminalOpacity = 0.78;
 
       editorFloatBlend = 12;
 

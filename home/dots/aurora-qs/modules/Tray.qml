@@ -5,6 +5,7 @@ import Quickshell
 import Quickshell.Services.SystemTray
 
 import "../core" as Core
+import "../components" as Components
 
 Item {
     id: root
@@ -46,19 +47,10 @@ Item {
 
                 implicitHeight: Core.Theme.moduleHeight
 
-                Rectangle {
+                Components.Tactile {
                     anchors.fill: parent
-
-                    radius: 14
-
-                    color: mouse.containsMouse ? Core.Theme.surfaceGlassHover : "transparent"
-
-                    Behavior on color {
-                        ColorAnimation {
-                            duration: 120
-                            easing.type: Easing.OutQuint
-                        }
-                    }
+                    hovered: mouse.containsMouse
+                    pressed: mouse.pressed
                 }
 
                 Image {

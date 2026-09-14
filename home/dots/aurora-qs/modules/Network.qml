@@ -4,59 +4,81 @@ import Quickshell
 
 import "../core" as Core
 import "../services" as Services
+import "../components" as Components
 
 Item {
     id: root
 
-    implicitWidth: 30
+    implicitWidth: row.implicitWidth + 8
     implicitHeight: Core.Theme.moduleHeight
 
     readonly property bool menuOpen: Core.PopupManager.isOpen("network")
     readonly property bool connected: Services.NetworkService.ethConnected
+    readonly property color ink: root.connected ? Core.Theme.foreground : Core.Theme.foregroundMuted
 
-    Rectangle {
+    Components.Tactile {
         anchors.fill: parent
-        radius: height / 2
-        color: root.menuOpen ? Core.Theme.surfaceGlass : mouse.containsMouse ? Core.Theme.surfaceGlassHover : "transparent"
-
-        Behavior on color {
-            ColorAnimation {
-                duration: 120
-                easing.type: Easing.OutQuint
-            }
-        }
+        hovered: mouse.containsMouse
+        pressed: mouse.pressed
+        active: root.menuOpen
     }
 
-    Text {
+    Row {
+        id: row
         anchors.centerIn: parent
-        text: "\udb80\ude00"
-        font.family: Core.Theme.iconFont
-        font.pixelSize: Core.Theme.iconSize
-        color: root.connected ? Core.Theme.foreground : Core.Theme.foregroundMuted
+        spacing: 8
 
-        Behavior on color {
-            ColorAnimation {
-                duration: 150
-                easing.type: Easing.OutQuint
+        Components.MetricIcon {
+            anchors.verticalCenter: parent.verticalCenter
+            width: Core.Theme.iconSize
+            height: Core.Theme.iconSize
+            name: "ethernet"
+            color: root.ink
+        }
+
+        Row {
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 2
+
+            Components.MetricIcon {
+                anchors.verticalCenter: parent.verticalCenter
+                width: 10
+                height: 10
+                name: "download"
+                color: root.ink
+            }
+
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: Services.SystemMonitor.downloadRate
+                color: root.ink
+                font.family: Core.Theme.fontFamily
+                font.pixelSize: Core.Theme.fontSizeSmall
+                font.weight: Font.Medium
+                renderType: Text.QtRendering
             }
         }
-    }
 
-    Rectangle {
-        anchors.top: parent.top
-        anchors.right: parent.right
-        anchors.topMargin: 5
-        anchors.rightMargin: 4
-        width: 5
-        height: 5
-        radius: 3
-        color: Core.Theme.accent
-        opacity: Services.NetworkService.busy ? 1.0 : 0.0
+        Row {
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 2
 
-        Behavior on opacity {
-            NumberAnimation {
-                duration: 180
-                easing.type: Easing.OutQuint
+            Components.MetricIcon {
+                anchors.verticalCenter: parent.verticalCenter
+                width: 10
+                height: 10
+                name: "upload"
+                color: root.ink
+            }
+
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                text: Services.SystemMonitor.uploadRate
+                color: root.ink
+                font.family: Core.Theme.fontFamily
+                font.pixelSize: Core.Theme.fontSizeSmall
+                font.weight: Font.Medium
+                renderType: Text.QtRendering
             }
         }
     }
@@ -81,7 +103,7 @@ Item {
             }
 
             const p = root.mapToItem(null, 0, root.height);
-            Core.PopupManager.toggle("network", p.x + root.width / 2, p.y + Core.Theme.barMarginTop);
+            Core.PopupManager.toggle("network", p.x + root.width / 2, p.y + Core.Theme.barMarginTop, root);
         }
     }
 

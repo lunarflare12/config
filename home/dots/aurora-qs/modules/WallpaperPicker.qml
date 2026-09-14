@@ -26,10 +26,12 @@ Components.LauncherView {
 
     itemCount: launcher.results.length
 
-    counterText: Services.WallpaperService.scanning ? "scanning" : (launcher.query.length === 0 ? launcher.results.length + " wallpapers" : launcher.results.length + " of " + Services.WallpaperService.count)
+    counterText: launcher.query.length === 0 ? launcher.results.length + " wallpapers" : launcher.results.length + " of " + Services.WallpaperService.count
 
-    // Wallpapers are dropped into ~/Wallpapers by hand, so rescan on every open rather than trusting a cached list.
-    onDidOpen: Services.WallpaperService.refresh()
+    onDidOpen: {
+        if (Services.WallpaperService.count === 0)
+            Services.WallpaperService.refresh();
+    }
 
     onAccepted: {
         const item = launcher.results[launcher.selectedIndex];
@@ -65,6 +67,8 @@ Components.LauncherView {
 
             clip: true
             boundsBehavior: Flickable.StopAtBounds
+            cacheBuffer: 8192
+            reuseItems: true
 
             interactive: false
 
@@ -116,31 +120,19 @@ Components.LauncherView {
                     color: Core.Theme.surfaceGlass
                     clip: true
 
-                    // Zoom on selection, now sized so it actually fits. The
-                    // tile is 237px inside a 253px cell, so it can only gain
-                    // 8px per side before the grid's clip shaves it; 1.06 gains
-                    // 7.1. At 1.10 it wanted 11.9 and got cut off, which is the
-                    // same thing that was going wrong in the theme list.
-                    scale: cell.selected ? 1.06 : 1.0
-
-                    Behavior on scale {
-                        NumberAnimation {
-                            duration: 260
-                            easing.type: Easing.OutQuint
-                        }
+                    Components.Tactile {
+                        z: 8
+                        anchors.fill: parent
+                        radius: tile.radius
+                        hovered: tileMouse.containsMouse
+                        pressed: tileMouse.pressed
+                        active: cell.selected
+                        restScale: cell.selected ? 1.04 : 1.0
+                        hoverScale: 1.06
+                        pressScale: 0.96
                     }
 
-                    // Everything else sits back rather than merely losing its
-                    // border. Half the sense of depth comes from this, not from
-                    // the scale.
-                    opacity: cell.selected ? 1.0 : 0.72
-
-                    Behavior on opacity {
-                        NumberAnimation {
-                            duration: Core.Theme.durBase
-                            easing.type: Easing.OutQuint
-                        }
-                    }
+                    opacity: 1.0
 
                     border.width: cell.selected ? Core.Theme.borderWidth * 2 : Core.Theme.borderWidth
                     border.color: cell.selected ? Core.Theme.accent : (cell.applied ? Core.Theme.accentMuted : Core.Theme.border)
@@ -157,32 +149,25 @@ Components.LauncherView {
 
                         anchors.fill: parent
 
-                        asynchronous: true
+                        asynchronous: false
                         cache: true
-                        sourceSize.width: 480
-
+                        sourceSize.width: 384
+                        sourceSize.height: 216
+                        smooth: true
                         fillMode: Image.PreserveAspectCrop
-                        source: "file://" + cell.modelData.path
+                        source: {
+                            const item = cell.modelData;
+                            if (!item)
+                                return "";
+                            const file = item.thumb || item.path;
+                            return file ? "file://" + file : "";
+                        }
 
-                        // A second, slower zoom inside the frame, and the one
-                        // doing most of the work now: the picture pushes well
-                        // past the edges of its own tile, so the crop opens up
-                        // as you land on it. Two speeds is what separates this
-                        // from a tile that simply got bigger.
                         scale: cell.selected ? 1.16 : 1.0
 
                         Behavior on scale {
                             NumberAnimation {
-                                duration: 420
-                                easing.type: Easing.OutQuint
-                            }
-                        }
-
-                        opacity: status === Image.Ready ? 1.0 : 0.0
-
-                        Behavior on opacity {
-                            NumberAnimation {
-                                duration: Core.Theme.durBase
+                                duration: 180
                                 easing.type: Easing.OutQuint
                             }
                         }
@@ -237,7 +222,11 @@ Components.LauncherView {
                 }
 
                 MouseArea {
+                    id: tileMouse
+
                     anchors.fill: parent
+
+                    hoverEnabled: true
 
                     cursorShape: Qt.PointingHandCursor
 
