@@ -9,7 +9,9 @@ import "../components" as Components
 Item {
     id: root
 
-    implicitWidth: 58
+    property bool iconOnly: false
+
+    implicitWidth: root.iconOnly ? 28 : 58
     implicitHeight: Core.Theme.moduleHeight
 
     readonly property var svc: Services.BrightnessService
@@ -26,16 +28,37 @@ Item {
         anchors.centerIn: parent
         spacing: 5
 
-        Text {
+        Components.ThemeIcon {
+            id: sun
+
             anchors.verticalCenter: parent.verticalCenter
-            text: Core.Icons.forBrightness(root.svc.fraction)
-            font.family: Core.Theme.iconFont
-            font.pixelSize: Core.Theme.iconSize
-            color: root.menuOpen ? Core.Theme.accent : Core.Theme.foreground
+            name: Core.Icons.brightnessTheme(root.svc.fraction)
+
+            onNameChanged: sunPop.restart()
+
+            SequentialAnimation {
+                id: sunPop
+                NumberAnimation {
+                    target: sun
+                    property: "scale"
+                    to: 1.18
+                    duration: 80
+                    easing.type: Easing.OutCubic
+                }
+                NumberAnimation {
+                    target: sun
+                    property: "scale"
+                    to: 1.0
+                    duration: 160
+                    easing.type: Easing.OutBack
+                    easing.overshoot: 2.2
+                }
+            }
         }
 
         Text {
             anchors.verticalCenter: parent.verticalCenter
+            visible: !root.iconOnly
             text: root.svc.level + "%"
             font.family: Core.Theme.fontFamily
             font.pixelSize: Core.Theme.fontSize

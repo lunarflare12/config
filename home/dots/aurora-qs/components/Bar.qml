@@ -6,9 +6,7 @@ import Quickshell.Wayland
 import "../core" as Core
 import "../modules" as Modules
 
-// Full-width top bar. The layer surface is only as tall as the bar — a 600px
-// host (old pill+launcher window) made Hyprland blur a 2560x666 quad every
-// frame, which on NVIDIA blanks/kills other windows.
+// macOS menu bar: Apple + app on the left, status extras + clock on the right.
 PanelWindow {
     id: root
 
@@ -40,11 +38,14 @@ PanelWindow {
         id: surface
 
         anchors.fill: parent
-        color: "transparent"
+        color: Qt.rgba(Core.Theme.background.r, Core.Theme.background.g, Core.Theme.background.b, 0.86)
 
-        Glass {
-            anchors.fill: parent
-            radius: 0
+        Rectangle {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            height: 1
+            color: Qt.rgba(1, 1, 1, 0.10)
         }
 
         Item {
@@ -73,32 +74,27 @@ PanelWindow {
 
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.verticalCenter: parent.verticalCenter
-            width: Math.max(centerRow.implicitWidth, osdView.implicitWidth)
+            width: Math.max(workspacesModule.implicitWidth, osdView.implicitWidth)
             height: Core.Theme.moduleHeight
 
-            Row {
-                id: centerRow
+            Modules.Workspaces {
+                id: workspacesModule
                 anchors.centerIn: parent
-                spacing: 14
-                opacity: root.osd ? 0 : 1
+                screen: root.screen
+                opacity: root.osd || osdView.opacity > 0.01 ? 0 : 1
                 visible: opacity > 0.01
 
-                Modules.Workspaces {
-                    id: workspacesModule
-                    screen: root.screen
-                }
-
-                Modules.Clock {
-                    id: clockModule
-                    reveal: 1
+                Behavior on opacity {
+                    NumberAnimation {
+                        duration: 140
+                        easing.type: Easing.OutCubic
+                    }
                 }
             }
 
             BarOsd {
                 id: osdView
                 anchors.centerIn: parent
-                opacity: root.osd ? 1 : 0
-                visible: opacity > 0.01
             }
         }
 
@@ -107,35 +103,38 @@ PanelWindow {
 
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
-            anchors.rightMargin: 14
+            anchors.rightMargin: 12
 
             width: rightRow.implicitWidth
             height: Core.Theme.moduleHeight
 
             Row {
                 id: rightRow
-                spacing: 10
+                spacing: 2
                 anchors.verticalCenter: parent.verticalCenter
-
-                Modules.DesktopEdit {}
-
-                Modules.Network {}
-
-                Modules.Cpu {}
-
-                Modules.Memory {}
-
-                Modules.Shader {
-                    screen: root.screen
-                }
-
-                Modules.NotificationCenter {
-                    id: notificationCenter
-                }
 
                 Modules.Tray {
                     id: tray
                     barWindow: root
+                }
+
+                Modules.DesktopEdit {}
+
+                Modules.Volume {
+                    iconOnly: true
+                }
+
+                Modules.Brightness {
+                    iconOnly: true
+                }
+
+                Modules.Network {
+                    iconOnly: true
+                }
+
+                Modules.Clock {
+                    id: clockModule
+                    reveal: 1
                 }
             }
         }

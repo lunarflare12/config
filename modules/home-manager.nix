@@ -1,4 +1,9 @@
-{ lib, params, inputs, ... }:
+{
+  lib,
+  params,
+  inputs,
+  ...
+}:
 
 {
   home-manager = {

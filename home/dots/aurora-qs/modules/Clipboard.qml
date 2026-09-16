@@ -104,22 +104,6 @@ Components.LauncherView {
         confirmClear = false;
     }
 
-    IpcHandler {
-        target: "clipboard"
-
-        function toggle(): void {
-            clipboard.toggle();
-        }
-
-        function open(): void {
-            clipboard.show();
-        }
-
-        function close(): void {
-            clipboard.dismiss();
-        }
-    }
-
     contentComponent: Component {
         Item {
             width: parent.width

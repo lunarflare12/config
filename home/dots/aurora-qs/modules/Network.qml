@@ -9,7 +9,9 @@ import "../components" as Components
 Item {
     id: root
 
-    implicitWidth: row.implicitWidth + 8
+    property bool iconOnly: false
+
+    implicitWidth: row.implicitWidth + (root.iconOnly ? 10 : 8)
     implicitHeight: Core.Theme.moduleHeight
 
     readonly property bool menuOpen: Core.PopupManager.isOpen("network")
@@ -28,17 +30,16 @@ Item {
         anchors.centerIn: parent
         spacing: 8
 
-        Components.MetricIcon {
+        Components.ThemeIcon {
             anchors.verticalCenter: parent.verticalCenter
-            width: Core.Theme.iconSize
-            height: Core.Theme.iconSize
-            name: "ethernet"
-            color: root.ink
+            name: Core.Icons.networkTheme(root.connected)
+            opacity: root.connected ? 1 : 0.55
         }
 
         Row {
             anchors.verticalCenter: parent.verticalCenter
             spacing: 2
+            visible: !root.iconOnly
 
             Components.MetricIcon {
                 anchors.verticalCenter: parent.verticalCenter
@@ -62,6 +63,7 @@ Item {
         Row {
             anchors.verticalCenter: parent.verticalCenter
             spacing: 2
+            visible: !root.iconOnly
 
             Components.MetricIcon {
                 anchors.verticalCenter: parent.verticalCenter

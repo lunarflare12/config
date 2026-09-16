@@ -16,16 +16,16 @@ PanelWindow {
     anchors.top: true
     anchors.right: true
 
-    margins.top: 40
+    margins.top: Core.Theme.barHeight + 10
     margins.right: 6
 
     readonly property var toasts: Services.NotificationServer.toasts
 
-    readonly property int toastWidth: 356
+    readonly property int toastWidth: 360
 
-    readonly property int toastGutter: 8
+    readonly property int toastGutter: 4
 
-    readonly property int toastSpacing: 0
+    readonly property int toastSpacing: 6
 
     // Headroom for maxVisible cards at their tallest. A card carrying action
     // buttons and an open reply field is roughly twice the height of a bare one,
@@ -97,7 +97,7 @@ PanelWindow {
 
                 readonly property int lifetime: Services.NotificationServer.lifetimeFor(wrapper.modelData)
 
-                readonly property real cardHeight: Math.max(72, card.implicitHeight)
+                readonly property real cardHeight: Math.max(64, card.implicitHeight)
 
                 readonly property bool replying: Services.NotificationServer.isReplying(wrapper.modelData)
 
@@ -293,331 +293,167 @@ PanelWindow {
                 }
 
                 Item {
-                    anchors.fill: card
-
-                    z: -1
-
-                    transform: Translate {
-                        x: wrapper.slide * 44
-                    }
-
-                    Components.Elevation {
-                        anchors.fill: parent
-
-                        radius: card.radius
-
-                        level: 0.92
-                    }
-                }
-
-                // Card
-
-                Rectangle {
                     id: card
 
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.top: parent.top
-
                     anchors.leftMargin: root.toastGutter
                     anchors.rightMargin: root.toastGutter
                     anchors.topMargin: root.toastGutter
-
-                    implicitHeight: Math.max(72, contentRow.implicitHeight + 24)
-
+                    implicitHeight: Math.max(64, contentRow.implicitHeight + 16)
                     height: implicitHeight
-
-                    radius: Core.Theme.radiusMenu
-
-                    clip: true
-
-                    color: "transparent"
-
-                    border.width: Core.Theme.borderWidth
-
-                    // Critical is the only state that gets colour, and only as a border.
-                    border.color: wrapper.critical ? Core.Theme.danger : Core.Theme.borderActive
 
                     transform: Translate {
                         x: wrapper.slide * 44
                     }
 
-                    Components.Glass {
+                    Components.MinecraftPanel {
                         anchors.fill: parent
-
-                        radius: parent.radius
+                        critical: wrapper.critical
                     }
-
-                    Components.Tactile {
-                        anchors.fill: parent
-                        radius: parent.radius
-                        hovered: cardHover.hovered
-                        pressed: toastMouse.pressed
-                        hoverScale: 1.02
-                        pressScale: 0.97
-                    }
-
-                    // Hover
 
                     HoverHandler {
                         id: cardHover
-
                         onHoveredChanged: {
                             if (cardHover.hovered)
                                 wrapper.remaining = wrapper.lifetime;
                         }
                     }
 
-                    // Mouse interaction
-
                     MouseArea {
                         id: toastMouse
-
                         anchors.fill: parent
-
                         hoverEnabled: true
-
                         acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
-
                         cursorShape: Qt.PointingHandCursor
-
                         onClicked: function (mouse) {
                             if (mouse.button === Qt.RightButton) {
                                 wrapper.dismissFully();
                                 return;
                             }
-
                             if (mouse.button === Qt.MiddleButton) {
                                 Services.NotificationServer.clearToasts();
                                 return;
                             }
-
                             wrapper.activate();
                         }
                     }
 
-                    // Content
-
                     RowLayout {
                         id: contentRow
-
                         anchors.left: parent.left
                         anchors.right: parent.right
                         anchors.top: parent.top
+                        anchors.leftMargin: 10
+                        anchors.rightMargin: 10
+                        anchors.topMargin: 8
+                        spacing: 10
 
-                        anchors.leftMargin: 14
-                        anchors.rightMargin: 12
-                        anchors.topMargin: 12
+                        Item {
+                            Layout.alignment: Qt.AlignVCenter
+                            Layout.preferredWidth: 40
+                            Layout.preferredHeight: 40
 
-                        spacing: 11
+                            Image {
+                                anchors.fill: parent
+                                source: "file://" + Quickshell.shellDir + "/assets/minecraft/slot.png"
+                                smooth: false
+                                antialiasing: false
+                                fillMode: Image.Stretch
+                            }
 
-                        // Application icon
-                        Rectangle {
-                            Layout.alignment: Qt.AlignTop
-
-                            Layout.preferredWidth: 38
-                            Layout.preferredHeight: 38
-
-                            radius: 11
-
-                            color: Core.Theme.surfaceGlass
-
-                            // Shared with the notification centre so both surfaces
-                            // resolve icons identically.
-                            //
-                            // This used to also check `n.imagePath`, which is not a
-                            // property Quickshell exposes, so that branch could
-                            // never fire. It was not needed: `image` already
-                            // resolves image-data, image_data, icon_data AND
-                            // image-path/image_path into one value.
                             readonly property string resolvedIcon: Services.NotificationServer.iconFor(wrapper.modelData)
 
                             Image {
                                 id: notificationIcon
-
                                 anchors.centerIn: parent
-
-                                width: 26
-                                height: 26
-
+                                width: 32
+                                height: 32
                                 source: parent.resolvedIcon
-
                                 visible: status === Image.Ready && source !== ""
-
                                 asynchronous: true
                                 cache: true
-                                smooth: true
-
+                                smooth: false
+                                mipmap: false
                                 fillMode: Image.PreserveAspectFit
-
-                                mipmap: true
                             }
 
-                            // Nerd Font fallback
-
-                            // Nerd Font fallback, picked from the app name.
-                            //
-                            // Was a hardcoded F007F, which is the 60%-battery
-                            // glyph rather than a bell. Icons.forApp already maps
-                            // senders to a sensible glyph, so a mail client gets an
-                            // envelope instead of every app getting the same mark.
                             Text {
                                 anchors.centerIn: parent
-
                                 visible: !notificationIcon.visible
-
                                 text: Core.Icons.forApp(Services.NotificationServer.appLabel(wrapper.modelData))
-
                                 font.family: Core.Theme.iconFont
-
-                                font.pixelSize: Core.Theme.iconSizeMedium
-
-                                color: Core.Theme.textMuted
-
+                                font.pixelSize: 22
+                                color: "#FFFF55"
                                 renderType: Text.NativeRendering
                             }
                         }
 
-                        // Text
-
                         ColumnLayout {
                             Layout.fillWidth: true
-
-                            spacing: 3
-
-                            Text {
-                                Layout.fillWidth: true
-
-                                text: Services.NotificationServer.appLabel(wrapper.modelData)
-
-                                font.family: Core.Theme.fontFamily
-
-                                font.pixelSize: Core.Theme.fontSizeSmall
-
-                                font.weight: Font.DemiBold
-
-                                color: Core.Theme.text
-
-                                elide: Text.ElideRight
-                            }
+                            spacing: 2
 
                             Text {
                                 Layout.fillWidth: true
-
                                 text: {
                                     const n = wrapper.modelData;
-
                                     try {
-                                        return n.summary || "";
+                                        if (n.summary)
+                                            return n.summary;
                                     } catch (e) {
-                                        return "";
                                     }
+                                    return Services.NotificationServer.appLabel(wrapper.modelData);
                                 }
-
-                                font.family: Core.Theme.fontFamily
-
-                                font.pixelSize: Core.Theme.fontSize
-
-                                font.weight: Font.Medium
-
-                                color: Core.Theme.text
-
+                                font.family: Core.Theme.fontPixel
+                                font.pixelSize: 16
+                                font.kerning: false
+                                color: wrapper.critical ? "#FF5555" : "#FFFF55"
                                 elide: Text.ElideRight
-
-                                maximumLineCount: 2
+                                renderType: Text.NativeRendering
                             }
 
                             Text {
                                 id: bodyText
-
                                 Layout.fillWidth: true
-
                                 visible: text !== ""
-
                                 text: {
                                     const n = wrapper.modelData;
-
+                                    let summary = "";
+                                    let body = "";
                                     try {
-                                        return n.body || "";
+                                        summary = n.summary || "";
                                     } catch (e) {
-                                        return "";
                                     }
+                                    try {
+                                        body = n.body || "";
+                                    } catch (e) {
+                                    }
+                                    if (body)
+                                        return body;
+                                    if (summary)
+                                        return Services.NotificationServer.appLabel(wrapper.modelData);
+                                    return "";
                                 }
-
-                                font.family: Core.Theme.fontFamily
-
-                                font.pixelSize: Core.Theme.fontSizeSmall
-
-                                color: Core.Theme.textMuted
-
+                                font.family: Core.Theme.fontPixel
+                                font.pixelSize: 16
+                                font.kerning: false
+                                color: "#FFFFFF"
                                 wrapMode: Text.Wrap
-
                                 maximumLineCount: 3
-
                                 elide: Text.ElideRight
-
-                                // The server advertises body-markup and
-                                // body-hyperlinks, so senders are entitled to send
-                                // <b>, <i> and <a href>. StyledText renders exactly
-                                // the subset the spec allows; RichText would also
-                                // accept remote <img> and is not worth the exposure.
                                 textFormat: Text.StyledText
-
-                                linkColor: Core.Theme.accent
-
+                                linkColor: "#55FFFF"
+                                renderType: Text.NativeRendering
                                 onLinkActivated: function (link) {
                                     Quickshell.execDetached(["xdg-open", link]);
                                 }
                             }
 
-                            // Named actions and the reply field.
-                            //
-                            // Previously the toast rendered none of these and only
-                            // the "default" action was reachable, by clicking the
-                            // card. Anything else had to be found in the centre.
                             Components.NotificationActions {
                                 Layout.fillWidth: true
-
                                 Layout.topMargin: visible ? 4 : 0
-
                                 notification: wrapper.modelData
-                            }
-                        }
-
-                        // Close
-
-                        Rectangle {
-                            Layout.alignment: Qt.AlignTop
-
-                            width: 28
-                            height: 28
-
-                            radius: 9
-
-                            color: closeMouse.containsMouse ? Core.Theme.surfaceHover : "transparent"
-
-                            Text {
-                                anchors.centerIn: parent
-
-                                text: "\udb80\udc6f"
-
-                                font.family: Core.Theme.iconFont
-
-                                font.pixelSize: Core.Theme.iconSizeSmall
-
-                                color: Core.Theme.textMuted
-                            }
-
-                            MouseArea {
-                                id: closeMouse
-
-                                anchors.fill: parent
-
-                                hoverEnabled: true
-
-                                onClicked: {
-                                    wrapper.hide();
-                                }
                             }
                         }
                     }

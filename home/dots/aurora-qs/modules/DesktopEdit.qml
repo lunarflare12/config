@@ -19,14 +19,19 @@ Item {
         activeFill: Qt.alpha(Core.Theme.accent, 0.28)
     }
 
-    Text {
+    Components.ThemeIcon {
         anchors.centerIn: parent
-        text: Core.Icons.pencil
-        font.family: Core.Theme.iconFont
-        font.pixelSize: Core.Theme.iconSize
-        font.hintingPreference: Font.PreferNoHinting
-        renderType: Text.QtRendering
-        color: root.on ? Core.Theme.accent : Core.Theme.foreground
+        name: "edit"
+        opacity: root.on ? 1 : 0.92
+        scale: root.on ? 1.08 : 1
+
+        Behavior on scale {
+            NumberAnimation {
+                duration: 160
+                easing.type: Easing.OutBack
+                easing.overshoot: 1.6
+            }
+        }
     }
 
     MouseArea {

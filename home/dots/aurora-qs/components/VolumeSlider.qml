@@ -81,8 +81,8 @@ Item {
                 enabled: !root.dragging
 
                 NumberAnimation {
-                    duration: Core.Theme.durBase
-                    easing.type: Easing.OutQuint
+                    duration: 220
+                    easing.type: Easing.OutCubic
                 }
             }
         }

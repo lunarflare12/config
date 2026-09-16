@@ -548,7 +548,7 @@ def collect() -> dict:
         merged_sz = merged_nvidia_bytes(nvidia)
         cache_mtime = max(nvidia_mtime, replay_mtime)
         done = replay_complete(foz, replay)
-        # Dota/OW load NVIDIA's disk cache. A 1% fossilize run leaves a few
+        # Games load NVIDIA's disk cache. A 1% fossilize run leaves a few
         # hundred MiB and is not a cache. Large FOZ needs a real GLCache.
         nvidia_min = 32 * 1024 * 1024
         if foz_sz >= 256 * 1024 * 1024:
@@ -791,7 +791,7 @@ def nvidia_compile_env(shader: Path) -> dict[str, str]:
     env = {
         "__GL_SHADER_DISK_CACHE": "1",
         "__GL_SHADER_DISK_CACHE_SKIP_CLEANUP": "1",
-        "__GL_SHADER_DISK_CACHE_SIZE": "8589934592",
+        "__GL_SHADER_DISK_CACHE_SIZE": "34359738368",
         "__GL_SHADER_DISK_CACHE_PATH": nv_cache,
         "DISABLE_LAYER_MESA_DEVICE_SELECT": "1",
     }

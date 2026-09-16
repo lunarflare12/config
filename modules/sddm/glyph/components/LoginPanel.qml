@@ -7,7 +7,7 @@ Item {
     width: 400
     height: 400
 
-    property color accentColor: "#D71921"
+    property color accentColor: "#0A84FF"
     property color textColor: "white"
     property string fontName: "serif" 
     property bool isLoggingIn: false
@@ -88,7 +88,7 @@ Item {
         id: card
         width: 340; height: 300
         x: (root.width - width) / 2; y: (root.height - height) / 2
-        color: Qt.rgba(0, 0, 0, 0.55); radius: 32; border.color: Qt.rgba(255, 255, 255, 0.3); border.width: 1
+        color: Qt.rgba(0, 0, 0, 0.0); radius: 22; border.color: Qt.rgba(255, 255, 255, 0.0); border.width: 0
 
         ColumnLayout {
             anchors.centerIn: parent; spacing: 20
@@ -135,7 +135,7 @@ Item {
                             }
                         }
                     }
-                    Text { text: root.activeUserName.toUpperCase(); color: root.textColor; font.pixelSize: 20; font.family: root.fontName }
+                    Text { text: root.activeUserName; color: root.textColor; font.pixelSize: 18; font.family: root.fontName }
                     Text { text: "▾"; color: root.textColor; font.pixelSize: 14; opacity: 0.5 }
                 }
             }
@@ -146,10 +146,10 @@ Item {
                     id: passwordField; anchors.fill: parent; echoMode: TextInput.Password; color: root.textColor
                     font.pixelSize: 18; font.family: root.fontName; horizontalAlignment: TextInput.AlignHCenter
                     selectionColor: root.accentColor; enabled: !root.isLoggingIn
-                    background: Rectangle { color: Qt.rgba(255, 255, 255, 0.05); radius: 14; border.color: passwordField.activeFocus ? root.accentColor : Qt.rgba(255, 255, 255, 0.2); border.width: 1 }
+                    background: Rectangle { color: Qt.rgba(255, 255, 255, 0.18); radius: 18; border.color: passwordField.activeFocus ? root.accentColor : Qt.rgba(255, 255, 255, 0.28); border.width: 1 }
                     onAccepted: root.handleLogin()
                 }
-                Text { text: "ENTER PASSWORD"; font.family: root.fontName; font.pixelSize: 16; color: Qt.rgba(255, 255, 255, 0.5); anchors.centerIn: parent; visible: passwordField.text === ""; z: 5 }
+                Text { text: "Enter Password"; font.family: root.fontName; font.pixelSize: 14; color: Qt.rgba(255, 255, 255, 0.5); anchors.centerIn: parent; visible: passwordField.text === ""; z: 5 }
             }
 
             RowLayout {

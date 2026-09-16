@@ -6,10 +6,10 @@
   ...
 }:
 
-# Writable NVIDIA module. modules/nvidia.nix is root-owned and unused.
+let
+  env = import ../lib/desktop-env.nix;
+in
 {
-  nixpkgs.config.allowUnfree = true;
-
   hardware.graphics = {
     enable = true;
     enable32Bit = true;
@@ -21,7 +21,8 @@
 
   hardware.nvidia = {
     modesetting.enable = true;
-    powerManagement.enable = true;
+    # irq/latency: persistence + runtime PM fights the desktop compositor.
+    powerManagement.enable = false;
     open = true;
     nvidiaPersistenced = true;
     package = config.boot.kernelPackages.nvidiaPackages.latest;
@@ -37,19 +38,7 @@
     options nvidia NVreg_RegistryDwords="RMUseSwI2c=0x01;RMI2cSpeed=100"
   '';
 
-  environment.sessionVariables = {
-    AQ_DRM_DEVICES = "/dev/dri/nvidia-card";
-    LIBVA_DRIVER_NAME = "nvidia";
-    NVD_BACKEND = "direct";
-    GBM_BACKEND = "nvidia-drm";
-    __GLX_VENDOR_LIBRARY_NAME = "nvidia";
-    __GL_GSYNC_ALLOWED = "0";
-    __GL_VRR_ALLOWED = "0";
-    __GL_SYNC_TO_VBLANK = "0";
-    __GL_SHADER_DISK_CACHE = "1";
-    __GL_SHADER_DISK_CACHE_SKIP_CLEANUP = "1";
-    __GL_SHADER_DISK_CACHE_SIZE = "8589934592";
-  };
+  environment.sessionVariables = env.nvidiaGl;
 
   programs.gamescope = {
     enable = true;
@@ -83,6 +72,5 @@
   environment.systemPackages = with pkgs; [
     nvtopPackages.nvidia
     mangohud
-    gamescope
   ];
 }

@@ -206,11 +206,13 @@ in
     Service = {
       ExecStart = "${pkgs.awww}/bin/awww-daemon";
       ExecStartPost = "${pkgs.writeShellScript "awww-ready" ''
-        export PATH="${lib.makeBinPath [
-          pkgs.awww
-          pkgs.coreutils
-          pkgs.findutils
-        ]}:$PATH"
+        export PATH="${
+          lib.makeBinPath [
+            pkgs.awww
+            pkgs.coreutils
+            pkgs.findutils
+          ]
+        }:$PATH"
         for i in $(seq 1 50); do
           ${pkgs.awww}/bin/awww query >/dev/null 2>&1 && break
           sleep 0.1
@@ -222,7 +224,7 @@ in
     Install.WantedBy = [ "graphical-session.target" ];
   };
 
-  home.activation.serashellState = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+  home.activation.auroraState = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     mkdir -p "${config.xdg.configHome}/fuzzel"
     mkdir -p "${auroraQsDir}/assets"
     ln -sfn ${emojiDatabase} "${auroraQsDir}/assets/emoji.json"
@@ -245,7 +247,6 @@ in
   ]
   ++ (with pkgs; [
     quickshell
-    kitty
     cava
     wtype
     satty

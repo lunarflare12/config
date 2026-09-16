@@ -83,31 +83,9 @@ in
     "d /var/lib/systemd/coredump 0755 root root 1d"
   ];
 
+  # zram + vm.* live in memory.nix
+
   boot.kernelParams = [
     "nowatchdog"
   ];
-
-  # Compress RAM instead of dumping Proton spikes onto the 16G disk swap.
-  # Disk swap stays as overflow; zram has higher priority.
-  zramSwap = {
-    enable = true;
-    algorithm = "zstd";
-    memoryPercent = 40;
-    priority = 100;
-  };
-
-  boot.kernel.sysctl = {
-    "vm.swappiness" = 30;
-    "vm.vfs_cache_pressure" = 50;
-    "vm.page-cluster" = 0;
-    # Default dirty_ratio=20 is ~6G on 32G RAM. A cheap NVMe then stalls
-    # the compositor for seconds while jbd2 flushes Steam overlay writes.
-    "vm.dirty_background_bytes" = 67108864;
-    "vm.dirty_bytes" = 268435456;
-    "vm.dirty_expire_centisecs" = 1500;
-    "vm.dirty_writeback_centisecs" = 100;
-    # Proton/Wine map a lot of address space; the default 65530 throttles it.
-    "vm.max_map_count" = 1048576;
-    "kernel.split_lock_mitigate" = 0;
-  };
 }

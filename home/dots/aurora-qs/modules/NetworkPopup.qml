@@ -44,7 +44,7 @@ Components.PopupSurface {
 
             Components.ListRow {
                 width: parent.width
-                iconName: "ethernet"
+                themeIcon: Core.Icons.networkTheme(popup.svc.ethConnected)
                 title: popup.svc.ethConnection !== "" ? popup.svc.ethConnection : "Wired"
                 subtitle: {
                     const mac = popup.svc.ethMac;

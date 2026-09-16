@@ -22,20 +22,45 @@ Item {
         const __ = Hyprland.focusedWorkspace ? Hyprland.focusedWorkspace.id : 0;
         return Core.Session.activeWorkspaceOnMonitor(root.monitorName);
     }
+    readonly property var spaceLocals: {
+        const _ = (Hyprland.toplevels && Hyprland.toplevels.values) ? Hyprland.toplevels.values.length : 0;
+        const __ = (Hyprland.workspaces && Hyprland.workspaces.values) ? Hyprland.workspaces.values.length : 0;
+        const ___ = root.activeGlobal;
+        const ____ = Core.Session.spaceOrder;
+        const _____ = Core.Session.spaceRev;
+        const list = Core.Session.workspaceLocalsOnMonitor(root.monitorName);
+        return list.length ? list : [1];
+    }
     readonly property int activeLocal: {
         const id = root.activeGlobal;
         if (!(id >= 1))
             return 1;
         return ((id - 1) % root.count) + 1;
     }
-    readonly property real destX: (root.activeLocal - 1) * root.cell + (root.cell - root.pill) / 2
+    readonly property int activeIndex: {
+        const list = root.spaceLocals;
+        const id = root.activeLocal;
+        for (let i = 0; i < list.length; i++) {
+            if (list[i] === id)
+                return i;
+        }
+        return 0;
+    }
+    readonly property real destX: root.activeIndex * root.cell + (root.cell - root.pill) / 2
 
     property real pillX: 0
     property real pillW: 22
     property bool pillReady: false
 
-    implicitWidth: root.cell * root.count
+    implicitWidth: root.cell * Math.max(1, root.spaceLocals.length)
     implicitHeight: Core.Theme.moduleHeight
+
+    Behavior on implicitWidth {
+        NumberAnimation {
+            duration: 220
+            easing.type: Easing.OutCubic
+        }
+    }
 
     function flowTo(toX) {
         flowAnim.stop();
@@ -144,14 +169,13 @@ Item {
             const t = wins[i];
             const ipc = t.lastIpcObject || {};
             const cls = String(ipc.class || ipc.initialClass || "").toLowerCase();
-            const title = String(t.title || ipc.title || "").toLowerCase();
             if (cls.indexOf("crashmailer") !== -1 || cls.indexOf("steamwebhelper") !== -1)
                 continue;
             const size = ipc.size || [0, 0];
             let score = Number(size[0]) * Number(size[1]);
-            if (cls.indexOf("gamescope") !== -1 || cls.indexOf("steam_app_") !== -1 || cls.indexOf("overwatch") !== -1)
+            if (cls.indexOf("gamescope") !== -1 || cls.indexOf("steam_app_") !== -1)
                 score += 1000000000;
-            if (title.indexOf("overwatch") !== -1 || title.indexOf("paladin") !== -1 || title.indexOf("dota") !== -1)
+            if (cls.indexOf("minecraft") !== -1)
                 score += 1000000000;
             if (score > bestScore) {
                 bestScore = score;
@@ -169,17 +193,19 @@ Item {
         z: 0
 
         Repeater {
-            model: root.count
+            model: root.spaceLocals.length
 
             delegate: Item {
                 id: track
 
                 required property int index
 
-                readonly property int localWs: index + 1
+                readonly property int localWs: root.spaceLocals[track.index]
                 readonly property bool occupied: root.occupiedAt(track.localWs)
-                readonly property bool prevOccupied: root.occupiedAt(track.localWs - 1)
-                readonly property bool nextOccupied: root.occupiedAt(track.localWs + 1)
+                readonly property int prevLocal: track.index > 0 ? root.spaceLocals[track.index - 1] : 0
+                readonly property int nextLocal: track.index < root.spaceLocals.length - 1 ? root.spaceLocals[track.index + 1] : 0
+                readonly property bool prevOccupied: track.prevLocal === track.localWs - 1 && root.occupiedAt(track.prevLocal)
+                readonly property bool nextOccupied: track.nextLocal === track.localWs + 1 && root.occupiedAt(track.nextLocal)
 
                 width: root.cell
                 height: root.pill
@@ -215,14 +241,14 @@ Item {
         z: 2
 
         Repeater {
-            model: root.count
+            model: root.spaceLocals.length
 
             delegate: Item {
                 id: cell
 
                 required property int index
 
-                readonly property int localWs: index + 1
+                readonly property int localWs: root.spaceLocals[cell.index]
                 readonly property int workspace: root.base + cell.localWs
                 readonly property var windows: {
                     const _ = (Hyprland.toplevels && Hyprland.toplevels.values) ? Hyprland.toplevels.values.length : 0;
@@ -250,23 +276,28 @@ Item {
                     activeFill: "transparent"
                 }
 
-                Text {
+                Rectangle {
                     anchors.centerIn: parent
-                    text: cell.localWs === 10 ? "0" : String(cell.localWs)
-                    color: cell.focused ? Core.Theme.accentForeground : (cell.occupied ? Core.Theme.text : Core.Theme.textMuted)
-                    font.family: Core.Theme.fontFamily
-                    font.pixelSize: 11
-                    font.weight: cell.focused ? Font.DemiBold : Font.Medium
-                    renderType: Text.QtRendering
+                    width: 5
+                    height: 5
+                    radius: 2.5
+                    visible: !cell.occupied
+                    color: cell.focused ? Core.Theme.accentForeground : Core.Theme.textMuted
+                    scale: cell.focused ? 1.15 : 1
+
+                    Behavior on color {
+                        ColorAnimation {
+                            duration: 140
+                            easing.type: Easing.OutCubic
+                        }
+                    }
                 }
 
                 Image {
                     id: appIcon
-                    width: 10
-                    height: 10
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    anchors.top: parent.top
-                    anchors.topMargin: -2
+                    width: 14
+                    height: 14
+                    anchors.centerIn: parent
                     visible: cell.occupied && status === Image.Ready
                     asynchronous: true
                     cache: true
@@ -274,6 +305,26 @@ Item {
                     source: cell.iconSource
                     mipmap: true
                     smooth: true
+                    scale: cell.focused ? 1.08 : 1
+
+                    Behavior on scale {
+                        NumberAnimation {
+                            duration: 160
+                            easing.type: Easing.OutBack
+                            easing.overshoot: 1.6
+                        }
+                    }
+                }
+
+                Text {
+                    anchors.centerIn: parent
+                    visible: cell.occupied && appIcon.status !== Image.Ready
+                    text: (cell.index + 1) === 10 ? "0" : String(cell.index + 1)
+                    color: cell.focused ? Core.Theme.accentForeground : Core.Theme.text
+                    font.family: Core.Theme.fontFamily
+                    font.pixelSize: 11
+                    font.weight: cell.focused ? Font.DemiBold : Font.Medium
+                    renderType: Text.QtRendering
                 }
 
                 MouseArea {

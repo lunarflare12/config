@@ -4,11 +4,10 @@
     ./nvidia-local.nix
     ./desktop.nix
     ./virt.nix
-    ./packages.nix
-    ./extra-packages.nix
+    ./software.nix
     ./obs.nix
     ./performance.nix
-    ./io-latency.nix
+    ./memory.nix
     ./home-manager.nix
   ];
 }

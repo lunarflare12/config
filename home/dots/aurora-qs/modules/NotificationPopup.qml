@@ -228,103 +228,64 @@ Components.PopupSurface {
                         }
                     }
 
-                    delegate: Rectangle {
+                    delegate: Item {
                         id: noteRow
 
                         required property var modelData
 
                         width: list.width
-
-                        // The icon is a fixed 32 and can outrun a one-line body, so
-                        // the row has to be tall enough for whichever is bigger.
-                        implicitHeight: Math.max(noteLayout.implicitHeight, iconBox.height) + 20
+                        implicitHeight: Math.max(noteLayout.implicitHeight, 40) + 18
                         height: implicitHeight
 
-                        radius: Core.Theme.radiusRow
-
-                        color: "transparent"
-
-                        Components.Tactile {
+                        Components.MinecraftPanel {
                             anchors.fill: parent
-                            radius: Core.Theme.radiusRow
-                            hovered: noteMouse.containsMouse
-                            pressed: noteMouse.pressed
-                            hoverScale: 1.02
-                            pressScale: 0.97
+                            anchors.leftMargin: 6
+                            anchors.rightMargin: 6
+                            anchors.topMargin: 3
+                            anchors.bottomMargin: 3
+                            critical: popup.isCritical(noteRow.modelData)
                         }
 
-                        // Urgency stripe
-                        Rectangle {
-                            anchors.left: parent.left
-                            anchors.top: parent.top
-                            anchors.bottom: parent.bottom
-                            anchors.margins: 6
-
-                            width: 3
-
-                            radius: 2
-
-                            color: popup.isCritical(noteRow.modelData) ? Core.Theme.danger : Core.Theme.accent
-
-                            opacity: popup.isCritical(noteRow.modelData) ? 1.0 : 0.55
-                        }
-
-                        // Application icon or attached image.
-                        //
-                        // The centre used to render neither. Every avatar, album
-                        // cover and app icon the sender went to the trouble of
-                        // attaching was resolved by the toast and then thrown away
-                        // here, which is why history read as an undifferentiated
-                        // wall of text.
-                        Rectangle {
+                        Item {
                             id: iconBox
-
                             anchors.left: parent.left
-                            anchors.top: parent.top
-
+                            anchors.verticalCenter: parent.verticalCenter
                             anchors.leftMargin: 16
-                            anchors.topMargin: 10
+                            width: 40
+                            height: 40
 
-                            width: 32
-                            height: 32
-
-                            radius: 10
-
-                            color: Core.Theme.surfaceGlass
+                            Image {
+                                anchors.fill: parent
+                                source: "file://" + Quickshell.shellDir + "/assets/minecraft/slot.png"
+                                smooth: false
+                                antialiasing: false
+                                fillMode: Image.Stretch
+                            }
 
                             readonly property string resolvedIcon: Services.NotificationServer.iconFor(noteRow.modelData)
 
                             Image {
                                 id: noteIcon
-
                                 anchors.centerIn: parent
-
-                                width: 22
-                                height: 22
-
+                                width: 32
+                                height: 32
                                 source: iconBox.resolvedIcon
-
                                 visible: iconBox.resolvedIcon !== "" && status === Image.Ready
-
                                 asynchronous: true
                                 cache: true
-                                smooth: true
-                                mipmap: true
-
+                                smooth: false
+                                mipmap: false
                                 fillMode: Image.PreserveAspectFit
                             }
 
                             Text {
                                 anchors.centerIn: parent
-
                                 visible: !noteIcon.visible
-
                                 text: Core.Icons.forApp(popup.appLabel(noteRow.modelData))
-
                                 font.family: Core.Theme.iconFont
-                                font.pixelSize: Core.Theme.iconSizeSmall
-
-                                color: Core.Theme.foregroundFaint
+                                font.pixelSize: 22
+                                color: "#FFFF55"
+                                renderType: Text.NativeRendering
                             }
                         }
 
@@ -333,118 +294,80 @@ Components.PopupSurface {
 
                             anchors.left: iconBox.right
                             anchors.right: parent.right
-                            anchors.top: parent.top
-
+                            anchors.verticalCenter: parent.verticalCenter
                             anchors.leftMargin: 10
                             anchors.rightMargin: 34
-                            anchors.topMargin: 10
 
-                            spacing: 3
+                            spacing: 2
 
-                            // App name, with how long ago it arrived.
                             Item {
                                 width: parent.width
-
                                 height: appText.implicitHeight
 
                                 Text {
                                     id: appText
-
                                     anchors.left: parent.left
                                     anchors.right: ageText.left
                                     anchors.rightMargin: 6
-
-                                    text: popup.appLabel(noteRow.modelData).toUpperCase()
-
+                                    text: popup.appLabel(noteRow.modelData)
                                     elide: Text.ElideRight
-
-                                    font.family: Core.Theme.fontFamily
-                                    font.pixelSize: Core.Theme.fontSizeSmall
-                                    font.letterSpacing: 0.8
-
-                                    color: Core.Theme.foregroundFaint
+                                    font.family: Core.Theme.fontPixel
+                                    font.pixelSize: 14
+                                    font.kerning: false
+                                    color: "#AAAAAA"
+                                    renderType: Text.NativeRendering
                                 }
 
-                                // The notification spec has no timestamp, so this
-                                // comes from the arrival time the service records.
                                 Text {
                                     id: ageText
-
                                     anchors.right: parent.right
                                     anchors.baseline: appText.baseline
-
-                                    // Reading ageTick is what makes this binding
-                                    // re-evaluate as the label goes stale.
                                     text: {
                                         const tick = Services.NotificationServer.ageTick;
-
                                         return Services.NotificationServer.ageText(noteRow.modelData);
                                     }
-
-                                    font.family: Core.Theme.fontMono
-                                    font.pixelSize: Core.Theme.fontSizeSmall
-
-                                    color: Core.Theme.foregroundFaint
+                                    font.family: Core.Theme.fontPixel
+                                    font.pixelSize: 14
+                                    font.kerning: false
+                                    color: "#555555"
+                                    renderType: Text.NativeRendering
                                 }
                             }
 
                             Text {
                                 width: parent.width
-
                                 text: noteRow.modelData.summary ? noteRow.modelData.summary : ""
-
                                 visible: text !== ""
-
                                 elide: Text.ElideRight
-
-                                font.family: Core.Theme.fontFamily
-                                font.pixelSize: Core.Theme.fontSize
-                                font.weight: Font.DemiBold
-
-                                color: Core.Theme.foreground
+                                font.family: Core.Theme.fontPixel
+                                font.pixelSize: 16
+                                font.kerning: false
+                                color: popup.isCritical(noteRow.modelData) ? "#FF5555" : "#FFFF55"
+                                renderType: Text.NativeRendering
                             }
 
                             Text {
                                 width: parent.width
-
                                 text: noteRow.modelData.body ? noteRow.modelData.body : ""
-
                                 visible: text !== ""
-
                                 wrapMode: Text.Wrap
                                 maximumLineCount: 3
                                 elide: Text.ElideRight
-
-                                // The server advertises body-markup and
-                                // body-hyperlinks, so senders may send <b> and
-                                // <a href>. This was PlainText while the toast left
-                                // textFormat at its default, so the same
-                                // notification rendered differently in the two
-                                // surfaces. Both are StyledText now.
                                 textFormat: Text.StyledText
-
-                                linkColor: Core.Theme.accent
-
+                                linkColor: "#55FFFF"
                                 onLinkActivated: function (link) {
                                     Quickshell.execDetached(["xdg-open", link]);
                                 }
-
-                                font.family: Core.Theme.fontFamily
-                                font.pixelSize: Core.Theme.fontSizeSmall
-
-                                color: Core.Theme.foregroundMuted
+                                font.family: Core.Theme.fontPixel
+                                font.pixelSize: 16
+                                font.kerning: false
+                                color: "#FFFFFF"
+                                renderType: Text.NativeRendering
                             }
 
-                            // Named actions, action icons and the reply field.
-                            //
-                            // Shared with the toast overlay. Replaces a local chip
-                            // implementation that rendered action text only, never
-                            // action icons, and had no reply field at all.
                             Components.NotificationActions {
                                 width: parent.width
-
                                 chipHeight: 22
-
                                 notification: noteRow.modelData
                             }
                         }

@@ -1,12 +1,17 @@
-{ config, pkgs, params, ... }:
+{
+  config,
+  pkgs,
+  params,
+  ...
+}:
 
 {
   home.stateVersion = params.stateVersion;
 
   home.pointerCursor = {
     enable = true;
-    name = "breeze_cursors";
-    package = pkgs.kdePackages.breeze;
+    name = "macOS";
+    package = pkgs.apple-cursor;
     size = params.cursorSize;
     gtk.enable = true;
     x11.enable = true;
@@ -39,7 +44,7 @@
     ./theme.nix
     ./shell.nix
     ./apps.nix
-    ./serashell.nix
+    ./quickshell.nix
     ./obs.nix
   ];
 }

@@ -77,6 +77,114 @@ Scope {
         }
     }
 
+    IpcHandler {
+        target: "launcher"
+
+        function toggle(): void {
+            Core.PopupManager.toggle("launcher");
+        }
+
+        function open(): void {
+            Core.PopupManager.open("launcher");
+        }
+
+        function close(): void {
+            Core.PopupManager.close();
+        }
+    }
+
+    IpcHandler {
+        target: "wallpaper"
+
+        function toggle(): void {
+            Core.PopupManager.toggle("wallpaper");
+        }
+
+        function open(): void {
+            Core.PopupManager.open("wallpaper");
+        }
+
+        function close(): void {
+            Core.PopupManager.close();
+        }
+    }
+
+    IpcHandler {
+        target: "theme"
+
+        function toggle(): void {
+            Core.PopupManager.toggle("theme");
+        }
+
+        function open(): void {
+            Core.PopupManager.open("theme");
+        }
+
+        function close(): void {
+            Core.PopupManager.close();
+        }
+    }
+
+    IpcHandler {
+        target: "clipboard"
+
+        function toggle(): void {
+            Core.PopupManager.toggle("clipboard");
+        }
+
+        function open(): void {
+            Core.PopupManager.open("clipboard");
+        }
+
+        function close(): void {
+            Core.PopupManager.close();
+        }
+    }
+
+    IpcHandler {
+        target: "emoji"
+
+        function toggle(): void {
+            Core.PopupManager.toggle("emoji");
+        }
+
+        function open(): void {
+            Core.PopupManager.open("emoji");
+        }
+
+        function close(): void {
+            Core.PopupManager.close();
+        }
+    }
+
+    IpcHandler {
+        target: "power"
+
+        function toggle(): void {
+            Core.PopupManager.toggle("power");
+        }
+
+        function open(): void {
+            Core.PopupManager.open("power");
+        }
+
+        function close(): void {
+            Core.PopupManager.close();
+        }
+    }
+
+    IpcHandler {
+        target: "brightness"
+
+        function up(): void {
+            Services.BrightnessService.step(true);
+        }
+
+        function down(): void {
+            Services.BrightnessService.step(false);
+        }
+    }
+
     Variants {
         model: Quickshell.screens
 
@@ -87,6 +195,12 @@ Scope {
         model: Quickshell.screens
 
         Bar {}
+    }
+
+    Variants {
+        model: Quickshell.screens
+
+        Dock {}
     }
 
     Variants {
@@ -107,7 +221,11 @@ Scope {
         DesktopOverlay {}
     }
 
-    LauncherOverlay {}
+    Variants {
+        model: Quickshell.screens
+
+        LauncherOverlay {}
+    }
     NetworkPopup {}
     CpuPopup {}
     MemoryPopup {}

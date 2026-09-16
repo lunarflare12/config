@@ -16,6 +16,7 @@ Item {
     property bool dnd: false
     property bool hoverKeep: false
     property string pendingHoverCloseId: ""
+    property real launchpadIntro: 0
 
     Timer {
         id: hoverCloseTimer
@@ -55,8 +56,8 @@ Item {
     function open(id, center, bottom, fromItem) {
         hoverCloseTimer.stop();
         root.pendingHoverCloseId = "";
-        root.anchorCenter = center;
-        root.anchorBottom = bottom;
+        root.anchorCenter = center ?? 0;
+        root.anchorBottom = bottom ?? 0;
         root.anchorScreen = root.resolveScreen(fromItem);
         root.current = id;
     }
@@ -76,6 +77,15 @@ Item {
         root.contextMenuOpen = false;
         root.hoverKeep = false;
         root.current = "";
+    }
+
+    function dismissAll() {
+        if (root.contextMenuOpen) {
+            root.contextMenuOpen = false;
+            return;
+        }
+        if (root.current !== "")
+            root.close();
     }
 
     function requestHoverClose(id) {

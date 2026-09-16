@@ -53,13 +53,17 @@ PanelWindow {
     exclusiveZone: 0
 
     onOpenChanged: {
-        if (root.open)
+        if (root.open) {
             root.svc.check();
+            Qt.callLater(function () {
+                shaderEsc.forceActiveFocus();
+            });
+        }
     }
 
     WlrLayershell.namespace: "aurora-shaders"
     WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: root.open ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+    WlrLayershell.keyboardFocus: root.open ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
     mask: root.open ? null : emptyMask
 
@@ -76,9 +80,10 @@ PanelWindow {
     }
 
     Item {
+        id: shaderEsc
         anchors.fill: parent
         focus: root.open
-        Keys.onEscapePressed: Core.PopupManager.close()
+        Keys.onEscapePressed: Core.PopupManager.dismissAll()
     }
 
     Rectangle {

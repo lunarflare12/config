@@ -1,12 +1,40 @@
-{ lib, pkgs, params, inputs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  params,
+  inputs,
+  ...
+}:
 
 let
-  fileManagers = {
-    thunar = pkgs.thunar;
+  scripts = "${config.home.homeDirectory}/.config/scripts";
+  zenBrowser = inputs.zen-browser.packages.${pkgs.stdenv.hostPlatform.system}.default;
+  chromeMime = [
+    "application/pdf"
+    "text/html"
+    "text/xml"
+    "application/xhtml+xml"
+    "x-scheme-handler/http"
+    "x-scheme-handler/https"
+  ];
+  chromeEntry = {
+    name = "Google Chrome";
+    genericName = "Web Browser";
+    exec = "${scripts}/google-chrome.sh %U";
+    icon = "google-chrome";
+    categories = [
+      "Network"
+      "WebBrowser"
+    ];
+    mimeType = chromeMime;
+    startupNotify = true;
   };
-
-  zenBrowser =
-    inputs.zen-browser.packages.${pkgs.stdenv.hostPlatform.system}.default;
+  ideMime = [
+    "application/x-code-workspace"
+    "text/plain"
+    "inode/directory"
+  ];
 in
 {
   programs.firefox = lib.mkIf (params.browser == "firefox") {
@@ -43,38 +71,52 @@ in
     };
   };
 
+  home.sessionPath = [ scripts ];
+
   home.packages = [
-    (fileManagers.${params.fileManager} or pkgs.${params.fileManager})
+    (pkgs.${params.fileManager} or pkgs.thunar)
     zenBrowser
     pkgs.xrandr
+    (pkgs.writeShellScriptBin "google-chrome-stable" ''
+      exec ${scripts}/google-chrome.sh "$@"
+    '')
+    (pkgs.writeShellScriptBin "google-chrome" ''
+      exec ${scripts}/google-chrome.sh "$@"
+    '')
+    (pkgs.writeShellScriptBin "steam" ''
+      exec ${scripts}/steam.sh "$@"
+    '')
   ]
-  ++ lib.optional (params.browser != "firefox") pkgs.${params.browser};
+  ++ lib.optional (
+    params.browser != "firefox" && params.browser != "google-chrome"
+  ) pkgs.${params.browser};
 
-  # Electron/Chrome ignore GTK unless they are launched with dark flags.
   xdg.desktopEntries = {
-    google-chrome = {
-      name = "Google Chrome";
-      genericName = "Web Browser";
-      exec = "${pkgs.google-chrome}/bin/google-chrome-stable --force-dark-mode --enable-features=WebUIDarkMode %U";
-      icon = "google-chrome";
-      categories = [ "Network" "WebBrowser" ];
+    google-chrome = chromeEntry;
+    "com.google.Chrome" = chromeEntry;
+    steam = {
+      name = "Steam";
+      exec = "${scripts}/steam.sh %U";
+      icon = "steam";
+      categories = [ "Game" ];
       mimeType = [
-        "application/pdf"
-        "text/html"
-        "text/xml"
-        "application/xhtml+xml"
-        "x-scheme-handler/http"
-        "x-scheme-handler/https"
+        "x-scheme-handler/steam"
+        "x-scheme-handler/steamlink"
       ];
-      startupNotify = true;
+      terminal = false;
     };
     cursor = {
       name = "Cursor";
       genericName = "Text Editor";
       exec = "${pkgs.code-cursor}/bin/cursor --force-dark-mode %F";
       icon = "cursor";
-      categories = [ "Utility" "TextEditor" "Development" "IDE" ];
-      mimeType = [ "application/x-code-workspace" "text/plain" "inode/directory" ];
+      categories = [
+        "Utility"
+        "TextEditor"
+        "Development"
+        "IDE"
+      ];
+      mimeType = ideMime;
       startupNotify = true;
     };
     code = {
@@ -82,8 +124,13 @@ in
       genericName = "Text Editor";
       exec = "${pkgs.vscode}/bin/code --force-dark-mode %F";
       icon = "vscode";
-      categories = [ "Utility" "TextEditor" "Development" "IDE" ];
-      mimeType = [ "application/x-code-workspace" "text/plain" "inode/directory" ];
+      categories = [
+        "Utility"
+        "TextEditor"
+        "Development"
+        "IDE"
+      ];
+      mimeType = ideMime;
       startupNotify = true;
     };
     obsidian = {
@@ -93,6 +140,22 @@ in
       categories = [ "Office" ];
       mimeType = [ "x-scheme-handler/obsidian" ];
       startupNotify = true;
+    };
+    idea-ultimate = {
+      name = "IntelliJ IDEA Ultimate";
+      genericName = "Java IDE";
+      exec = "idea-ultimate %F";
+      icon = "${pkgs.jetbrains.idea}/idea/bin/idea.svg";
+      categories = [
+        "Development"
+        "IDE"
+      ];
+      mimeType = [
+        "text/plain"
+        "inode/directory"
+      ];
+      startupNotify = true;
+      startupWMClass = "jetbrains-idea";
     };
   };
 

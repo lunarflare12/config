@@ -5,7 +5,7 @@ import Quickshell
 import "../core" as Core
 import "../services" as Services
 
-// Three desktop cards on the shared grid.
+// Processor and memory cards on the shared grid.
 Item {
     id: root
 
@@ -36,17 +36,6 @@ Item {
     Component.onDestruction: {
         if (root.counting && Core.Session.desktopMetricsCount > 0)
             Core.Session.desktopMetricsCount -= 1;
-    }
-
-    DesktopWidget {
-        host: root.host
-        widgetId: "network"
-        onDesktop: root.onDesktop
-        spanW: 3
-        spanH: 3
-        defaultCol: Math.max(0, (root.host ? root.host.cols : 12) - root.span * 3)
-        defaultRow: Math.max(0, (root.host ? root.host.rows : 8) - 3)
-        contentComponent: networkContent
     }
 
     DesktopWidget {
@@ -197,76 +186,6 @@ Item {
                 label: "/home"
                 usedBytes: Services.SystemMonitor.homeDiskUsedBytes
                 totalBytes: Services.SystemMonitor.homeDiskTotalBytes
-            }
-        }
-    }
-
-    Component {
-        id: networkContent
-
-        ColumnLayout {
-            anchors.fill: parent
-            spacing: Core.Theme.spacing
-
-            PopupHeader {
-                Layout.fillWidth: true
-                Layout.preferredHeight: implicitHeight
-                title: "Ethernet"
-                subtitle: Services.NetworkService.linkLabel
-                showToggle: false
-                actions: [
-                    {
-                        icon: Core.Icons.gear,
-                        action: function () {
-                            Services.NetworkService.openEditor();
-                        }
-                    }
-                ]
-            }
-
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 1
-                color: Core.Theme.separator
-            }
-
-            ListRow {
-                Layout.fillWidth: true
-                Layout.preferredHeight: implicitHeight
-                iconName: "ethernet"
-                title: Services.NetworkService.ethConnection !== "" ? Services.NetworkService.ethConnection : "Wired"
-                subtitle: {
-                    const svc = Services.NetworkService;
-                    if (svc.ethConnected) {
-                        const parts = ["Connected"];
-                        if (svc.ethIp !== "")
-                            parts.push(svc.ethIp);
-                        if (svc.ethDevice !== "")
-                            parts.push(svc.ethDevice);
-                        return parts.join(" · ");
-                    }
-                    if (svc.ethState === "unavailable")
-                        return "Cable unplugged";
-                    return svc.ethAvailable ? "Disconnected" : "No ethernet adapter";
-                }
-                trailingName: Services.NetworkService.ethConnected ? "check" : ""
-                trailing: ""
-                trailingColor: Core.Theme.success
-                active: Services.NetworkService.ethConnected
-                dimmed: !Services.NetworkService.ethAvailable
-                onActivated: Services.NetworkService.toggleEthernet()
-            }
-
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 1
-                color: Core.Theme.separator
-            }
-
-            NetworkBoard {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                Layout.minimumHeight: 56
             }
         }
     }

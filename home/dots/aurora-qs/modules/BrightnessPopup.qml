@@ -15,8 +15,6 @@ Components.PopupSurface {
 
     readonly property var svc: Services.BrightnessService
 
-    onDidOpen: popup.svc.select(popup.svc.selectedName)
-
     contentComponent: Component {
         Column {
             id: body
@@ -25,7 +23,7 @@ Components.PopupSurface {
             Components.PopupHeader {
                 width: parent.width
                 title: "Brightness"
-                subtitle: popup.svc.selectedLabel
+                subtitle: popup.svc.displayList.length > 1 ? "Choose a display" : popup.svc.selectedLabel
                 showToggle: false
             }
 
@@ -53,19 +51,9 @@ Components.PopupSurface {
                     readonly property bool monDdc: String(card.modelData.backend) === "ddc"
 
                     width: body.width
-                    height: 88
+                    height: 96
                     radius: Core.Theme.radiusRow
-                    color: "transparent"
-
-                    Components.Tactile {
-                        anchors.fill: parent
-                        radius: Core.Theme.radiusRow
-                        hovered: monMouse.containsMouse
-                        pressed: monMouse.pressed
-                        active: card.monActive
-                        hoverScale: 1.02
-                        pressScale: 0.96
-                    }
+                    color: card.monActive ? Qt.alpha(Core.Theme.accent, 0.12) : Core.Theme.surfaceGlass
 
                     Column {
                         anchors.fill: parent
@@ -76,15 +64,11 @@ Components.PopupSurface {
                             width: parent.width
                             height: 20
 
-                            Text {
+                            Components.ThemeIcon {
                                 id: sun
-
                                 anchors.left: parent.left
                                 anchors.verticalCenter: parent.verticalCenter
-                                text: Core.Icons.forBrightness(card.monPercent / 100)
-                                font.family: Core.Theme.iconFont
-                                font.pixelSize: Core.Theme.iconSize
-                                color: card.monActive ? Core.Theme.accent : Core.Theme.foreground
+                                name: Core.Icons.brightnessTheme(card.monPercent / 100)
                             }
 
                             Text {
@@ -122,6 +106,7 @@ Components.PopupSurface {
                             fillColor: Core.Theme.accent
                             onMoved: function (v) {
                                 popup.svc.dragging = true;
+                                popup.svc.select(card.monName);
                                 popup.svc.setDisplayPercent(card.monName, v * 100, false);
                             }
                             onReleased: function (v) {
@@ -131,11 +116,10 @@ Components.PopupSurface {
                     }
 
                     MouseArea {
-                        id: monMouse
                         anchors.left: parent.left
                         anchors.right: parent.right
                         anchors.top: parent.top
-                        height: 36
+                        height: 40
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: popup.svc.select(card.monName)

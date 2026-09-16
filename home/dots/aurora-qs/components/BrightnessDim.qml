@@ -25,10 +25,25 @@ PanelWindow {
         bottom: true
     }
 
-    color: Qt.rgba(0, 0, 0, root.dim)
+    color: "transparent"
     exclusiveZone: 0
     exclusionMode: ExclusionMode.Ignore
-    visible: root.dim > 0.01 && !root.gameFullscreen
+    visible: !root.gameFullscreen && (root.dim > 0.001 || shade.opacity > 0.001)
+
+    Rectangle {
+        id: shade
+
+        anchors.fill: parent
+        color: "black"
+        opacity: root.dim
+
+        Behavior on opacity {
+            NumberAnimation {
+                duration: 220
+                easing.type: Easing.OutCubic
+            }
+        }
+    }
 
     WlrLayershell.namespace: "aurora-dim"
     WlrLayershell.layer: WlrLayer.Top

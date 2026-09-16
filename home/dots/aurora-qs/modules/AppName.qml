@@ -12,12 +12,12 @@ Item {
     implicitHeight: Core.Theme.moduleHeight
     clip: true
 
-    readonly property string nixosLogo: "file://" + Quickshell.shellDir + "/assets/nixos.svg"
+    readonly property string appleLogo: "file://" + Quickshell.shellDir + "/assets/apple.svg"
 
     readonly property string appTitle: {
         const t = Hyprland.activeToplevel;
         if (!t)
-            return "Desktop";
+            return "Finder";
         const ipc = t.lastIpcObject || {};
         const cls = String(ipc.class || ipc.initialClass || "");
         const entries = Services.AppsService.entries || [];
@@ -37,7 +37,7 @@ Item {
             return title;
         if (cls.length)
             return cls;
-        return "Desktop";
+        return "Finder";
     }
 
     Row {
@@ -47,9 +47,9 @@ Item {
 
         Image {
             anchors.verticalCenter: parent.verticalCenter
-            width: Core.Theme.iconSizeMedium
-            height: Core.Theme.iconSizeMedium
-            source: root.nixosLogo
+            width: 14
+            height: 14
+            source: root.appleLogo
             fillMode: Image.PreserveAspectFit
             smooth: true
             asynchronous: true
@@ -65,7 +65,7 @@ Item {
             color: Core.Theme.text
             font.family: Core.Theme.fontFamily
             font.pixelSize: Core.Theme.fontSize
-            font.weight: Font.Medium
+            font.weight: Font.DemiBold
             renderType: Text.QtRendering
         }
     }

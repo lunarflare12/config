@@ -3,7 +3,7 @@
 
     # Active theme
 
-    activeTheme = "catppuccin-mocha";
+    activeTheme = "macos-golden-gate";
 
     # Fonts
 
@@ -27,16 +27,16 @@
     # Icons
 
     icons = {
-      name = "Colloid-Dark";
-      package = "colloid-icon-theme";
+      name = "WhiteSur-dark";
+      package = "whitesur-icon-theme";
     };
 
     # Cursor
 
     cursor = {
-      name = "phinger-cursors-dark";
-      package = "phinger-cursors";
-      size = 30;
+      name = "macOS";
+      package = "apple-cursor";
+      size = 24;
     };
 
     # UI
@@ -45,14 +45,14 @@
 
       borderWidth = 0;
 
-      radius = 15;
+      radius = 16;
       radiusSmall = 10;
-      radiusLarge = 18;
+      radiusLarge = 22;
 
-      iconSize = 18;
+      iconSize = 16;
 
-      fontSize = 12;
-      fontSizeSmall = 10;
+      fontSize = 13;
+      fontSizeSmall = 11;
       fontSizeLarge = 15;
 
       # Opaque panels — no wallpaper showing through the bar or popups.
@@ -70,9 +70,7 @@
       glassRimOpacity = 0.0;
       glassClarity = 0.0;
 
-      # SHADOWS / WINDOWS
-
-      shadowOpacity = 0.24;
+      shadowOpacity = 0.40;
 
       windowOpacity = 0.96;
 
@@ -84,8 +82,8 @@
 
       clock = {
         hour = "foreground";
-        separator = "foregroundMuted";
-        minute = "accent";
+        separator = "foreground";
+        minute = "foreground";
         second = "foregroundFaint";
       };
     };
@@ -93,7 +91,74 @@
 
   # THEMES
 
-  themes = {
+  themes = rec {
+
+    # ==========================================================
+    # MACOS GOLDEN GATE (27) / SEQUOIA PALETTE
+    # ==========================================================
+
+    macos-golden-gate = {
+
+      name = "macOS Golden Gate";
+
+      description = "Liquid Glass, macOS 27";
+
+      colors = macos-sequoia.colors;
+    };
+
+    macos-sequoia = {
+
+      name = "macOS Sequoia";
+
+      description = "Apple dark system UI";
+
+      colors = {
+
+        background = "#1C1C1E";
+        backgroundDark = "#000000";
+
+        surface = "#2C2C2E";
+        surfaceHover = "#3A3A3C";
+        surfaceActive = "#48484A";
+
+        border = "#545458";
+        borderFocus = "#0A84FF";
+        separator = "#38383A";
+
+        text = "#F5F5F7";
+        textSecondary = "#EBEBF5";
+        textMuted = "#98989D";
+
+        accent = "#0A84FF";
+        accentHover = "#409CFF";
+        accentActive = "#64D2FF";
+        accentMuted = "#0A3D73";
+        accentForeground = "#FFFFFF";
+
+        success = "#30D158";
+        warning = "#FFD60A";
+        error = "#FF453A";
+        info = "#64D2FF";
+
+        terminalBlack = "#1C1C1E";
+        terminalRed = "#FF453A";
+        terminalGreen = "#30D158";
+        terminalYellow = "#FFD60A";
+        terminalBlue = "#0A84FF";
+        terminalMagenta = "#BF5AF2";
+        terminalCyan = "#64D2FF";
+        terminalWhite = "#EBEBF5";
+
+        terminalBrightBlack = "#8E8E93";
+        terminalBrightRed = "#FF6961";
+        terminalBrightGreen = "#30DB5B";
+        terminalBrightYellow = "#FFD426";
+        terminalBrightBlue = "#409CFF";
+        terminalBrightMagenta = "#DA8FFF";
+        terminalBrightCyan = "#70D7FF";
+        terminalBrightWhite = "#F5F5F7";
+      };
+    };
 
     # ==========================================================
     # CATPPUCCIN MOCHA

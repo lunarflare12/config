@@ -28,7 +28,7 @@ Singleton {
     readonly property string selectedLabel: root.selected ? (root.selected.label || root.selected.name) : "No display"
     readonly property int level: {
         const lv = root.levels;
-        const name = root.selectedName;
+        const name = root.selected ? root.selected.name : "";
         const value = lv[name];
         return typeof value === "number" && !isNaN(value) ? value : 100;
     }
@@ -82,17 +82,57 @@ Singleton {
 
         root.patchLevel(target, clamped);
         root.markInteraction();
-
-        if (!root.popupOpen)
-            Core.OsdController.show("brightness", clamped / 100, false);
+        Core.OsdController.show("brightness", clamped / 100, false);
 
         if (backend !== "ddc") {
             persistDebounce.restart();
             return;
         }
 
-        applyDebounce.targetName = target;
-        applyDebounce.targetPercent = clamped;
+        applyDebounce.targets = [{
+            name: target,
+            percent: clamped,
+            bus: root.buses[target]
+        }];
+        if (commit)
+            root.flushDdc();
+        else
+            applyDebounce.restart();
+    }
+
+    function setAllPercent(percent, commit) {
+        const list = root.displayList;
+        if (!list.length)
+            return;
+
+        const next = Object.assign({}, root.levels);
+        const ddcTargets = [];
+        let shown = 100;
+
+        for (let i = 0; i < list.length; i++) {
+            const d = list[i];
+            const lo = d.backend === "ddc" ? 0 : 10;
+            const clamped = Math.max(lo, Math.min(100, Math.round(percent)));
+            next[d.name] = clamped;
+            shown = clamped;
+            if (d.backend === "ddc" && root.buses[d.name])
+                ddcTargets.push({
+                    name: d.name,
+                    percent: clamped,
+                    bus: root.buses[d.name]
+                });
+        }
+
+        root.levels = next;
+        root.markInteraction();
+        Core.OsdController.show("brightness", shown / 100, false);
+
+        if (!ddcTargets.length) {
+            persistDebounce.restart();
+            return;
+        }
+
+        applyDebounce.targets = ddcTargets;
         if (commit)
             root.flushDdc();
         else
@@ -130,26 +170,28 @@ Singleton {
             }
         }
         root.select(list[(idx + 1) % list.length].name);
+        Core.OsdController.show("brightness", root.percentOf(root.selectedName) / 100, false);
     }
 
     function flushDdc() {
         applyDebounce.stop();
-        const name = applyDebounce.targetName;
-        const percent = applyDebounce.targetPercent;
-        const bus = root.buses[name];
-        if (!name || !bus)
-            return;
-        Quickshell.execDetached([
-            "ddcutil",
-            "--bus",
-            String(bus),
-            "--noverify",
-            "--sleep-multiplier",
-            ".15",
-            "setvcp",
-            "10",
-            String(percent)
-        ]);
+        const targets = applyDebounce.targets || [];
+        for (let i = 0; i < targets.length; i++) {
+            const t = targets[i];
+            if (!t || !t.bus)
+                continue;
+            Quickshell.execDetached([
+                "ddcutil",
+                "--bus",
+                String(t.bus),
+                "--noverify",
+                "--sleep-multiplier",
+                ".15",
+                "setvcp",
+                "10",
+                String(t.percent)
+            ]);
+        }
         persistDebounce.restart();
     }
 
@@ -241,8 +283,7 @@ Singleton {
     }
 
     property Timer applyDebounce: Timer {
-        property string targetName: ""
-        property int targetPercent: 0
+        property var targets: []
         interval: 220
         repeat: false
         onTriggered: root.flushDdc()

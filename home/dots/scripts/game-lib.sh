@@ -2,7 +2,7 @@
 
 game_block_fossilize() {
   # Do not pkill fossilize_replay: Steam owns the Play-time compile.
-  # Only pin launch options (overwatch.sh / dota.sh).
+  # Only pin launch options (albion.sh).
   if [ -x "${BASH_SOURCE[0]%/*}/steam-lock-shaders.sh" ]; then
     "${BASH_SOURCE[0]%/*}/steam-lock-shaders.sh" >/dev/null 2>&1 || true
   fi
@@ -39,7 +39,7 @@ game_gamescope() {
   local plain=/run/current-system/sw/bin/gamescope
   # Steam's FHS bwrap cannot inherit NixOS file caps. After the 13 Sep
   # wrapper rebuild that prints "failed to inherit capabilities" and
-  # exits, Overwatch dies in ~4s and Steam thinks the game closed.
+  # exits, the game dies in ~4s and Steam thinks it closed.
   if [ -z "${SteamAppId:-}${SteamGameId:-}${STEAM_COMPAT_CLIENT_INSTALL_PATH:-}" ] && [ -x "$wrapped" ]; then
     echo "$wrapped"
     return 0
@@ -60,39 +60,6 @@ game_host() {
   env -u LD_PRELOAD -u LD_LIBRARY_PATH -u STEAM_RUNTIME_LIBRARY_PATH \
     PATH="/run/current-system/sw/bin:/etc/profiles/per-user/dd/bin" \
     "$@"
-}
-
-game_place_overwatch() {
-  (
-    local i
-    for i in $(seq 1 12); do
-      sleep 0.5
-      game_host hyprctl eval '
-local w, client_fs = nil, 2
-for _, x in ipairs(hl.get_windows()) do
-  local c = string.lower(tostring(x.initial_class or x.class or ""))
-  local t = string.lower(tostring(x.title or ""))
-  if c:find("gamescope", 1, true) then
-    w = x
-    client_fs = 2
-    break
-  end
-  if c:find("steam_app_2357570", 1, true) or c:find("overwatch", 1, true) or t:find("overwatch", 1, true) then
-    w = x
-    client_fs = 0
-  end
-end
-if w then
-  pcall(function()
-    hl.dispatch(hl.dsp.window.move({ workspace = 14, window = w }))
-  end)
-  pcall(function()
-    hl.dispatch(hl.dsp.window.fullscreen_state({ window = w, internal = 1, client = client_fs }))
-  end)
-end
-' >/dev/null 2>&1 || true
-    done
-  ) &
 }
 
 game_monitor() {

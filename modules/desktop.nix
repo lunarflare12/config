@@ -6,6 +6,17 @@
 }:
 
 let
+  env = import ../lib/desktop-env.nix;
+  portal = {
+    default = [
+      "hyprland"
+      "gtk"
+    ];
+    "org.freedesktop.impl.portal.ScreenCast" = [ "hyprland" ];
+    "org.freedesktop.impl.portal.Screenshot" = [ "hyprland" ];
+    "org.freedesktop.impl.portal.FileChooser" = [ "gtk" ];
+    "org.freedesktop.impl.portal.Settings" = [ "gtk" ];
+  };
   glyphSddmTheme = pkgs.stdenvNoCC.mkDerivation {
     pname = "sddm-glyph-theme";
     version = "1.0";
@@ -28,18 +39,6 @@ let
   };
 in
 {
-  nixpkgs.overlays = [
-    (final: prev: {
-      hyprlandPlugins = prev.hyprlandPlugins // {
-        csgo-vulkan-fix = prev.hyprlandPlugins.csgo-vulkan-fix.overrideAttrs (old: {
-          postPatch = (old.postPatch or "") + ''
-            cp ${../home/dots/hypr/plugins/csgo-vulkan-fix/main.cpp} main.cpp
-          '';
-        });
-      };
-    })
-  ];
-
   programs.hyprland = {
     enable = true;
     withUWSM = true;
@@ -47,8 +46,9 @@ in
   };
 
   programs.dconf.enable = true;
-  security.pam.services.hyprlock = {};
+  security.pam.services.hyprlock = { };
   programs.thunar.enable = params.fileManager == "thunar";
+  services.gvfs.enable = true;
   services.xserver.enable = lib.mkForce false;
   hardware.i2c.enable = true;
   hardware.bluetooth.enable = params.hardware.bluetooth or false;
@@ -58,12 +58,15 @@ in
   services.displayManager = {
     defaultSession = "hyprland-uwsm";
     sessionPackages = lib.mkForce [
-      (pkgs.runCommand "hyprland-uwsm-session" {
-        passthru.providedSessions = [ "hyprland-uwsm" ];
-      } ''
-        mkdir -p $out/share/wayland-sessions
-        cp ${pkgs.hyprland}/share/wayland-sessions/hyprland-uwsm.desktop $out/share/wayland-sessions/
-      '')
+      (pkgs.runCommand "hyprland-uwsm-session"
+        {
+          passthru.providedSessions = [ "hyprland-uwsm" ];
+        }
+        ''
+          mkdir -p $out/share/wayland-sessions
+          cp ${pkgs.hyprland}/share/wayland-sessions/hyprland-uwsm.desktop $out/share/wayland-sessions/
+        ''
+      )
     ];
     sddm = {
       enable = true;
@@ -100,26 +103,8 @@ in
       pkgs.xdg-desktop-portal-hyprland
     ];
     config = {
-      common = {
-        default = [
-          "hyprland"
-          "gtk"
-        ];
-        "org.freedesktop.impl.portal.ScreenCast" = [ "hyprland" ];
-        "org.freedesktop.impl.portal.Screenshot" = [ "hyprland" ];
-        "org.freedesktop.impl.portal.FileChooser" = [ "gtk" ];
-        "org.freedesktop.impl.portal.Settings" = [ "gtk" ];
-      };
-      hyprland = {
-        default = [
-          "hyprland"
-          "gtk"
-        ];
-        "org.freedesktop.impl.portal.ScreenCast" = [ "hyprland" ];
-        "org.freedesktop.impl.portal.Screenshot" = [ "hyprland" ];
-        "org.freedesktop.impl.portal.FileChooser" = [ "gtk" ];
-        "org.freedesktop.impl.portal.Settings" = [ "gtk" ];
-      };
+      common = portal;
+      hyprland = portal;
     };
   };
 
@@ -155,7 +140,34 @@ in
     nerd-fonts.hack
     inter
     noto-fonts-color-emoji
+    (stdenvNoCC.mkDerivation {
+      pname = "excalifont";
+      version = "1.000";
+      src = ./fonts/Excalifont-Regular.ttf;
+      dontUnpack = true;
+      installPhase = ''
+        runHook preInstall
+        install -Dm644 $src $out/share/fonts/truetype/Excalifont-Regular.ttf
+        runHook postInstall
+      '';
+    })
   ];
+
+  fonts.fontconfig = {
+    enable = true;
+    defaultFonts = {
+      serif = [
+        "Excalifont"
+        "Inter"
+      ];
+      sansSerif = [
+        "Excalifont"
+        "Inter"
+      ];
+      monospace = [ "JetBrainsMono Nerd Font Mono" ];
+      emoji = [ "Noto Color Emoji" ];
+    };
+  };
 
   users.users = lib.mapAttrs (_: _: {
     extraGroups = [
@@ -164,15 +176,5 @@ in
     ];
   }) params.users;
 
-  environment.sessionVariables = {
-    NIXOS_OZONE_WL = "1";
-    MOZ_ENABLE_WAYLAND = "1";
-    QT_QPA_PLATFORM = "wayland";
-    GDK_BACKEND = "wayland";
-    GTK_THEME = "Adwaita:dark";
-    GTK_APPLICATION_PREFER_DARK_THEME = "1";
-    QT_QPA_PLATFORMTHEME = "qt6ct";
-    QT_STYLE_OVERRIDE = "kvantum";
-    ADW_DEBUG_COLOR_SCHEME = "prefer-dark";
-  };
+  environment.sessionVariables = env.wayland // env.gtkQt;
 }

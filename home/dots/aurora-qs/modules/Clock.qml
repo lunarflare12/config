@@ -73,7 +73,7 @@ Item {
         spacing: 0
 
         Text {
-            text: Qt.formatDateTime(systemClock.date, root.showSeconds ? "hh:mm:ss AP" : "hh:mm AP")
+            text: Qt.formatDateTime(systemClock.date, root.showSeconds ? "ddd d MMM  h:mm:ss AP" : "ddd d MMM  h:mm AP")
 
             color: root.menuOpen ? Core.Theme.accent : Core.Theme.clockHour
 

@@ -166,6 +166,7 @@ PanelWindow {
 
     function closeMenu() {
         root.menuOpen = false;
+        Core.PopupManager.contextMenuOpen = false;
     }
 
     function openEmptyMenu(x, y) {
@@ -173,6 +174,8 @@ PanelWindow {
         root.menuX = x;
         root.menuY = y;
         root.menuOpen = true;
+        Core.PopupManager.contextMenuOpen = true;
+        stage.forceActiveFocus();
     }
 
     function openIconMenu(x, y, path) {
@@ -182,6 +185,8 @@ PanelWindow {
         root.menuX = x;
         root.menuY = y;
         root.menuOpen = true;
+        Core.PopupManager.contextMenuOpen = true;
+        stage.forceActiveFocus();
     }
 
     function handleIconClick(path, modifiers) {
@@ -210,7 +215,7 @@ PanelWindow {
 
     WlrLayershell.namespace: "aurora-desktop"
     WlrLayershell.layer: WlrLayer.Bottom
-    WlrLayershell.keyboardFocus: (root.shown && (Core.Session.desktopEdit || root.menuOpen)) ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+    WlrLayershell.keyboardFocus: (root.shown && (Core.Session.desktopEdit || root.menuOpen)) ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
     mask: Region {
         item: stage
@@ -223,7 +228,11 @@ PanelWindow {
 
         Keys.onPressed: function (event) {
             if (event.key === Qt.Key_Escape) {
-                root.closeMenu();
+                if (root.menuOpen) {
+                    root.closeMenu();
+                    event.accepted = true;
+                    return;
+                }
                 root.svc.clearSelection();
                 if (Core.Session.desktopEdit)
                     Core.Session.desktopEdit = false;

@@ -1,4 +1,9 @@
-{ lib, pkgs, params, ... }:
+{
+  lib,
+  pkgs,
+  params,
+  ...
+}:
 
 let
   vms = params.vms or [ ];

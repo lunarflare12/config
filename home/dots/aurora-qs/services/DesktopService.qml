@@ -79,10 +79,6 @@ QtObject {
             item && item.path ? item.path : ""
         ].join(" ").toLowerCase();
 
-        if (blob.indexOf("overwatch") !== -1 || blob.indexOf("2357570") !== -1)
-            return "file://" + Quickshell.shellDir + "/assets/games/overwatch.png";
-        if (blob.indexOf("paladin") !== -1 || blob.indexOf("444090") !== -1)
-            return "file://" + Quickshell.shellDir + "/assets/games/paladins.png";
         if (blob.indexOf("terraria") !== -1 || blob.indexOf("105600") !== -1)
             return "file://" + Quickshell.shellDir + "/assets/games/terraria.png";
         return "";
@@ -236,6 +232,31 @@ QtObject {
         Quickshell.execDetached(["sh", "-c", "if command -v gio >/dev/null 2>&1; then gio trash -- \"$@\"; else rm -rf -- \"$@\"; fi", "trash"].concat(paths));
         root.clearSelection();
         refreshTimer.restart();
+        trashTimer.restart();
+    }
+
+    property bool trashFull: false
+
+    readonly property string trashIcon: Quickshell.iconPath(root.trashFull ? "user-trash-full" : "user-trash", "user-trash")
+
+    function openTrash() {
+        Quickshell.execDetached([
+            "sh",
+            "-c",
+            "mkdir -p \"$HOME/.local/share/Trash/files\" \"$HOME/.local/share/Trash/info\"; if gio list trash:// >/dev/null 2>&1; then exec thunar trash:///; fi; exec thunar \"$HOME/.local/share/Trash/files\""
+        ]);
+    }
+
+    function emptyTrash() {
+        if (!root.trashFull)
+            return;
+        Quickshell.execDetached([
+            "sh",
+            "-c",
+            "if gio trash --empty >/dev/null 2>&1; then exit 0; fi; rm -rf \"$HOME/.local/share/Trash/files\" \"$HOME/.local/share/Trash/info\"; mkdir -p \"$HOME/.local/share/Trash/files\" \"$HOME/.local/share/Trash/info\""
+        ]);
+        root.trashFull = false;
+        trashTimer.restart();
     }
 
     function ingest(text) {
@@ -337,6 +358,28 @@ QtObject {
         onTriggered: {
             if (!scanProcess.running)
                 scanProcess.running = true;
+        }
+    }
+
+    property Timer trashTimer: Timer {
+        interval: 2000
+        running: true
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: {
+            if (!trashProc.running)
+                trashProc.running = true;
+        }
+    }
+
+    property Process trashProc: Process {
+        command: [
+            "sh",
+            "-c",
+            "test -n \"$(ls -A \"$HOME/.local/share/Trash/files\" 2>/dev/null)\" && echo 1 || echo 0"
+        ]
+        stdout: StdioCollector {
+            onStreamFinished: root.trashFull = this.text.trim() === "1"
         }
     }
 

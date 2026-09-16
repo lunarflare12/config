@@ -13,12 +13,8 @@ from pathlib import Path
 home = Path(sys.argv[1])
 script = home / ".config/scripts"
 wanted = {
-    "570": f"{script}/dota.sh %command%",
-    "444090": f"{script}/paladins.sh %command%",
     "761890": f"{script}/albion.sh %command%",
-    "2357570": f"{script}/overwatch.sh %command%",
 }
-
 
 def app_block_span(text, appid):
     for m in re.finditer(rf'"{appid}"\s*\n(\t+)\{{', text):

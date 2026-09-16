@@ -1,5 +1,5 @@
 {
-  description = "My NixOS configuration";
+  description = "NixOS configuration";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -15,19 +15,21 @@
 
   outputs =
     {
+      self,
       nixpkgs,
       home-manager,
       ...
     }@inputs:
     let
       params = import ./configurations-params/home-pc.nix (import ./configurations-params/global.nix);
+      inherit (params) systemArch;
+      pkgs = nixpkgs.legacyPackages.${systemArch};
     in
     {
       nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
-        system = params.systemArch;
+        system = systemArch;
         specialArgs = {
-          inherit params;
-          inherit inputs;
+          inherit params inputs;
         };
         modules = [
           ./configuration.nix
@@ -36,5 +38,19 @@
           home-manager.nixosModules.home-manager
         ];
       };
+
+      formatter.${systemArch} = pkgs.nixfmt-tree;
+
+      devShells.${systemArch}.default = pkgs.mkShellNoCC {
+        packages = [
+          pkgs.nixfmt
+          pkgs.statix
+          pkgs.deadnix
+        ];
+      };
+
+      checks.${systemArch}.eval = pkgs.writeText "nixos-eval" (
+        self.nixosConfigurations.nixos.config.system.stateVersion
+      );
     };
 }

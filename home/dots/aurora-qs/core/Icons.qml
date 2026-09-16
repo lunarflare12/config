@@ -91,6 +91,33 @@ QtObject {
         return brightnessRamp[i];
     }
 
+    function volumeTheme(fraction, muted) {
+        if (muted || fraction <= 0.01)
+            return "volume-muted";
+        if (fraction < 0.34)
+            return "volume-low";
+        if (fraction < 0.67)
+            return "volume-medium";
+        return "volume-high";
+    }
+
+    function brightnessTheme(fraction) {
+        const f = Math.max(0, Math.min(1, fraction));
+        if (f < 0.34)
+            return "brightness-low";
+        if (f < 0.67)
+            return "brightness";
+        return "brightness-high";
+    }
+
+    function micTheme(muted) {
+        return muted ? "mic-off" : "mic";
+    }
+
+    function networkTheme(connected) {
+        return connected ? "network" : "network-off";
+    }
+
     readonly property string bell: "\udb80\udc9c"            // F009C  bell-outline
     readonly property string bellFilled: "\udb80\udc9a"      // F009A  bell
     readonly property string bellOff: "\udb80\udc9b"         // F009B  bell-off

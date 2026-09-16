@@ -35,7 +35,11 @@ Item {
 
     property int itemCount: 0
 
-    readonly property int headerHeight: root.startMenu ? 64 : 46
+    property bool launchpad: false
+    property real intro: 1
+    property int pageRows: 5
+
+    readonly property int headerHeight: root.launchpad ? 88 : (root.startMenu ? 64 : 46)
     readonly property int separatorHeight: 1
 
     // Row height each launcher actually renders: delegate height plus the view's
@@ -84,11 +88,13 @@ Item {
 
     readonly property bool open: Core.PopupManager.isOpen(root.launcherId)
 
+    readonly property int pageSize: Math.max(1, root.columns * Math.max(1, root.pageRows))
+
     property real wheelAccumulator: 0
 
     readonly property real wheelStep: 120
 
-    visible: root.open
+    visible: root.open || root.launchpad
 
     Timer {
         id: previewTimer
@@ -129,14 +135,15 @@ Item {
     function wheelSelect(deltaY) {
         if (!root.open || deltaY === 0 || root.itemCount <= 0)
             return;
+        const jump = root.launchpad ? root.pageSize : root.columns;
         root.wheelAccumulator += deltaY;
 
         while (Math.abs(root.wheelAccumulator) >= root.wheelStep) {
             if (root.wheelAccumulator > 0) {
-                root.move(-root.columns);
+                root.move(-jump);
                 root.wheelAccumulator -= root.wheelStep;
             } else {
-                root.move(root.columns);
+                root.move(jump);
                 root.wheelAccumulator += root.wheelStep;
             }
         }
@@ -210,36 +217,33 @@ Item {
             Rectangle {
                 id: searchPill
 
-                visible: root.startMenu
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.verticalCenter: parent.verticalCenter
-                anchors.leftMargin: 18
-                anchors.rightMargin: 18
-                height: 40
+                visible: root.startMenu || root.launchpad
+                width: root.launchpad ? 280 : parent.width - 36
+                height: root.launchpad ? 36 : 40
+                x: Math.round((parent.width - width) / 2)
+                y: Math.round((parent.height - height) / 2)
                 radius: height / 2
-                color: Core.Theme.surface
+                color: root.launchpad ? Qt.rgba(0.12, 0.12, 0.14, 0.62) : Core.Theme.surface
                 border.width: 1
-                border.color: Core.Theme.border
+                border.color: root.launchpad ? Qt.rgba(1, 1, 1, 0.38) : Core.Theme.border
             }
 
             Text {
                 id: prompt
 
-                anchors.left: root.startMenu ? searchPill.left : parent.left
-                anchors.leftMargin: root.startMenu ? 14 : Core.Theme.padding + 2
+                x: (root.startMenu || root.launchpad) ? searchPill.x + 12 : Core.Theme.padding + 2
                 anchors.verticalCenter: parent.verticalCenter
 
                 text: root.promptIcon
-                color: root.startMenu ? Core.Theme.foregroundMuted : Core.Theme.accent
+                color: root.launchpad ? Qt.rgba(1, 1, 1, 0.55) : (root.startMenu ? Core.Theme.foregroundMuted : Core.Theme.accent)
                 font.family: Core.Theme.iconFont
-                font.pixelSize: root.startMenu ? Core.Theme.iconSizeSmall : Core.Theme.iconSize
+                font.pixelSize: root.launchpad ? 14 : (root.startMenu ? Core.Theme.iconSizeSmall : Core.Theme.iconSize)
             }
 
             Row {
                 id: counter
 
-                visible: !root.startMenu
+                visible: !root.startMenu && !root.launchpad
                 anchors.right: parent.right
                 anchors.rightMargin: Core.Theme.padding + 2
                 anchors.verticalCenter: parent.verticalCenter
@@ -309,8 +313,8 @@ Item {
 
                 anchors.left: prompt.right
                 anchors.leftMargin: Core.Theme.padding
-                anchors.right: root.startMenu ? searchPill.right : counter.left
-                anchors.rightMargin: root.startMenu ? 16 : Core.Theme.padding
+                anchors.right: (root.startMenu || root.launchpad) ? searchPill.right : counter.left
+                anchors.rightMargin: (root.startMenu || root.launchpad) ? 14 : Core.Theme.padding
                 anchors.verticalCenter: parent.verticalCenter
 
                 focus: true
@@ -319,10 +323,10 @@ Item {
 
                 selectionColor: Core.Theme.accentMuted
 
-                color: Core.Theme.foreground
+                color: root.launchpad ? "#FFFFFF" : Core.Theme.foreground
 
-                font.family: root.startMenu ? Core.Theme.fontFamily : Core.Theme.fontMono
-                font.pixelSize: root.startMenu ? Core.Theme.fontSize : Core.Theme.fontSizeLarge
+                font.family: (root.startMenu || root.launchpad) ? Core.Theme.fontFamily : Core.Theme.fontMono
+                font.pixelSize: root.launchpad ? 14 : (root.startMenu ? Core.Theme.fontSize : Core.Theme.fontSizeLarge)
 
                 onTextChanged: {
                     root.selectedIndex = 0;
@@ -338,10 +342,10 @@ Item {
 
                     text: root.placeholder
 
-                    color: Core.Theme.foregroundFaint
+                    color: root.launchpad ? Qt.rgba(1, 1, 1, 0.62) : Core.Theme.foregroundFaint
 
-                    font.family: root.startMenu ? Core.Theme.fontFamily : Core.Theme.fontMono
-                    font.pixelSize: root.startMenu ? Core.Theme.fontSize : Core.Theme.fontSizeLarge
+                    font.family: (root.startMenu || root.launchpad) ? Core.Theme.fontFamily : Core.Theme.fontMono
+                    font.pixelSize: root.launchpad ? 14 : (root.startMenu ? Core.Theme.fontSize : Core.Theme.fontSizeLarge)
                 }
 
                 Keys.onPressed: function (event) {
@@ -358,6 +362,11 @@ Item {
                     }
 
                     if (event.key === Qt.Key_Escape) {
+                        if (Core.PopupManager.contextMenuOpen) {
+                            Core.PopupManager.contextMenuOpen = false;
+                            event.accepted = true;
+                            return;
+                        }
                         root.dismiss();
                         event.accepted = true;
                         return;
@@ -365,6 +374,18 @@ Item {
 
                     if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
                         root.accepted();
+                        event.accepted = true;
+                        return;
+                    }
+
+                    if (root.launchpad && event.key === Qt.Key_PageDown) {
+                        root.move(root.pageSize);
+                        event.accepted = true;
+                        return;
+                    }
+
+                    if (root.launchpad && event.key === Qt.Key_PageUp) {
+                        root.move(-root.pageSize);
                         event.accepted = true;
                         return;
                     }
@@ -440,8 +461,8 @@ Item {
 
         Rectangle {
             width: parent.width
-            height: root.startMenu ? 0 : root.separatorHeight
-            visible: !root.startMenu
+            height: (root.startMenu || root.launchpad) ? 0 : root.separatorHeight
+            visible: !root.startMenu && !root.launchpad
             color: Core.Theme.separator
         }
 

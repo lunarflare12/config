@@ -2,108 +2,106 @@ import QtQuick
 
 import "../core" as Core
 
-// BarOsd
-
 Item {
     id: root
 
     readonly property string kind: Core.OsdController.kind
-
     readonly property real value: Core.OsdController.value
-
     readonly property bool muted: Core.OsdController.muted
 
     implicitWidth: row.implicitWidth
     implicitHeight: Core.Theme.moduleHeight
 
-    // Colour + glyph per kind
-
     readonly property color tint: root.muted ? Core.Theme.danger : Core.Theme.accent
+    property real shownValue: root.value
 
-    readonly property string glyph: {
+    Behavior on shownValue {
+        NumberAnimation {
+            duration: 220
+            easing.type: Easing.OutCubic
+        }
+    }
+
+    readonly property string themeName: {
         if (root.kind === "brightness")
-            return Core.Icons.forBrightness(root.value);
-
+            return Core.Icons.brightnessTheme(root.value);
         if (root.kind === "mic")
-            return root.muted ? Core.Icons.micOff : Core.Icons.mic;
+            return Core.Icons.micTheme(root.muted);
+        return Core.Icons.volumeTheme(root.value, root.muted);
+    }
 
-        if (root.muted)
-            return Core.Icons.volumeOff;
+    opacity: root.kind !== "" ? 1 : 0
+    scale: root.kind !== "" ? 1 : 0.92
+    transformOrigin: Item.Center
 
-        if (root.value >= 0.66)
-            return Core.Icons.volumeHigh;
+    Behavior on opacity {
+        NumberAnimation {
+            duration: 140
+            easing.type: Easing.OutCubic
+        }
+    }
 
-        if (root.value >= 0.33)
-            return Core.Icons.volumeMedium;
-
-        return Core.Icons.volumeLow;
+    Behavior on scale {
+        NumberAnimation {
+            duration: 180
+            easing.type: Easing.OutBack
+            easing.overshoot: 1.8
+        }
     }
 
     Row {
         id: row
 
         anchors.centerIn: parent
-
         spacing: 8
 
-        // Icon
+        ThemeIcon {
+            id: glyphLabel
 
-        Text {
-            width: 20
-
+            width: 16
+            height: 16
             anchors.verticalCenter: parent.verticalCenter
+            name: root.themeName
 
-            horizontalAlignment: Text.AlignHCenter
+            onNameChanged: glyphPop.restart()
 
-            text: root.glyph
-
-            font.family: Core.Theme.fontFamily
-            font.pixelSize: Core.Theme.iconSize
-
-            color: root.tint
-
-            Behavior on color {
-                ColorAnimation {
-                    duration: Core.Theme.durFast
-                    easing.type: Easing.OutQuint
+            SequentialAnimation {
+                id: glyphPop
+                NumberAnimation {
+                    target: glyphLabel
+                    property: "scale"
+                    to: 1.22
+                    duration: 70
+                    easing.type: Easing.OutCubic
+                }
+                NumberAnimation {
+                    target: glyphLabel
+                    property: "scale"
+                    to: 1.0
+                    duration: 180
+                    easing.type: Easing.OutBack
+                    easing.overshoot: 2.4
                 }
             }
         }
-
-        // Track
 
         Rectangle {
             id: track
 
             width: 96
-            height: 4
-
+            height: 5
             anchors.verticalCenter: parent.verticalCenter
-
-            radius: 2
-
+            radius: 2.5
             color: Core.Theme.surfaceGlass
 
             Rectangle {
                 id: fill
 
                 height: parent.height
-
                 radius: parent.radius
-
-                width: Math.round(track.width * root.value)
-
+                width: Math.round(track.width * root.shownValue)
                 color: root.tint
-
                 antialiasing: true
-
-                // The one animated thing in here.
-                Behavior on width {
-                    NumberAnimation {
-                        duration: Core.Theme.durBase
-                        easing.type: Easing.OutQuint
-                    }
-                }
 
                 Behavior on color {
                     ColorAnimation {
@@ -114,23 +112,15 @@ Item {
             }
         }
 
-        // Readout
-
         Text {
             width: 34
-
             anchors.verticalCenter: parent.verticalCenter
-
             horizontalAlignment: Text.AlignRight
-
-            text: root.muted && root.kind !== "brightness" ? "off" : Math.round(root.value * 100) + "%"
-
+            text: root.muted && root.kind !== "brightness" ? "off" : Math.round(root.shownValue * 100) + "%"
             font.family: Core.Theme.fontFamily
             font.pixelSize: Core.Theme.fontSize
             font.weight: Font.Medium
-
             color: Core.Theme.foreground
-
             renderType: Text.QtRendering
         }
     }

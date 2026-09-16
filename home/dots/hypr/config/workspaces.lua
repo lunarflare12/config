@@ -7,7 +7,7 @@ for i, name in ipairs(MONITORS) do
         hl.workspace_rule({
             workspace = tostring(base + n),
             monitor = name,
-            persistent = true,
+            persistent = false,
             default = n == 1,
         })
     end

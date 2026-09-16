@@ -2,7 +2,7 @@
 
 local home = os.getenv("HOME")
 local activeThemePath = home .. "/.config/aurora/active-theme.lua"
-local fallbackThemePath = home .. "/.config/aurora/themes/catppuccin-mocha.lua"
+local fallbackThemePath = home .. "/.config/aurora/themes/macos-golden-gate.lua"
 
 local ok = false
 local theme = nil
@@ -33,18 +33,19 @@ local function rgba(color, alpha)
 end
 
 local colors = theme.colors
+local active = colors.borderFocus or colors.accent or colors.border
+local inactive = colors.border or colors.separator
 
 hl.config({
     general = {
         col = {
             active_border = {
                 colors = {
-                    rgba(colors.accent, "ff"),
-                    rgba(colors.accentActive, "ff"),
+                    rgba(active, "ff"),
                 },
-                angle = 45,
+                angle = 0,
             },
-            inactive_border = rgba(colors.border, "cc"),
+            inactive_border = rgba(inactive, "aa"),
         },
     },
 })

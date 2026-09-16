@@ -34,5 +34,6 @@
     discord = "discord";
     spotify = "spotify";
     xournalpp = "xournalpp";
+    prismlauncher = "prismlauncher";
   };
 }

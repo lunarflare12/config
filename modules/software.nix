@@ -1,11 +1,18 @@
-{ lib, pkgs, params, ... }:
+{
+  lib,
+  pkgs,
+  params,
+  ...
+}:
 
 let
   packages = params.packages or [ ];
   has = name: lib.elem name packages;
-  steamUser = lib.head (lib.attrNames params.users);
-  shaderCacheDir = "/home/${steamUser}/.cache/steam-shadercache";
-  dxvkCacheDir = "/home/${steamUser}/.cache/dxvk";
+  user = lib.head (lib.attrNames params.users);
+  shaderCacheDir = "/home/${user}/.cache/steam-shadercache";
+  dxvkCacheDir = "/home/${user}/.cache/dxvk";
+  shaderCacheSize = (import ../lib/desktop-env.nix).nvidiaGl.__GL_SHADER_DISK_CACHE_SIZE;
+  scripts = "/home/${user}/.config/scripts";
 
   packageMap = {
     terraform = pkgs.terraform;
@@ -24,8 +31,15 @@ let
     k9s = pkgs.k9s;
     awscli2 = pkgs.awscli2;
     btop = pkgs.btop;
-    vesktop = pkgs.vesktop;
+    vlc = pkgs.vlc;
+    vagrant = pkgs.vagrant;
+    discord = pkgs.discord;
+    spotify = pkgs.spotify;
+    xournalpp = pkgs.xournalpp;
+    prismlauncher = pkgs.prismlauncher;
   };
+
+  mapped = lib.filter (name: builtins.hasAttr name packageMap) packages;
 in
 {
   nixpkgs.config.permittedInsecurePackages = lib.optionals (has "idea-oss") [
@@ -33,7 +47,6 @@ in
   ];
 
   hardware.keyboard.zsa.enable = has "keymapp";
-
   virtualisation.docker.enable = has "docker";
 
   programs.steam = lib.mkIf (has "steam") {
@@ -58,7 +71,7 @@ in
         export __GL_SYNC_TO_VBLANK=0
         export __GL_SHADER_DISK_CACHE=1
         export __GL_SHADER_DISK_CACHE_SKIP_CLEANUP=1
-        export __GL_SHADER_DISK_CACHE_SIZE=10737418240
+        export __GL_SHADER_DISK_CACHE_SIZE=${shaderCacheSize}
         export DXVK_STATE_CACHE=1
         export DXVK_STATE_CACHE_PATH="${dxvkCacheDir}"
         mkdir -p "${shaderCacheDir}" "${dxvkCacheDir}"
@@ -66,11 +79,11 @@ in
     };
   };
 
-  # Steam treats a library as read-only if any mount of that block device
-  # is ro (/nix/store on the root disk). Kernel overlay gives /steam a
-  # new device id without FUSE, so game loads stay on native ext4.
   users.groups.steam = lib.mkIf (has "steam") { };
 
+  # Steam treats a library as read-only if any mount of that block device
+  # is ro (/nix/store on the root disk). Overlay gives /steam a new device
+  # id without FUSE. Shader cache stays on real ext4 under /home.
   fileSystems."/steam" = lib.mkIf (has "steam") {
     overlay = {
       lowerdir = [ "/var/lib/steam-library" ];
@@ -81,11 +94,10 @@ in
       "nofail"
       "index=off"
       "xino=off"
+      "metacopy=on"
     ];
   };
 
-  # Overlay inodes change across remounts, so NVIDIA/Steam rebuilds the
-  # 16G shader cache after every reboot. Keep it on real ext4 under /home.
   fileSystems."/steam/steamapps/shadercache" = lib.mkIf (has "steam") {
     device = shaderCacheDir;
     fsType = "none";
@@ -97,20 +109,30 @@ in
   };
 
   systemd.tmpfiles.rules = lib.optionals (has "steam") [
-    "d /var/lib/steam-library 0775 ${steamUser} steam -"
-    "d /var/lib/steam-library/steamapps 0775 ${steamUser} steam -"
-    "d /var/lib/steam-library/steamapps/common 0775 ${steamUser} steam -"
-    "d /var/lib/steam-library/steamapps/downloading 0775 ${steamUser} steam -"
-    "d /var/lib/steam-library/steamapps/temp 0775 ${steamUser} steam -"
-    "d /var/lib/steam-upper 0775 ${steamUser} steam -"
+    "d /var/lib/steam-library 0775 ${user} steam -"
+    "d /var/lib/steam-library/steamapps 0775 ${user} steam -"
+    "d /var/lib/steam-library/steamapps/common 0775 ${user} steam -"
+    "d /var/lib/steam-library/steamapps/downloading 0775 ${user} steam -"
+    "d /var/lib/steam-library/steamapps/temp 0775 ${user} steam -"
+    "d /var/lib/steam-upper 0775 ${user} steam -"
     "d /var/lib/steam-work 0700 root root -"
-    "d ${shaderCacheDir} 0755 ${steamUser} users -"
-    "d ${dxvkCacheDir} 0755 ${steamUser} users -"
+    "d ${shaderCacheDir} 0755 ${user} users -"
+    "d ${dxvkCacheDir} 0755 ${user} users -"
   ];
 
-  environment.systemPackages = map (name: packageMap.${name}) (
-    lib.filter (name: builtins.hasAttr name packageMap) packages
-  );
+  environment.systemPackages = (map (name: packageMap.${name}) mapped) ++ [
+    pkgs.dmidecode
+    pkgs.lshw
+    pkgs.bubblewrap
+    pkgs.xdg-dbus-proxy
+    (pkgs.writeShellScriptBin "wayland-box" ''
+      exec ${scripts}/wayland-box.sh "$@"
+    '')
+    (pkgs.writeShellScriptBin "idea-ultimate" ''
+      export IDEA_ULTIMATE_BIN=${lib.getExe pkgs.jetbrains.idea}
+      exec ${scripts}/idea-ultimate.sh "$@"
+    '')
+  ];
 
   users.users = lib.mapAttrs (_: _: {
     extraGroups = lib.optional (has "docker") "docker" ++ lib.optional (has "steam") "steam";

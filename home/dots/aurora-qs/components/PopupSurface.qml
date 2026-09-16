@@ -44,7 +44,7 @@ PanelWindow {
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.namespace: "aurora-popup"
 
-    WlrLayershell.keyboardFocus: root.open ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+    WlrLayershell.keyboardFocus: root.open ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
     property Region noInput: Region {
         width: 0
@@ -56,6 +56,9 @@ PanelWindow {
     onOpenChanged: {
         if (root.open) {
             root.didOpen();
+            Qt.callLater(function () {
+                escapeSink.forceActiveFocus();
+            });
         } else {
             menuLayer.close();
             root.didClose();
@@ -86,15 +89,15 @@ PanelWindow {
     }
 
     Item {
+        id: escapeSink
         anchors.fill: parent
-
         focus: root.open
 
         Keys.onEscapePressed: {
             if (menuLayer.active)
                 menuLayer.close();
             else
-                Core.PopupManager.close();
+                Core.PopupManager.dismissAll();
         }
     }
 
@@ -142,9 +145,7 @@ PanelWindow {
 
                 Glass {
                     anchors.fill: parent
-
                     radius: parent.radius
-
                     strength: 1.0
                 }
             }

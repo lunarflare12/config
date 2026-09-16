@@ -47,9 +47,15 @@ PanelWindow {
         delayed.restart();
     }
 
-    MouseArea {
+    Item {
         anchors.fill: parent
-        onClicked: Core.Session.screenshotOpen = false
+        focus: root.visible
+        Keys.onEscapePressed: Core.Session.screenshotOpen = false
+
+        MouseArea {
+            anchors.fill: parent
+            onClicked: Core.Session.screenshotOpen = false
+        }
     }
 
     Rectangle {

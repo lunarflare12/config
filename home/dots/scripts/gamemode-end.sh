@@ -1,5 +1,5 @@
 #!/run/current-system/sw/bin/bash
-if pgrep -x Overwatch.exe >/dev/null 2>&1 || pgrep -x Paladins.exe >/dev/null 2>&1 || pgrep -x dota2 >/dev/null 2>&1 || pgrep -x gamescope >/dev/null 2>&1; then
+if pgrep -f 'net.minecraft' >/dev/null 2>&1 || pgrep -x gamescope >/dev/null 2>&1; then
   exit 0
 fi
 

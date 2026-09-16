@@ -308,7 +308,7 @@ def snapshot(state: dict, monitors: list[dict] | None = None) -> dict:
     }
 
 
-def apply_percent(state: dict, name: str, percent: int) -> dict:
+def apply_percent(state: dict, name: str, percent: int, persist: bool = True) -> dict:
     monitors = hypr_monitors()
     names = [m["name"] for m in monitors]
     if not name:
@@ -325,8 +325,22 @@ def apply_percent(state: dict, name: str, percent: int) -> dict:
     else:
         stored[name] = {"percent": value, "backend": "hypr"}
     state["selected"] = name
-    save_state(state)
+    if persist:
+        save_state(state)
     return snapshot(state, monitors)
+
+
+def apply_all(state: dict, spec: str) -> dict:
+    payload = snapshot(state)
+    displays = payload.get("displays") or []
+    if not displays:
+        return payload
+    base = int(displays[0]["percent"])
+    nxt = parse_spec(spec, base, 0, 100)
+    for row in displays:
+        apply_percent(state, row["name"], nxt, persist=False)
+    save_state(state)
+    return snapshot(state)
 
 
 def select_display(state: dict, name: str) -> dict:
@@ -400,11 +414,15 @@ def main() -> int:
     if opts["select"]:
         payload = select_display(state, opts["select"])
     elif opts["action"] == "set":
-        payload = snapshot(state)
-        target = opts["device"] or payload["selected"]
-        row = next((item for item in payload["displays"] if item["name"] == target), payload["displays"][0])
-        nxt = parse_spec(opts["value"] or "100%", int(row["percent"]), *limits_for(row["backend"]))
-        payload = apply_percent(state, row["name"], nxt)
+        spec = opts["value"] or "100%"
+        if opts["device"]:
+            payload = snapshot(state)
+            target = opts["device"]
+            row = next((item for item in payload["displays"] if item["name"] == target), payload["displays"][0])
+            nxt = parse_spec(spec, int(row["percent"]), *limits_for(row["backend"]))
+            payload = apply_percent(state, row["name"], nxt)
+        else:
+            payload = apply_all(state, spec)
     else:
         payload = snapshot(state)
 

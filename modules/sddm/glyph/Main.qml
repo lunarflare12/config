@@ -11,7 +11,7 @@ Rectangle {
     focus: true
 
     // State Management
-    property bool isUnlocked: false
+    property bool isUnlocked: true
     property color finalClockColor: "transparent"
     property bool readyToReveal: false
 
@@ -26,7 +26,7 @@ Rectangle {
 
     FontLoader { id: ndotFont; source: "assets/fonts/Ndot-57-Aligned.ttf"; }
     FontLoader { id: symbolFont; source: "assets/fonts/SymbolsNerdFont.ttf" }
-    property string globalFont: ndotFont.status == FontLoader.Ready ? ndotFont.name : "monospace"
+    property string globalFont: "Inter"
 
     Image {
         id: bg
@@ -81,9 +81,11 @@ Rectangle {
     // THE CLOCK
     Clock {
         id: clock
-        anchors.top: parent.top; anchors.left: parent.left; anchors.margins: 80
+        anchors.top: parent.top
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.topMargin: 72
         symbolFontName: symbolFont.name; fontName: container.globalFont
-        textColor: container.finalClockColor
+        textColor: "white"
 
         visible: container.readyToReveal
         opacity: visible ? (container.isUnlocked ? 0.4 : 1.0) : 0.0
@@ -99,7 +101,10 @@ Rectangle {
 
     LoginPanel {
         id: loginPanel
-        anchors.centerIn: parent; width: 400
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 90
+        width: 400
         fontName: container.globalFont; textColor: "white"
         userIndex: container.userIdx; sessionIndex: container.sessionIdx
         onUserSelected: container.userIdx = index; onSessionSelected: container.sessionIdx = index
@@ -120,7 +125,7 @@ Rectangle {
     }
 
     Text {
-        text: "PRESS ANY KEY TO UNLOCK"; font.family: container.globalFont; font.pixelSize: 14; font.letterSpacing: 1
+        text: ""; font.family: container.globalFont; font.pixelSize: 14; font.letterSpacing: 1
         color: "white"
         visible: container.readyToReveal
         opacity: visible ? (container.isUnlocked ? 0.0 : 0.6) : 0.0

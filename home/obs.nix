@@ -8,18 +8,6 @@
     '';
   };
 
-  # Steam launch options still point here on this machine.
-  home.file.".local/bin/overwatch-stream" = {
-    source = ./dots/scripts/overwatch-stream.sh;
-    force = true;
-    executable = true;
-  };
-  home.file.".local/bin/overwatch-stream.sh" = {
-    source = ./dots/scripts/overwatch-stream.sh;
-    force = true;
-    executable = true;
-  };
-
   home.activation.seedObsStudio = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     dest="$HOME/.config/obs-studio"
     src="${./dots/obs-studio}"

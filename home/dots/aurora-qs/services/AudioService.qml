@@ -172,7 +172,9 @@ Singleton {
         return root.iconHigh;
     }
 
+    readonly property string iconName: Core.Icons.volumeTheme(root.volume, root.muted || !root.sink)
     readonly property string micIcon: (!root.source || root.micMuted) ? root.iconMicOff : root.iconMic
+    readonly property string micIconName: Core.Icons.micTheme(!root.source || root.micMuted)
 
     // Helpers
 
@@ -235,6 +237,17 @@ Singleton {
             return root.iconMic;
 
         return root.iconSpeaker;
+    }
+
+    function themeNameFor(node) {
+        if (!node)
+            return "volume-high";
+        const text = (root.label(node) + " " + (node.name ? node.name : "")).toLowerCase();
+        if (text.indexOf("headset") >= 0 || text.indexOf("headphone") >= 0 || text.indexOf("hands-free") >= 0)
+            return "volume-high";
+        if (!node.isSink)
+            return "mic";
+        return "volume-high";
     }
 
     function isDefault(node) {

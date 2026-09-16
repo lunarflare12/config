@@ -83,22 +83,6 @@ Components.LauncherView {
         Quickshell.execDetached(item.command);
     }
 
-    IpcHandler {
-        target: "power"
-
-        function toggle(): void {
-            launcher.toggle();
-        }
-
-        function open(): void {
-            launcher.show();
-        }
-
-        function close(): void {
-            launcher.dismiss();
-        }
-    }
-
     contentComponent: Component {
         Item {
             width: parent.width

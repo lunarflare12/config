@@ -37,6 +37,13 @@ hl.layer_rule({
 })
 
 hl.layer_rule({
+    name = "aurora-dock",
+    match = { namespace = "^aurora-dock$" },
+    blur = false,
+    order = 11,
+})
+
+hl.layer_rule({
     name = "aurora-launcher",
     match = { namespace = "^aurora-launcher$" },
     blur = false,

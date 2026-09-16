@@ -47,6 +47,7 @@ global:
     discord
     spotify
     xournalpp
+    prismlauncher
   ];
 
   hardware = {
@@ -58,9 +59,6 @@ global:
     {
       output = "HDMI-A-1";
       mode = "1920x1080@60.00Hz";
-      # Left screen at the layout origin. Negative X was crashing Hyprland 0.56
-      # on NVIDIA (pixman invalid damage, SIGSEGV). Gamescope pins Overwatch
-      # to DP-1 by name, so XWayland origin no longer has to be the ultrawide.
       position = "0x0";
       scale = 1;
       bitdepth = 8;

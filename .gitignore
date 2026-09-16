@@ -1,7 +1,5 @@
 .idea
-.serashell-src
 home/dots/aurora-qs/assets/emoji.json
 **/__pycache__/
 *.pyc
 /result
-/result-ow-vkfix

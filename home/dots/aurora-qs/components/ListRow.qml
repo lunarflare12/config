@@ -9,6 +9,7 @@ Rectangle {
 
     property string icon: ""
     property string iconName: ""
+    property string themeIcon: ""
     property string title: ""
     property string subtitle: ""
     property string trailing: ""
@@ -102,16 +103,24 @@ Rectangle {
             width: 18
             height: 18
 
-            visible: root.iconName !== ""
+            visible: root.iconName !== "" && root.themeIcon === ""
 
             name: root.iconName
             color: root.active ? Core.Theme.accent : root.iconColor
         }
 
+        ThemeIcon {
+            anchors.centerIn: parent
+            width: 18
+            height: 18
+            visible: root.themeIcon !== ""
+            name: root.themeIcon
+        }
+
         Text {
             anchors.centerIn: parent
 
-            visible: root.iconName === ""
+            visible: root.iconName === "" && root.themeIcon === ""
 
             text: root.icon
 

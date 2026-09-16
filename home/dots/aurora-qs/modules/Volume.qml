@@ -11,7 +11,9 @@ import "../components" as Components
 Item {
     id: root
 
-    implicitWidth: 58
+    property bool iconOnly: false
+
+    implicitWidth: root.iconOnly ? 28 : 58
     implicitHeight: Core.Theme.moduleHeight
 
     readonly property var svc: Services.AudioService
@@ -30,51 +32,48 @@ Item {
 
         spacing: 5
 
-        Text {
+        Components.ThemeIcon {
             id: icon
 
             anchors.verticalCenter: parent.verticalCenter
+            name: Core.Icons.volumeTheme(root.svc.volume, root.svc.muted || !root.svc.sink)
 
-            text: root.svc.icon
-
-            font.family: Core.Theme.iconFont
-            font.pixelSize: Core.Theme.iconSize
-
-            color: root.svc.muted ? Core.Theme.foregroundMuted : (root.menuOpen ? Core.Theme.accent : Core.Theme.foreground)
-
-            Behavior on color {
-                ColorAnimation {
+            Behavior on opacity {
+                NumberAnimation {
                     duration: 120
                     easing.type: Easing.OutQuint
                 }
             }
 
-            // Springy pop whenever the icon changes.
-            onTextChanged: popAnim.restart()
+            opacity: root.svc.muted ? 0.55 : 1
+
+            onNameChanged: popAnim.restart()
 
             SequentialAnimation {
                 id: popAnim
 
                 NumberAnimation {
                     target: icon
-                    property: "opacity"
-                    to: 0.55
-                    duration: 90
-                    easing.type: Easing.OutQuint
+                    property: "scale"
+                    to: 1.2
+                    duration: 70
+                    easing.type: Easing.OutCubic
                 }
 
                 NumberAnimation {
                     target: icon
-                    property: "opacity"
+                    property: "scale"
                     to: 1.0
-                    duration: 150
-                    easing.type: Easing.OutQuint
+                    duration: 160
+                    easing.type: Easing.OutBack
+                    easing.overshoot: 2.2
                 }
             }
         }
 
         Text {
             anchors.verticalCenter: parent.verticalCenter
+            visible: !root.iconOnly
 
             text: root.svc.volumePercent + "%"
 

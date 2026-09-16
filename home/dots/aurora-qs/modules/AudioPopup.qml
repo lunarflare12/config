@@ -124,18 +124,35 @@ Components.PopupSurface {
                         width: parent.width
                         height: 20
 
-                        Text {
+                        Components.ThemeIcon {
                             id: outIcon
 
                             anchors.left: parent.left
                             anchors.verticalCenter: parent.verticalCenter
+            name: popup.svc.iconName
 
-                            text: popup.svc.icon
+                            onNameChanged: outPop.restart()
 
-                            font.family: Core.Theme.iconFont
-                            font.pixelSize: Core.Theme.iconSize
+                            SequentialAnimation {
+                                id: outPop
 
-                            color: popup.svc.muted ? Core.Theme.foregroundFaint : Core.Theme.accent
+                                NumberAnimation {
+                                    target: outIcon
+                                    property: "scale"
+                                    to: 1.18
+                                    duration: 80
+                                    easing.type: Easing.OutCubic
+                                }
+
+                                NumberAnimation {
+                                    target: outIcon
+                                    property: "scale"
+                                    to: 1.0
+                                    duration: 160
+                                    easing.type: Easing.OutBack
+                                    easing.overshoot: 2.2
+                                }
+                            }
 
                             MouseArea {
                                 anchors.fill: parent
@@ -166,17 +183,28 @@ Components.PopupSurface {
                             anchors.right: parent.right
                             anchors.verticalCenter: parent.verticalCenter
 
-                            text: popup.svc.volumePercent + "%"
+                            text: Math.round(shownLevel) + "%"
 
                             font.family: Core.Theme.fontFamily
                             font.pixelSize: Core.Theme.fontSizeLarge
                             font.weight: Font.DemiBold
 
                             color: popup.svc.muted ? Core.Theme.foregroundFaint : Core.Theme.foreground
+
+                            property real shownLevel: popup.svc.volumePercent
+
+                            Behavior on shownLevel {
+                                enabled: !outSlider.dragging
+                                NumberAnimation {
+                                    duration: 180
+                                    easing.type: Easing.OutCubic
+                                }
+                            }
                         }
                     }
 
                     Components.VolumeSlider {
+                        id: outSlider
                         width: parent.width
 
                         value: popup.svc.volume
@@ -308,7 +336,7 @@ Components.PopupSurface {
 
                             glassActive: true
 
-                            icon: popup.svc.iconFor(sinkRow.modelData)
+                            themeIcon: popup.svc.themeNameFor(sinkRow.modelData)
 
                             title: popup.svc.label(sinkRow.modelData)
 
@@ -362,18 +390,12 @@ Components.PopupSurface {
                         width: parent.width
                         height: 20
 
-                        Text {
+                        Components.ThemeIcon {
                             id: micIcon
 
                             anchors.left: parent.left
                             anchors.verticalCenter: parent.verticalCenter
-
-                            text: popup.svc.micIcon
-
-                            font.family: Core.Theme.iconFont
-                            font.pixelSize: Core.Theme.iconSize
-
-                            color: popup.svc.micMuted ? Core.Theme.danger : Core.Theme.success
+            name: popup.svc.micIconName
 
                             MouseArea {
                                 anchors.fill: parent
@@ -556,7 +578,7 @@ Components.PopupSurface {
 
                             glassActive: true
 
-                            icon: popup.svc.iconFor(sourceRow.modelData)
+                            themeIcon: popup.svc.themeNameFor(sourceRow.modelData)
 
                             title: popup.svc.label(sourceRow.modelData)
 
@@ -706,15 +728,11 @@ Components.PopupSurface {
 
                     spacing: 6
 
-                    Text {
+                    Components.ThemeIcon {
                         anchors.horizontalCenter: parent.horizontalCenter
-
-                        text: popup.svc.iconOff
-
-                        font.family: Core.Theme.fontFamily
-                        font.pixelSize: 22
-
-                        color: Core.Theme.foregroundFaint
+                        width: 22
+                        height: 22
+                        name: "volume-muted"
                     }
 
                     Text {

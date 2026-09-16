@@ -14,13 +14,41 @@ QtObject {
 
     readonly property string home: Quickshell.env("HOME")
     readonly property string usagePath: root.home + "/.cache/aurora/launcher-usage.json"
+    readonly property string layoutPath: root.home + "/.config/aurora/app-layout.json"
+    readonly property string layoutLegacyPath: root.home + "/.cache/aurora/app-layout.json"
 
     property var usage: ({})
+    property var launchpadOrder: []
+    property var dockOrder: []
+    property bool dockConfigured: false
+    property bool layoutReady: false
+
+    readonly property var defaultDockNeedles: [
+        "firefox", "zen", "google-chrome", "kitty", "thunar", "nemo",
+        "cursor", "code", "obsidian", "idea-ultimate", "idea", "steam",
+        "xournal", "telegram", "discord"
+    ]
 
     // Frecency
 
     property FileView usageFile: FileView {
         path: root.usagePath
+        blockLoading: true
+        printErrors: false
+    }
+
+    property FileView layoutFile: FileView {
+        path: root.layoutPath
+        blockLoading: true
+        printErrors: false
+        onLoaded: {
+            if (!root.layoutReady)
+                root.loadLayout()
+        }
+    }
+
+    property FileView layoutLegacyFile: FileView {
+        path: root.layoutLegacyPath
         blockLoading: true
         printErrors: false
     }
@@ -55,6 +83,249 @@ QtObject {
         root.usage = next
 
         root.usageFile.setText(JSON.stringify(next))
+    }
+
+    function loadLayout() {
+        let raw = root.layoutFile.text()
+        if (!raw)
+            raw = root.layoutLegacyFile.text()
+        if (!raw) {
+            root.launchpadOrder = []
+            root.dockOrder = []
+            root.dockConfigured = false
+            root.layoutReady = true
+            return
+        }
+
+        try {
+            const parsed = JSON.parse(raw)
+            root.launchpadOrder = Array.isArray(parsed && parsed.launchpad) ? parsed.launchpad : []
+            root.dockOrder = Array.isArray(parsed && parsed.dock) ? parsed.dock : []
+            root.dockConfigured = parsed && Object.prototype.hasOwnProperty.call(parsed, "dock")
+        } catch (e) {
+            root.launchpadOrder = []
+            root.dockOrder = []
+            root.dockConfigured = false
+        }
+        root.layoutReady = true
+    }
+
+    function saveLayout() {
+        root.dockConfigured = true
+        root.layoutFile.setText(JSON.stringify({
+            "launchpad": root.launchpadOrder,
+            "dock": root.dockOrder
+        }))
+    }
+
+    function sameIds(a, b) {
+        if (!a || !b || a.length !== b.length)
+            return false
+        for (let i = 0; i < a.length; i++) {
+            if (a[i] !== b[i])
+                return false
+        }
+        return true
+    }
+
+    function defaultDockIds(entries) {
+        const ids = []
+        const seen = {}
+        const list = entries || root.entries
+        for (let n = 0; n < root.defaultDockNeedles.length; n++) {
+            const needle = root.defaultDockNeedles[n]
+            for (let i = 0; i < list.length; i++) {
+                const e = list[i]
+                const id = e && e.id ? String(e.id) : ""
+                if (!id || seen[id])
+                    continue
+                const hay = [
+                    id,
+                    String(e.name || ""),
+                    String(e.execString || e.exec || ""),
+                    String(e.startupClass || "")
+                ].join(" ").toLowerCase()
+                if (hay.indexOf(needle) === -1)
+                    continue
+                seen[id] = true
+                ids.push(id)
+                break
+            }
+        }
+        return ids
+    }
+
+    function syncLayout() {
+        const list = root.entries
+        if (!list.length)
+            return
+        if (!root.layoutReady)
+            root.loadLayout()
+
+        const lp = []
+        const seenLp = {}
+        const prevLp = root.launchpadOrder
+        for (let i = 0; i < prevLp.length; i++) {
+            const id = String(prevLp[i] || "")
+            if (!id || seenLp[id])
+                continue
+            seenLp[id] = true
+            lp.push(id)
+        }
+        for (let i = 0; i < list.length; i++) {
+            const id = list[i] && list[i].id ? String(list[i].id) : ""
+            if (!id || seenLp[id])
+                continue
+            seenLp[id] = true
+            lp.push(id)
+        }
+
+        let dockChanged = false
+        if (!root.dockConfigured && (!root.dockOrder || root.dockOrder.length === 0)) {
+            const defaults = root.defaultDockIds(list)
+            if (defaults.length) {
+                root.dockOrder = defaults
+                root.dockConfigured = true
+                dockChanged = true
+            }
+        }
+
+        const lpChanged = !root.sameIds(root.launchpadOrder, lp)
+        if (lpChanged)
+            root.launchpadOrder = lp
+        if (lpChanged || dockChanged)
+            root.saveLayout()
+    }
+
+    function byIdMap() {
+        const map = ({})
+        const list = root.entries
+        for (let i = 0; i < list.length; i++) {
+            const e = list[i]
+            if (e && e.id)
+                map[String(e.id)] = e
+        }
+        return map
+    }
+
+    readonly property var launchpadEntries: {
+        const order = root.launchpadOrder
+        const _n = order ? order.length : 0
+        const _e = root.entries.length
+        const map = root.byIdMap()
+        const out = []
+        for (let i = 0; i < _n; i++) {
+            const e = map[String(order[i])]
+            if (e)
+                out.push(e)
+        }
+        return out
+    }
+
+    readonly property var dockEntries: {
+        const order = root.dockOrder
+        const _n = order ? order.length : 0
+        const _e = root.entries.length
+        const map = root.byIdMap()
+        const out = []
+        for (let i = 0; i < _n; i++) {
+            const e = map[String(order[i])]
+            if (e)
+                out.push(e)
+        }
+        return out
+    }
+
+    function moveIds(ids, from, to) {
+        const next = ids.slice()
+        if (from < 0 || from >= next.length)
+            return ids
+        const dest = Math.max(0, Math.min(next.length - 1, to))
+        if (from === dest)
+            return ids
+        const item = next.splice(from, 1)[0]
+        next.splice(dest, 0, item)
+        return next
+    }
+
+    function moveLaunchpad(from, to) {
+        const next = root.moveIds(root.launchpadOrder, from, to)
+        if (root.sameIds(next, root.launchpadOrder))
+            return
+        root.launchpadOrder = next
+        root.saveLayout()
+    }
+
+    function moveDock(from, to) {
+        const next = root.moveIds(root.dockOrder, from, to)
+        if (root.sameIds(next, root.dockOrder))
+            return
+        root.dockOrder = next
+        root.saveLayout()
+    }
+
+    function isDockPinned(id) {
+        const needle = String(id || "")
+        if (!needle)
+            return false
+        const dock = root.dockOrder
+        for (let i = 0; i < dock.length; i++) {
+            if (String(dock[i]) === needle)
+                return true
+        }
+        return false
+    }
+
+    function toggleDockPin(id) {
+        const needle = String(id || "")
+        if (!needle)
+            return
+        const dock = root.dockOrder.slice()
+        const idx = dock.indexOf(needle)
+        if (idx >= 0)
+            dock.splice(idx, 1)
+        else
+            dock.push(needle)
+        root.dockOrder = dock
+        root.saveLayout()
+    }
+
+    property bool dockDropActive: false
+    property int dockHoverSlot: -1
+
+    function clearDockDrop() {
+        root.dockDropActive = false
+        root.dockHoverSlot = -1
+    }
+
+    function pinDock(id, at) {
+        const needle = String(id || "")
+        if (!needle)
+            return
+        const dock = root.dockOrder.filter(function (item) {
+            return String(item) !== needle
+        })
+        let dest = dock.length
+        if (typeof at === "number" && at >= 0)
+            dest = Math.max(0, Math.min(dock.length, at))
+        dock.splice(dest, 0, needle)
+        if (root.sameIds(dock, root.dockOrder))
+            return
+        root.dockOrder = dock
+        root.saveLayout()
+    }
+
+    function unpinDock(id) {
+        const needle = String(id || "")
+        if (!needle)
+            return
+        const dock = root.dockOrder.filter(function (item) {
+            return String(item) !== needle
+        })
+        if (root.sameIds(dock, root.dockOrder))
+            return
+        root.dockOrder = dock
+        root.saveLayout()
     }
 
     // Entries
@@ -172,6 +443,9 @@ QtObject {
 
     function rebuildEntries() {
         const source = DesktopEntries.applications.values
+        if (!source || source.length === 0)
+            return
+
         const out = []
         const seenSteam = {}
         const seenName = {}
@@ -224,6 +498,9 @@ QtObject {
             return 0
         })
 
+        if (root.entries.length > 8 && out.length < Math.ceil(root.entries.length * 0.5))
+            return
+
         const cur = root.entries
         if (cur.length === out.length) {
             let same = true
@@ -233,11 +510,15 @@ QtObject {
                     break
                 }
             }
-            if (same)
+            if (same) {
+                if (!root.launchpadOrder.length || !root.dockOrder.length)
+                    root.syncLayout()
                 return
+            }
         }
 
         root.entries = out
+        root.syncLayout()
     }
 
     readonly property int count: root.entries.length
@@ -455,10 +736,6 @@ QtObject {
 
     function gameAssetIcon(blob) {
         const s = String(blob || "").toLowerCase();
-        if (s.indexOf("overwatch") !== -1 || s.indexOf("2357570") !== -1)
-            return "file://" + Quickshell.shellDir + "/assets/games/overwatch.png";
-        if (s.indexOf("paladin") !== -1 || s.indexOf("444090") !== -1)
-            return "file://" + Quickshell.shellDir + "/assets/games/paladins.png";
         if (s.indexOf("terraria") !== -1 || s.indexOf("105600") !== -1)
             return "file://" + Quickshell.shellDir + "/assets/games/terraria.png";
         return "";
@@ -532,6 +809,7 @@ QtObject {
 
     Component.onCompleted: {
         root.loadUsage()
+        root.loadLayout()
         root.rebuildEntries()
     }
 }

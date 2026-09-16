@@ -5,13 +5,14 @@ import Quickshell.Wayland
 
 import "../core" as Core
 import "../modules" as Modules
+import "../services" as Services
 
-// Launchers used to live inside the bar layer, which forced a ~666px-tall
-// surface even while closed. They are a separate overlay mapped only when open.
+// One overlay per monitor, always mapped, so Super+R does not wait for a new surface.
 PanelWindow {
     id: root
 
-    screen: Core.Session.screenObject(Core.Session.focusedMonitorName())
+    property var modelData: null
+    screen: root.modelData
 
     anchors {
         top: true
@@ -22,11 +23,25 @@ PanelWindow {
 
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
-    visible: root.launcherOpen
+    visible: true
+    exclusiveZone: 0
 
     WlrLayershell.namespace: "aurora-launcher"
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: root.launcherOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+
+    property Region emptyMask: Region {
+        width: 0
+        height: 0
+    }
+
+    mask: (root.launcherOpen || root.intro > 0.01) ? null : root.emptyMask
+
+    readonly property bool onFocused: Core.Session.monitorNameForScreen(root.screen) === Core.Session.focusedMonitorName()
+
+    property bool host: false
+    property real intro: 0
+    property bool closingLaunchpad: false
 
     readonly property var launchers: [appLauncher, wallpaperPicker, themePicker, clipboardView, emojiPicker, powerMenu]
 
@@ -39,7 +54,48 @@ PanelWindow {
         return null;
     }
 
-    readonly property bool launcherOpen: root.activeLauncher !== null
+    readonly property bool launcherOpen: root.host && root.activeLauncher !== null
+    readonly property bool launchpadOpen: root.host && appLauncher.open
+    readonly property bool showLaunchpad: root.launchpadOpen || (root.closingLaunchpad && root.intro > 0.01)
+    readonly property bool showCard: root.launcherOpen && !root.showLaunchpad
+
+    Behavior on intro {
+        NumberAnimation {
+            duration: root.launchpadOpen ? 220 : 140
+            easing.type: root.launchpadOpen ? Easing.OutCubic : Easing.InCubic
+        }
+    }
+
+    Connections {
+        target: Core.PopupManager
+        function onCurrentChanged() {
+            const cur = Core.PopupManager.current;
+            if (cur !== "") {
+                root.host = root.onFocused;
+                root.closingLaunchpad = false;
+                root.intro = (root.host && cur === "launcher") ? 1 : 0;
+                return;
+            }
+            if (root.intro > 0.01) {
+                root.closingLaunchpad = true;
+                root.intro = 0;
+                return;
+            }
+            root.host = false;
+            root.closingLaunchpad = false;
+        }
+    }
+
+    onIntroChanged: {
+        if (root.host || root.closingLaunchpad)
+            Core.PopupManager.launchpadIntro = root.intro;
+        if (root.intro <= 0.01 && Core.PopupManager.current === "") {
+            root.closingLaunchpad = false;
+            root.host = false;
+            Core.PopupManager.launchpadIntro = 0;
+            Services.AppsService.clearDockDrop();
+        }
+    }
 
     MouseArea {
         anchors.fill: parent
@@ -48,11 +104,90 @@ PanelWindow {
         onClicked: Core.PopupManager.close()
     }
 
+    Item {
+        id: frost
+        anchors.fill: parent
+        opacity: Math.min(1, root.intro)
+        visible: root.intro > 0.01
+        clip: true
+
+        Image {
+            anchors.fill: parent
+            source: Services.WallpaperService.current ? ("file://" + Services.WallpaperService.current) : ""
+            fillMode: Image.PreserveAspectCrop
+            visible: status === Image.Ready
+            sourceSize.width: Math.max(160, Math.round(root.width / 10))
+            sourceSize.height: Math.max(90, Math.round(root.height / 10))
+            smooth: true
+            scale: 1.02 + 0.06 * root.intro
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            color: Qt.rgba(0.08, 0.08, 0.10, 0.34)
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            color: Qt.rgba(1, 1, 1, 0.08)
+        }
+    }
+
+    Image {
+        visible: false
+        asynchronous: true
+        cache: true
+        source: Services.WallpaperService.current ? ("file://" + Services.WallpaperService.current) : ""
+        sourceSize.width: 320
+        sourceSize.height: 180
+    }
+
+    Modules.AppLauncher {
+        id: appLauncher
+        anchors.fill: parent
+        anchors.bottomMargin: 96
+        z: 2
+        intro: root.intro
+        opacity: root.showLaunchpad ? 1 : 0
+        dockTarget: launchpadDock
+    }
+
+    DockBar {
+        id: launchpadDock
+        z: 4
+        anchors.bottom: parent.bottom
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottomMargin: 8
+        intro: root.showLaunchpad ? root.intro : 0
+        visible: root.showLaunchpad && root.intro > 0.01
+        interactive: true
+        onLaunched: Core.PopupManager.close()
+    }
+
+    Image {
+        z: 50
+        visible: root.showLaunchpad && appLauncher.dragging && appLauncher.dragFrom >= 0 && appLauncher.dragFrom < appLauncher.itemCount
+        width: 88
+        height: 88
+        x: appLauncher.dragX - width / 2
+        y: appLauncher.dragY - height / 2
+        source: {
+            if (!appLauncher.dragging)
+                return "";
+            const e = appLauncher.results[appLauncher.dragFrom];
+            return e ? Services.AppsService.iconSource(e) : "";
+        }
+        fillMode: Image.PreserveAspectFit
+        smooth: true
+        cache: true
+        opacity: 0.92
+    }
+
     Rectangle {
         id: card
 
         anchors.horizontalCenter: parent.horizontalCenter
-        y: (root.activeLauncher && root.activeLauncher.startMenu) ? Math.max(Core.Theme.barHeight + 16, Math.round((root.height - height) * 0.16)) : Core.Theme.barHeight + Core.Theme.popupGap + 8
+        y: Math.round((root.height - height) * 0.18)
 
         width: root.activeLauncher ? root.activeLauncher.cardWidth : 460
         height: root.activeLauncher ? root.activeLauncher.viewHeight : 110
@@ -60,7 +195,8 @@ PanelWindow {
         color: "transparent"
         antialiasing: true
         clip: true
-        visible: root.launcherOpen
+        visible: root.showCard
+        z: 3
 
         Rectangle {
             anchors.fill: parent
@@ -80,11 +216,6 @@ PanelWindow {
 
         Item {
             anchors.fill: parent
-
-            Modules.AppLauncher {
-                id: appLauncher
-                anchors.fill: parent
-            }
 
             Modules.WallpaperPicker {
                 id: wallpaperPicker

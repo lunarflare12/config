@@ -324,11 +324,11 @@ QtObject {
 
     // Existing QuickShell Geometry
 
-    readonly property int pillHeight: 38
+    readonly property int pillHeight: 24
 
-    readonly property int barHeight: 40
+    readonly property int barHeight: 24
 
-    readonly property int moduleHeight: 36
+    readonly property int moduleHeight: 22
 
     readonly property int barMarginTop: 0
 
@@ -346,6 +346,7 @@ QtObject {
 
     readonly property string fontFamily: fonts.interface || "Inter"
     readonly property string fontMono: fonts.terminal || "JetBrainsMono Nerd Font Mono"
+    readonly property string fontPixel: "Unifont"
 
     // The family that actually contains the Nerd Font glyphs. Derived from the
     // theme so it cannot drift from fonts.terminal the way the hardcoded string
