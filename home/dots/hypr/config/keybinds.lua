@@ -1,7 +1,7 @@
 local programs = require("config/programs")
 local mod = "SUPER"
 local WS_PER = 10
-local MONITORS = { "HDMI-A-1", "DP-1" }
+local MONITORS = { "DP-1", "HDMI-A-1" }
 
 local function cursor_monitor()
     return hl.get_monitor_at_cursor() or hl.get_active_monitor()
@@ -45,7 +45,7 @@ end
 
 hl.bind(mod .. " + Return", hl.dsp.exec_cmd(programs.terminal))
 hl.bind(mod .. " + B", hl.dsp.exec_cmd(programs.browser))
-hl.bind(mod .. " + E", hl.dsp.exec_cmd(programs.file_manager))
+hl.bind(mod .. " + E", hl.dsp.exec_cmd(programs.scripts .. "/finder.sh"))
 hl.bind(mod .. " + R", hl.dsp.exec_cmd("qs ipc call launcher toggle"))
 hl.bind(mod .. " + C", hl.dsp.exec_cmd("qs ipc call theme toggle"))
 hl.bind(mod .. " + X", hl.dsp.exec_cmd("qs ipc call power toggle"))
@@ -122,9 +122,9 @@ end
 
 local opencluely = (os.getenv("HOME") or "") .. "/projects/opencluely/opencluely"
 hl.bind("CTRL + SHIFT + S", hl.dsp.exec_cmd(opencluely .. " shortcut screenshot"))
-hl.bind("CTRL + SHIFT + V", hl.dsp.exec_cmd(opencluely .. " shortcut toggle"))
+hl.bind("CTRL + SHIFT + O", hl.dsp.exec_cmd(opencluely .. " shortcut toggle"))
 hl.bind("CTRL + SHIFT + I", hl.dsp.exec_cmd(opencluely .. " shortcut interactive"))
-hl.bind("CTRL + SHIFT + C", hl.dsp.exec_cmd(opencluely .. " shortcut show"))
+hl.bind("CTRL + SHIFT + Y", hl.dsp.exec_cmd(opencluely .. " shortcut show"))
 hl.bind("CTRL + SHIFT + backslash", hl.dsp.exec_cmd(opencluely .. " shortcut reset"))
 hl.bind("ALT + A", hl.dsp.exec_cmd(opencluely .. " shortcut interactive"))
 hl.bind("ALT + R", hl.dsp.exec_cmd(opencluely .. " shortcut mic"))

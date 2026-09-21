@@ -14,7 +14,7 @@ Item {
 
     readonly property string monitorName: root.host && root.host.monitorName ? root.host.monitorName : ""
     readonly property bool onDesktop: Core.Session.isDesktopMonitor(root.monitorName)
-    readonly property int span: 3
+    readonly property int span: 4
 
     anchors.fill: parent
     visible: root.onDesktop
@@ -42,7 +42,7 @@ Item {
         host: root.host
         widgetId: "processor"
         onDesktop: root.onDesktop
-        spanW: 3
+        spanW: 4
         spanH: 3
         defaultCol: Math.max(0, (root.host ? root.host.cols : 12) - root.span * 2)
         defaultRow: Math.max(0, (root.host ? root.host.rows : 8) - 3)
@@ -53,7 +53,7 @@ Item {
         host: root.host
         widgetId: "memory"
         onDesktop: root.onDesktop
-        spanW: 3
+        spanW: 4
         spanH: 4
         defaultCol: Math.max(0, (root.host ? root.host.cols : 12) - root.span)
         defaultRow: Math.max(0, (root.host ? root.host.rows : 8) - 4)
@@ -66,26 +66,6 @@ Item {
         ColumnLayout {
             anchors.fill: parent
             spacing: Core.Theme.spacing
-
-            PopupHeader {
-                Layout.fillWidth: true
-                Layout.preferredHeight: implicitHeight
-                title: "Processor"
-                subtitle: {
-                    const cpu = Services.SystemMonitor.cpu + "%";
-                    const temp = Services.SystemMonitor.temperature < 0 ? "--" : Services.SystemMonitor.temperature + "°C";
-                    const gpu = Services.SystemMonitor.gpu + "%";
-                    const gtemp = Services.SystemMonitor.gpuTemperature < 0 ? "--" : Services.SystemMonitor.gpuTemperature + "°C";
-                    return "CPU " + cpu + " · " + temp + "  ·  GPU " + gpu + " · " + gtemp;
-                }
-                showToggle: false
-            }
-
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 1
-                color: Core.Theme.separator
-            }
 
             PercentBoard {
                 Layout.fillWidth: true
@@ -120,56 +100,34 @@ Item {
             anchors.fill: parent
             spacing: Core.Theme.spacing
 
-            PopupHeader {
+            DiskBar {
                 Layout.fillWidth: true
                 Layout.preferredHeight: implicitHeight
-                title: "Memory"
-                subtitle: Services.SystemMonitor.formatBytes(Services.SystemMonitor.ramUsedBytes) + " / " + Services.SystemMonitor.formatBytes(Services.SystemMonitor.ramTotalBytes)
-                showToggle: false
-            }
-
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 1
-                color: Core.Theme.separator
-            }
-
-            PercentBoard {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                Layout.minimumHeight: 48
                 icon: "ram"
-                title: "RAM"
-                seriesColor: "#A6E3A1"
-                values: Services.SystemMonitor.memoryHistory
-                currentValue: Services.SystemMonitor.memory
-                detailText: Services.SystemMonitor.formatBytes(Services.SystemMonitor.ramUsedBytes) + " / " + Services.SystemMonitor.formatBytes(Services.SystemMonitor.ramTotalBytes)
+                barColor: "#A6E3A1"
+                label: "RAM"
+                usedBytes: Services.SystemMonitor.ramUsedBytes
+                totalBytes: Services.SystemMonitor.ramTotalBytes
             }
 
-            PercentBoard {
+            DiskBar {
                 Layout.fillWidth: true
-                Layout.fillHeight: true
-                Layout.minimumHeight: 48
+                Layout.preferredHeight: implicitHeight
                 icon: "gpu"
-                title: "VRAM"
-                seriesColor: "#89B4FA"
-                values: Services.SystemMonitor.vramHistory
-                currentValue: Services.SystemMonitor.vram
-                detailText: Services.SystemMonitor.formatBytes(Services.SystemMonitor.vramUsedBytes) + " / " + Services.SystemMonitor.formatBytes(Services.SystemMonitor.vramTotalBytes)
+                barColor: "#89B4FA"
+                label: "VRAM"
+                usedBytes: Services.SystemMonitor.vramUsedBytes
+                totalBytes: Services.SystemMonitor.vramTotalBytes
             }
 
-            PercentBoard {
-                visible: Services.SystemMonitor.swapEnabled
+            DiskBar {
                 Layout.fillWidth: true
-                Layout.fillHeight: Services.SystemMonitor.swapEnabled
-                Layout.preferredHeight: Services.SystemMonitor.swapEnabled ? -1 : 0
-                Layout.minimumHeight: Services.SystemMonitor.swapEnabled ? 48 : 0
+                Layout.preferredHeight: implicitHeight
                 icon: "swap"
-                title: "SWAP"
-                seriesColor: "#F9E2AF"
-                values: Services.SystemMonitor.swapHistory
-                currentValue: Services.SystemMonitor.swap
-                detailText: Services.SystemMonitor.formatBytes(Services.SystemMonitor.swapUsedBytes) + " / " + Services.SystemMonitor.formatBytes(Services.SystemMonitor.swapTotalBytes)
+                barColor: "#F9E2AF"
+                label: "SWAP"
+                usedBytes: Services.SystemMonitor.swapUsedBytes
+                totalBytes: Services.SystemMonitor.swapTotalBytes
             }
 
             DiskBar {

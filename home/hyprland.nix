@@ -9,7 +9,8 @@
 
 let
   env = desktopEnv;
-  hyprDots = "${config.home.homeDirectory}/config/home/dots/hypr";
+  repoRoot = "${config.home.homeDirectory}/${params.repo}";
+  hyprDots = "${repoRoot}/home/dots/hypr";
   linkHypr = rel: {
     source = config.lib.file.mkOutOfStoreSymlink "${hyprDots}/${rel}";
     force = true;
@@ -48,7 +49,11 @@ let
       hl.on("config.reloaded", apply_monitors)
     '';
 
-  polkitAgent = "${pkgs.hyprpolkitagent}/libexec/hyprpolkitagent";
+  polkitAgent = pkgs.writeShellScript "hyprpolkitagent-wrap" ''
+    export QT_QUICK_CONTROLS_STYLE=Fusion
+    unset QT_STYLE_OVERRIDE
+    exec ${pkgs.hyprpolkitagent}/libexec/hyprpolkitagent "$@"
+  '';
   owStretchPluginDir = "${pkgs.hyprlandPlugins.csgo-vulkan-fix}";
   scripts = "${config.home.homeDirectory}/.config/scripts";
   luaEnv =
@@ -89,7 +94,7 @@ in
           return {
               terminal = "${params.terminal}",
               browser = "${params.browser}",
-              file_manager = "${params.fileManager}",
+              file_manager = "${config.home.homeDirectory}/.config/scripts/finder.sh",
               scripts = os.getenv("HOME") .. "/.config/scripts",
           }
         '';
@@ -107,6 +112,7 @@ in
               input = {
                   kb_layout = "${params.input.kbLayout}",
                   follow_mouse = 1,
+                  mouse_refocus = false,
                   sensitivity = ${toString params.input.sensitivity},
                   accel_profile = "flat",
                   touchpad = { natural_scroll = ${if params.input.naturalScroll then "true" else "false"} },
@@ -142,7 +148,6 @@ in
         text = ''
           hl.on("hyprland.start", function()
               hl.exec_cmd("${scripts}/hypr-fix-safe-mode.sh")
-              hl.exec_cmd("env QT_QUICK_CONTROLS_STYLE=Fusion ${polkitAgent}")
               hl.exec_cmd("hypridle")
               hl.exec_cmd("${scripts}/steam-lock-shaders.sh")
               hl.exec_cmd("${scripts}/ow-stretch-plugin.sh")
@@ -156,4 +161,21 @@ in
       };
     }
   ];
+
+  systemd.user.services.hyprpolkitagent = {
+    Unit = {
+      Description = "Hyprland Polkit authentication agent";
+      After = [ "graphical-session.target" ];
+      PartOf = [ "graphical-session.target" ];
+    };
+    Service = {
+      Type = "simple";
+      ExecStart = "${polkitAgent}";
+      Restart = "on-failure";
+      RestartSec = "1";
+      UnsetEnvironment = [ "QT_STYLE_OVERRIDE" ];
+      Environment = [ "QT_QUICK_CONTROLS_STYLE=Fusion" ];
+    };
+    Install.WantedBy = [ "graphical-session.target" ];
+  };
 }

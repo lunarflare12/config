@@ -1,225 +1,246 @@
 import QtQuick
-import Quickshell
-import Quickshell.Io
-import "../components" as Components
 import "../core" as Core
 import "../services" as Services
 
-// Wallpaper Picker
+// Bottom wallpaper strip. Straight tiles, selected one is wider.
+FocusScope {
+    id: picker
 
-Components.LauncherView {
-    id: launcher
+    readonly property bool open: Core.PopupManager.isOpen("wallpaper")
+    property bool hosted: false
+    property int cardWidth: 0
+    property int viewHeight: 0
 
-    launcherId: "wallpaper"
-    promptIcon: Core.Icons.image
-    placeholder: "Search wallpapers"
+    readonly property var results: Services.WallpaperService.wallpapers
+    readonly property int itemCount: picker.results.length
 
-    cardWidth: 760
+    property int selectedIndex: 0
+    property real wheelAccumulator: 0
 
-    columns: 3
+    readonly property int sliceH: 188
+    readonly property int sliceW: 112
+    readonly property int heroW: 336
+    readonly property int gap: 10
+    readonly property int stripH: picker.sliceH + 16
 
-    // The wheel and h/j/k/l move the selection only -- nothing is applied
-    // until Enter, so travelling through the grid is free.
-    vimNavigation: true
+    visible: picker.open && picker.hosted
+    focus: picker.open && picker.hosted
 
-    readonly property var results: Services.WallpaperService.search(launcher.query)
-
-    itemCount: launcher.results.length
-
-    counterText: launcher.query.length === 0 ? launcher.results.length + " wallpapers" : launcher.results.length + " of " + Services.WallpaperService.count
-
-    onDidOpen: {
-        if (Services.WallpaperService.count === 0)
-            Services.WallpaperService.refresh();
+    function dismiss() {
+        if (picker.open)
+            Core.PopupManager.close();
     }
 
-    onAccepted: {
-        const item = launcher.results[launcher.selectedIndex];
+    function move(delta) {
+        if (picker.itemCount <= 0)
+            return;
+        picker.selectedIndex = Math.max(0, Math.min(picker.itemCount - 1, picker.selectedIndex + delta));
+    }
+
+    function applyCurrent() {
+        const item = picker.results[picker.selectedIndex];
         if (!item)
             return;
-
-        launcher.dismiss();
+        picker.dismiss();
         Services.WallpaperService.apply(item.path);
     }
 
-    contentComponent: Component {
-        GridView {
-            id: grid
+    function indexOfCurrent() {
+        const cur = Services.WallpaperService.current;
+        if (!cur)
+            return 0;
+        for (let i = 0; i < picker.results.length; i++) {
+            if (picker.results[i].path === cur)
+                return i;
+        }
+        return 0;
+    }
 
-            model: launcher.results
-            currentIndex: launcher.selectedIndex
+    onOpenChanged: {
+        if (!picker.open)
+            return;
+        if (Services.WallpaperService.count === 0)
+            Services.WallpaperService.refresh();
+        picker.selectedIndex = picker.indexOfCurrent();
+        picker.wheelAccumulator = 0;
+        Qt.callLater(picker.takeFocus);
+    }
 
-            clip: true
-            boundsBehavior: Flickable.StopAtBounds
-            cacheBuffer: 8192
-            reuseItems: true
+    onHostedChanged: {
+        if (picker.open && picker.hosted)
+            Qt.callLater(picker.takeFocus);
+    }
 
-            interactive: false
+    function takeFocus() {
+        if (!picker.open || !picker.hosted)
+            return;
+        picker.forceActiveFocus();
+        strip.positionViewAtIndex(picker.selectedIndex, ListView.Center);
+    }
 
-            cellWidth: Math.floor(width / launcher.columns)
-            cellHeight: Math.round(cellWidth * 0.70)
+    onSelectedIndexChanged: {
+        if (picker.open && picker.hosted)
+            strip.positionViewAtIndex(picker.selectedIndex, ListView.Center);
+    }
 
-            onCurrentIndexChanged: grid.positionViewAtIndex(grid.currentIndex, GridView.Contain)
+    Keys.onPressed: function (event) {
+        if (event.key === Qt.Key_Escape) {
+            picker.dismiss();
+            event.accepted = true;
+            return;
+        }
+        if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+            picker.applyCurrent();
+            event.accepted = true;
+            return;
+        }
+        if (event.key === Qt.Key_Right || event.key === Qt.Key_L || event.key === Qt.Key_Tab) {
+            picker.move(1);
+            event.accepted = true;
+            return;
+        }
+        if (event.key === Qt.Key_Left || event.key === Qt.Key_H || event.key === Qt.Key_Backtab) {
+            picker.move(-1);
+            event.accepted = true;
+            return;
+        }
+    }
 
-            Text {
-                anchors.centerIn: parent
-                visible: launcher.results.length === 0 && !Services.WallpaperService.scanning
+    MouseArea {
+        anchors.fill: parent
+        onClicked: picker.dismiss()
+        onWheel: function (event) {
+            picker.wheelAccumulator += event.angleDelta.y;
+            while (Math.abs(picker.wheelAccumulator) >= 120) {
+                if (picker.wheelAccumulator > 0) {
+                    picker.move(-1);
+                    picker.wheelAccumulator -= 120;
+                } else {
+                    picker.move(1);
+                    picker.wheelAccumulator += 120;
+                }
+            }
+            event.accepted = true;
+        }
+    }
 
-                text: Services.WallpaperService.error.length > 0 ? Services.WallpaperService.error : "No wallpapers in ~/Wallpapers"
+    ListView {
+        id: strip
 
-                color: Core.Theme.foregroundFaint
-                font.family: Core.Theme.fontMono
-                font.pixelSize: Core.Theme.fontSize
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: Math.round(picker.height * 0.11)
+        height: picker.stripH
+
+        orientation: ListView.Horizontal
+        clip: false
+        boundsBehavior: Flickable.StopAtBounds
+        interactive: false
+        reuseItems: true
+        spacing: picker.gap
+        cacheBuffer: 2400
+
+        model: picker.results
+        currentIndex: picker.selectedIndex
+        highlightRangeMode: ListView.StrictlyEnforceRange
+        preferredHighlightBegin: Math.round((width - picker.heroW) / 2)
+        preferredHighlightEnd: Math.round((width + picker.heroW) / 2)
+        highlightFollowsCurrentItem: true
+
+        Text {
+            anchors.centerIn: parent
+            visible: picker.itemCount === 0
+            text: Services.WallpaperService.error.length > 0 ? Services.WallpaperService.error : "No wallpapers in ~/Wallpapers"
+            color: Core.Theme.foregroundFaint
+            font.family: Core.Theme.fontMono
+            font.pixelSize: Core.Theme.fontSize
+        }
+
+        delegate: Item {
+            id: cell
+
+            required property var modelData
+            required property int index
+
+            readonly property bool selected: cell.index === picker.selectedIndex
+            readonly property bool applied: Services.WallpaperService.current === cell.modelData.path
+            readonly property int faceW: cell.selected ? picker.heroW : picker.sliceW
+
+            width: cell.faceW
+            height: picker.stripH
+            z: cell.selected ? 8 : (cell.applied ? 3 : 1)
+
+            Behavior on width {
+                NumberAnimation {
+                    duration: Core.Theme.durBase
+                    easing.type: Easing.OutQuint
+                }
             }
 
-            delegate: Item {
-                id: cell
+            Rectangle {
+                id: face
 
-                required property var modelData
-                required property int index
+                width: cell.faceW
+                height: picker.sliceH
+                y: picker.stripH - height
+                radius: 12
+                clip: true
+                color: Core.Theme.surface
+                border.width: cell.selected ? 2 : 1
+                border.color: cell.selected ? Core.Theme.accent : (cell.applied ? Core.Theme.accentMuted : Qt.rgba(1, 1, 1, 0.22))
 
-                width: grid.cellWidth
-                height: grid.cellHeight
-
-                readonly property bool selected: cell.index === launcher.selectedIndex
-                readonly property bool applied: Services.WallpaperService.current === cell.modelData.path
-
-                // The selected tile grows past its own cell, so it has to paint
-                // over its neighbours.
-                z: cell.selected ? 3 : (cell.applied ? 1 : 0)
-
-                Rectangle {
-                    id: tile
-
+                Image {
                     anchors.fill: parent
-
-                    // Headroom for the zoom. The selected tile grows past its
-                    // own cell and the grid clips, so without a wider gutter
-                    // the outer columns would get shaved flat as they scale.
-                    anchors.margins: 8
-
-                    // Rounded to match the rows in the battery popup.
-                    radius: Core.Theme.radiusRow
-
-                    color: Core.Theme.surfaceGlass
-                    clip: true
-
-                    Components.Tactile {
-                        z: 8
-                        anchors.fill: parent
-                        radius: tile.radius
-                        hovered: tileMouse.containsMouse
-                        pressed: tileMouse.pressed
-                        active: cell.selected
-                        restScale: cell.selected ? 1.04 : 1.0
-                        hoverScale: 1.06
-                        pressScale: 0.96
-                    }
-
-                    opacity: 1.0
-
-                    border.width: cell.selected ? Core.Theme.borderWidth * 2 : Core.Theme.borderWidth
-                    border.color: cell.selected ? Core.Theme.accent : (cell.applied ? Core.Theme.accentMuted : Core.Theme.border)
-
-                    Behavior on border.color {
-                        ColorAnimation {
-                            duration: Core.Theme.durFast
-                            easing.type: Easing.OutQuint
-                        }
-                    }
-
-                    Image {
-                        id: preview
-
-                        anchors.fill: parent
-
-                        asynchronous: false
-                        cache: true
-                        sourceSize.width: 384
-                        sourceSize.height: 216
-                        smooth: true
-                        fillMode: Image.PreserveAspectCrop
-                        source: {
-                            const item = cell.modelData;
-                            if (!item)
-                                return "";
-                            const file = item.thumb || item.path;
-                            return file ? "file://" + file : "";
-                        }
-
-                        scale: cell.selected ? 1.16 : 1.0
-
-                        Behavior on scale {
-                            NumberAnimation {
-                                duration: 180
-                                easing.type: Easing.OutQuint
-                            }
-                        }
-                    }
-
-                    // Filename plate
-                    Rectangle {
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.bottom: parent.bottom
-
-                        height: 26
-                        color: Core.Theme.surfaceGlass
-
-                        Row {
-                            anchors.left: parent.left
-                            anchors.leftMargin: 8
-                            anchors.right: parent.right
-                            anchors.rightMargin: 8
-                            anchors.verticalCenter: parent.verticalCenter
-
-                            spacing: 6
-
-                            // Applied-wallpaper tick, matching the marker the
-                            // battery popup puts on the live power profile.
-                            Text {
-                                anchors.verticalCenter: parent.verticalCenter
-
-                                visible: cell.applied
-
-                                text: Core.Icons.checkCircle
-
-                                font.family: Core.Theme.iconFont
-                                font.pixelSize: Core.Theme.iconSizeSmall
-
-                                color: Core.Theme.accent
-                            }
-
-                            Text {
-                                anchors.verticalCenter: parent.verticalCenter
-
-                                width: parent.width - (cell.applied ? 18 : 0)
-
-                                text: cell.modelData.label
-                                color: Core.Theme.foreground
-                                font.family: Core.Theme.fontMono
-                                font.pixelSize: Core.Theme.fontSizeSmall
-                                elide: Text.ElideMiddle
-                            }
-                        }
+                    anchors.margins: 1
+                    asynchronous: true
+                    cache: true
+                    sourceSize.width: cell.selected ? 640 : 220
+                    sourceSize.height: 360
+                    smooth: true
+                    fillMode: Image.PreserveAspectCrop
+                    source: {
+                        const item = cell.modelData;
+                        if (!item)
+                            return "";
+                        const file = item.thumb || item.path;
+                        return file ? "file://" + file : "";
                     }
                 }
 
-                MouseArea {
-                    id: tileMouse
-
+                Rectangle {
                     anchors.fill: parent
+                    visible: !cell.selected
+                    color: Qt.rgba(0, 0, 0, 0.08)
+                    radius: face.radius
+                }
+            }
 
-                    hoverEnabled: true
-
-                    cursorShape: Qt.PointingHandCursor
-
-                    onClicked: {
-                        launcher.selectedIndex = cell.index;
-                        launcher.accepted();
-                    }
+            MouseArea {
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                    picker.selectedIndex = cell.index;
+                    picker.applyCurrent();
                 }
             }
         }
+    }
+
+    Text {
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: strip.top
+        anchors.bottomMargin: 10
+        visible: picker.itemCount > 0
+        text: {
+            const item = picker.results[picker.selectedIndex];
+            return item ? item.label : "";
+        }
+        color: Core.Theme.foreground
+        font.family: Core.Theme.fontFamily
+        font.pixelSize: Core.Theme.fontSize
+        style: Text.Outline
+        styleColor: Qt.rgba(0, 0, 0, 0.65)
     }
 }

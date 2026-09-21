@@ -4,6 +4,7 @@
     GTK_APPLICATION_PREFER_DARK_THEME = "1";
     QT_QPA_PLATFORMTHEME = "qt6ct";
     QT_STYLE_OVERRIDE = "kvantum";
+    QT_QUICK_CONTROLS_STYLE = "Fusion";
     ADW_DEBUG_COLOR_SCHEME = "prefer-dark";
   };
 

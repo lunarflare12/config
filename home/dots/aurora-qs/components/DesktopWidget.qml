@@ -23,6 +23,8 @@ Item {
     property Component contentComponent: null
 
     readonly property var grid: Services.DesktopGrid
+    readonly property int cellW: root.host && root.host.cellW > 0 ? root.host.cellW : root.grid.cellW
+    readonly property int cellH: root.host && root.host.cellH > 0 ? root.host.cellH : root.grid.cellH
     readonly property bool editing: Core.Session.desktopEdit
     readonly property real contentW: {
         const item = contentLoader.item;
@@ -35,12 +37,12 @@ Item {
     readonly property int usedSpanW: {
         if (!root.fitContent)
             return Math.max(1, root.spanW);
-        return root.grid.spanW(root.contentW + 12);
+        return root.grid.spanW(root.contentW + 12, root.cellW);
     }
     readonly property int usedSpanH: {
         if (!root.fitContent)
             return Math.max(1, root.spanH);
-        return root.grid.spanH(root.contentH + 12);
+        return root.grid.spanH(root.contentH + 12, root.cellH);
     }
     property int col: 0
     property int row: 0
@@ -50,10 +52,10 @@ Item {
     property real dragY: 0
 
     visible: root.onDesktop
-    width: root.fitContent ? Math.max(1, Math.ceil(root.contentW + 12)) : root.usedSpanW * root.grid.cellW
-    height: root.fitContent ? Math.max(1, Math.ceil(root.contentH + 12)) : root.usedSpanH * root.grid.cellH
-    x: root.dragging ? root.dragX : root.grid.posX(root.col)
-    y: root.dragging ? root.dragY : root.grid.posY(root.row)
+    width: root.fitContent ? Math.max(1, Math.ceil(root.contentW + 12)) : root.usedSpanW * root.cellW
+    height: root.fitContent ? Math.max(1, Math.ceil(root.contentH + 12)) : root.usedSpanH * root.cellH
+    x: root.dragging ? root.dragX : root.grid.posX(root.col, root.cellW)
+    y: root.dragging ? root.dragY : root.grid.posY(root.row, root.cellH)
     z: root.dragging ? 40 : 8
 
     readonly property string monitorName: root.host && root.host.monitorName ? root.host.monitorName : ""
@@ -78,15 +80,15 @@ Item {
         let row = root.defaultRow;
         if (col < 0 || row < 0) {
             if (root.defaultLeft >= 0 || root.defaultTop >= 0) {
-                col = root.grid.colAt(root.defaultLeft >= 0 ? root.defaultLeft : root.grid.originX);
-                row = root.grid.rowAt(root.defaultTop >= 0 ? root.defaultTop : root.grid.originY);
+                col = root.grid.colAt(root.defaultLeft >= 0 ? root.defaultLeft : root.grid.originX, root.cellW);
+                row = root.grid.rowAt(root.defaultTop >= 0 ? root.defaultTop : root.grid.originY, root.cellH);
             } else {
                 const right = root.defaultRight >= 0 ? root.defaultRight : root.grid.rightPad;
                 const bottom = root.defaultBottom >= 0 ? root.defaultBottom : root.grid.bottomPad;
                 const x = Math.max(root.grid.originX, root.host.width - right - root.width);
                 const y = Math.max(root.grid.originY, root.host.height - bottom - root.height);
-                col = root.grid.colAt(x);
-                row = root.grid.rowAt(y);
+                col = root.grid.colAt(x, root.cellW);
+                row = root.grid.rowAt(y, root.cellH);
             }
         }
 
@@ -118,7 +120,7 @@ Item {
 
     onEditingChanged: {
         if (!root.editing && root.dragging) {
-            const snap = root.host.snapTo(root.grid.colAt(root.dragX), root.grid.rowAt(root.dragY), root.usedSpanW, root.usedSpanH, root.widgetId);
+            const snap = root.host.snapTo(root.grid.colAt(root.dragX, root.cellW), root.grid.rowAt(root.dragY, root.cellH), root.usedSpanW, root.usedSpanH, root.widgetId);
             root.col = snap.col;
             root.row = snap.row;
             root.placed = true;
@@ -149,7 +151,7 @@ Item {
 
         anchors.fill: parent
         anchors.margins: 6
-        radius: root.framed ? 16 : 0
+        radius: 0
         color: root.framed ? Core.Theme.background : "transparent"
         border.width: root.framed ? Core.Theme.borderWidth : 0
         border.color: root.framed ? Core.Theme.borderActive : "transparent"
@@ -205,7 +207,7 @@ Item {
             onReleased: {
                 if (!root.editing)
                     return;
-                const snap = root.host.snapTo(root.grid.colAt(root.dragX), root.grid.rowAt(root.dragY), root.usedSpanW, root.usedSpanH, root.widgetId);
+                const snap = root.host.snapTo(root.grid.colAt(root.dragX, root.cellW), root.grid.rowAt(root.dragY, root.cellH), root.usedSpanW, root.usedSpanH, root.widgetId);
                 root.col = snap.col;
                 root.row = snap.row;
                 root.placed = true;

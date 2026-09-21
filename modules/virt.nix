@@ -21,6 +21,10 @@ in
 
   programs.virt-manager.enable = host.enabled "virt-manager";
 
+  environment.systemPackages = lib.optionals libvirt [
+    pkgs.virt-viewer
+  ];
+
   systemd.services.libvirtd = lib.mkIf libvirt {
     wantedBy = lib.mkForce [ ];
   };

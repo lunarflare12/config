@@ -14,7 +14,7 @@ Components.LauncherView {
     vimNavigation: false
 
     columns: 7
-    pageRows: 6
+    pageRows: 5
     cardWidth: 680
 
     property int dragFrom: -1
@@ -24,7 +24,11 @@ Components.LauncherView {
     property Item dockTarget: null
     property bool flowLock: false
     property bool mergeDrop: false
+    property var folderDragApp: null
+    property int folderDragFrom: -1
+    property int folderHoverSlot: -1
     readonly property bool dragging: launcher.dragFrom >= 0
+    readonly property bool folderDragging: launcher.folderDragApp !== null
     readonly property bool searching: !!(launcher.query && launcher.query.trim().length)
     readonly property var openFolder: Services.AppsService.openFolder
 
@@ -37,7 +41,13 @@ Components.LauncherView {
     }
 
     onDragFromChanged: Services.AppsService.launchpadDragging = launcher.dragFrom >= 0
-    onDidClose: Services.AppsService.closeFolder()
+    onFolderDraggingChanged: Services.AppsService.launchpadDragging = launcher.folderDragging || launcher.dragFrom >= 0
+    onDidClose: {
+        launcher.folderDragApp = null;
+        launcher.folderDragFrom = -1;
+        launcher.folderHoverSlot = -1;
+        Services.AppsService.closeFolder();
+    }
 
     readonly property var results: {
         if (!launcher.searching)
@@ -79,6 +89,9 @@ Components.LauncherView {
         launcher.dragFrom = -1;
         launcher.hoverSlot = -1;
         launcher.mergeDrop = false;
+        launcher.folderDragApp = null;
+        launcher.folderDragFrom = -1;
+        launcher.folderHoverSlot = -1;
         Services.AppsService.clearDockDrop();
         Qt.callLater(function () {
             launcher.flowLock = false;
@@ -118,8 +131,8 @@ Components.LauncherView {
             Services.AppsService.toggleFolder(entry.id);
             return;
         }
-        launcher.dismiss();
         Services.AppsService.launch(entry);
+        launcher.dismiss();
     }
 
     contentComponent: Component {
@@ -150,7 +163,10 @@ Components.LauncherView {
                 const row = Math.floor(index / launcher.columns);
                 const cx = (col + 0.5) * stage.cellW;
                 const cy = (row + 0.5) * stage.cellH;
-                return Math.abs(gx - cx) < stage.cellW * 0.28 && Math.abs(gy - cy) < stage.cellH * 0.28;
+                const dx = gx - cx;
+                const dy = gy - cy;
+                const hit = 28;
+                return dx * dx + dy * dy < hit * hit;
             }
 
             Timer {
@@ -180,6 +196,72 @@ Components.LauncherView {
                 edgeScroll.dir = dir;
                 if (!edgeScroll.running)
                     edgeScroll.start();
+            }
+
+            function trackDock(item, mx, my) {
+                const dock = launcher.dockTarget;
+                let overDock = false;
+                if (dock) {
+                    const d = item.mapToItem(dock, mx, my);
+                    overDock = dock.containsApps ? dock.containsApps(d.x, d.y) : (d.x >= -24 && d.x <= dock.width + 24 && d.y >= -28 && d.y <= dock.height + 28);
+                    Services.AppsService.dockDropActive = overDock;
+                    if (overDock)
+                        Services.AppsService.dockHoverSlot = dock.slotAt(d.x, d.y);
+                } else {
+                    Services.AppsService.dockDropActive = false;
+                }
+                return overDock;
+            }
+
+            function folderSlotAt(item, mx, my) {
+                const g = item.mapToItem(folderGrid, mx, my);
+                if (folderLayer.cellW <= 0 || folderLayer.cellH <= 0)
+                    return -1;
+                const col = Math.max(0, Math.min(folderLayer.folderCols - 1, Math.floor(g.x / folderLayer.cellW)));
+                const row = Math.max(0, Math.floor(g.y / folderLayer.cellH));
+                const i = row * folderLayer.folderCols + col;
+                if (i < 0)
+                    return 0;
+                if (i >= folderLayer.folderCount)
+                    return Math.max(0, folderLayer.folderCount - 1);
+                return i;
+            }
+
+            function folderFlowIndexFor(i) {
+                const from = launcher.folderDragFrom;
+                const to = launcher.folderHoverSlot;
+                if (!launcher.folderDragging || from < 0 || to < 0 || from === to)
+                    return i;
+                if (i === from)
+                    return to;
+                if (from < to) {
+                    if (i > from && i <= to)
+                        return i - 1;
+                } else if (i >= to && i < from) {
+                    return i + 1;
+                }
+                return i;
+            }
+
+            function finishFolderDrag(item, mx, my) {
+                const app = launcher.folderDragApp;
+                const from = launcher.folderDragFrom;
+                const folderId = launcher.openFolder ? launcher.openFolder.id : "";
+                const overDock = Services.AppsService.dockDropActive;
+                const slot = Services.AppsService.dockHoverSlot;
+                const s = item.mapToItem(sheet, mx, my);
+                const inSheet = s.x >= 0 && s.y >= 0 && s.x <= sheet.width && s.y <= sheet.height;
+                const dest = stage.folderSlotAt(item, mx, my);
+                launcher.folderDragApp = null;
+                launcher.folderDragFrom = -1;
+                launcher.folderHoverSlot = -1;
+                if (app && overDock)
+                    Services.AppsService.pinDock(app.id, slot);
+                else if (app && folderId && !inSheet)
+                    Services.AppsService.removeFromFolder(folderId, app.id);
+                else if (app && folderId && inSheet && from >= 0 && dest >= 0)
+                    Services.AppsService.moveInFolder(folderId, from, dest);
+                Services.AppsService.clearDockDrop();
             }
 
             Flickable {
@@ -285,21 +367,13 @@ Components.LauncherView {
                                 width: icon.width + 24
                                 height: parent.height - 8
 
-                                Image {
+                                Item {
                                     id: icon
-                                    visible: !cell.isFolder
                                     anchors.horizontalCenter: parent.horizontalCenter
                                     anchors.top: parent.top
                                     anchors.topMargin: 10
                                     width: Math.round(Math.min(88, cell.width * 0.56))
                                     height: width
-                                    asynchronous: true
-                                    cache: true
-                                    sourceSize.width: 128
-                                    sourceSize.height: 128
-                                    fillMode: Image.PreserveAspectFit
-                                    smooth: true
-                                    source: cell.modelData && cell.modelData.entry ? Services.AppsService.iconSource(cell.modelData.entry) : ""
                                     scale: iconMouse.containsMouse && !launcher.dragging ? 1.08 : 1
                                     transformOrigin: Item.Center
 
@@ -309,24 +383,23 @@ Components.LauncherView {
                                             easing.type: Easing.OutCubic
                                         }
                                     }
-                                }
 
-                                Components.FolderGlyph {
-                                    visible: cell.isFolder
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    anchors.top: parent.top
-                                    anchors.topMargin: 10
-                                    width: Math.round(Math.min(88, cell.width * 0.56))
-                                    height: width
-                                    apps: cell.modelData && cell.modelData.apps ? cell.modelData.apps : []
-                                    scale: iconMouse.containsMouse && !launcher.dragging ? 1.08 : 1
-                                    transformOrigin: Item.Center
+                                    Image {
+                                        visible: !cell.isFolder
+                                        anchors.fill: parent
+                                        asynchronous: true
+                                        cache: true
+                                        sourceSize.width: 128
+                                        sourceSize.height: 128
+                                        fillMode: Image.PreserveAspectFit
+                                        smooth: true
+                                        source: cell.modelData && cell.modelData.entry ? Services.AppsService.iconSource(cell.modelData.entry) : ""
+                                    }
 
-                                    Behavior on scale {
-                                        NumberAnimation {
-                                            duration: 140
-                                            easing.type: Easing.OutCubic
-                                        }
+                                    Components.FolderGlyph {
+                                        visible: cell.isFolder
+                                        anchors.fill: parent
+                                        apps: cell.modelData && cell.modelData.apps ? cell.modelData.apps : []
                                     }
                                 }
 
@@ -353,6 +426,7 @@ Components.LauncherView {
                                     id: iconMouse
                                     anchors.fill: parent
                                     hoverEnabled: true
+                                    preventStealing: true
                                     acceptedButtons: Qt.LeftButton | Qt.RightButton
                                     cursorShape: launcher.dragging ? Qt.ClosedHandCursor : Qt.PointingHandCursor
                                     property real pressX: 0
@@ -448,10 +522,40 @@ Components.LauncherView {
             }
 
             Rectangle {
+                z: 5
+                visible: scroller.contentHeight > scroller.height + 4 && (!launcher.openFolder || launcher.searching)
+                anchors.right: parent.right
+                anchors.rightMargin: 6
+                anchors.top: scroller.top
+                anchors.bottom: scroller.bottom
+                width: 3
+                radius: 1.5
+                color: Qt.rgba(1, 1, 1, 0.10)
+
+                Rectangle {
+                    width: parent.width
+                    radius: parent.radius
+                    color: Qt.rgba(1, 1, 1, 0.42)
+                    height: Math.max(20, parent.height * scroller.height / Math.max(1, scroller.contentHeight))
+                    y: {
+                        const range = Math.max(1, scroller.contentHeight - scroller.height);
+                        return (parent.height - height) * Math.max(0, Math.min(1, scroller.contentY / range));
+                    }
+                }
+            }
+
+            Rectangle {
+                id: folderLayer
                 anchors.fill: parent
                 visible: !!(launcher.openFolder && !launcher.searching)
                 z: 30
                 color: Qt.rgba(0, 0, 0, 0.38)
+
+                readonly property int folderCount: launcher.openFolder ? launcher.openFolder.apps.length : 0
+                readonly property int folderCols: Math.min(4, Math.max(1, folderLayer.folderCount))
+                readonly property int folderRows: Math.max(1, Math.ceil(folderLayer.folderCount / folderLayer.folderCols))
+                readonly property int cellW: 108
+                readonly property int cellH: 120
 
                 MouseArea {
                     anchors.fill: parent
@@ -460,10 +564,10 @@ Components.LauncherView {
 
                 Rectangle {
                     id: sheet
-                    width: Math.min(parent.width - 80, 560)
-                    height: Math.min(parent.height - 80, folderGrid.implicitHeight + 88)
+                    width: Math.min(parent.width - 64, folderLayer.folderCols * folderLayer.cellW + 56)
+                    height: Math.min(parent.height - 48, 76 + folderLayer.folderRows * folderLayer.cellH + 20)
                     anchors.centerIn: parent
-                    radius: 28
+                    radius: 18
                     color: Qt.rgba(0.12, 0.12, 0.14, 0.82)
                     border.width: 1
                     border.color: Qt.rgba(1, 1, 1, 0.28)
@@ -473,18 +577,12 @@ Components.LauncherView {
                         anchors.fill: parent
                     }
 
-                    Components.Glass {
-                        anchors.fill: parent
-                        radius: parent.radius
-                        strength: 1.0
-                    }
-
                     TextInput {
                         id: folderTitle
                         anchors.top: parent.top
                         anchors.left: parent.left
                         anchors.right: parent.right
-                        anchors.topMargin: 18
+                        anchors.topMargin: 16
                         height: 28
                         text: launcher.openFolder ? launcher.openFolder.name : ""
                         color: "#FFFFFF"
@@ -499,60 +597,162 @@ Components.LauncherView {
                         }
                     }
 
-                    Grid {
-                        id: folderGrid
+                    Flickable {
+                        id: folderScroll
                         anchors.top: folderTitle.bottom
-                        anchors.topMargin: 12
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        columns: 4
-                        rowSpacing: 14
-                        columnSpacing: 18
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        anchors.topMargin: 10
+                        anchors.bottomMargin: 16
+                        clip: true
+                        boundsBehavior: Flickable.StopAtBounds
+                        flickableDirection: Flickable.VerticalFlick
+                        interactive: !launcher.folderDragging
+                        pressDelay: 0
+                        contentWidth: width
+                        contentHeight: Math.max(height, folderLayer.folderRows * folderLayer.cellH)
 
-                        Repeater {
-                            model: launcher.openFolder ? launcher.openFolder.apps.length : 0
+                        Item {
+                            id: folderGrid
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            width: folderLayer.folderCols * folderLayer.cellW
+                            height: folderLayer.folderRows * folderLayer.cellH
 
-                            Item {
-                                id: fapp
-                                required property int index
-                                readonly property var modelData: launcher.openFolder ? launcher.openFolder.apps[fapp.index] : null
-                                width: 96
-                                height: 112
+                            Repeater {
+                                model: folderLayer.folderCount
 
-                                Image {
-                                    anchors.horizontalCenter: parent.horizontalCenter
-                                    anchors.top: parent.top
-                                    width: 64
-                                    height: 64
-                                    source: fapp.modelData ? Services.AppsService.iconSource(fapp.modelData) : ""
-                                    fillMode: Image.PreserveAspectFit
-                                    smooth: true
-                                    asynchronous: true
-                                    cache: true
-                                    sourceSize.width: 128
-                                    sourceSize.height: 128
-                                }
+                                Item {
+                                    id: fapp
+                                    required property int index
+                                    readonly property var appEntry: launcher.openFolder ? launcher.openFolder.apps[fapp.index] : null
+                                    readonly property int col: fapp.index % folderLayer.folderCols
+                                    readonly property int row: Math.floor(fapp.index / folderLayer.folderCols)
+                                    readonly property int vis: stage.folderFlowIndexFor(fapp.index)
+                                    readonly property bool moving: launcher.folderDragging && launcher.folderDragFrom === fapp.index
+                                    width: folderLayer.cellW
+                                    height: folderLayer.cellH
+                                    x: fapp.col * folderLayer.cellW + fapp.flowX
+                                    y: fapp.row * folderLayer.cellH + fapp.flowY
+                                    z: fapp.moving ? 0 : 1
+                                    opacity: fapp.moving ? 0 : 1
 
-                                Text {
-                                    anchors.left: parent.left
-                                    anchors.right: parent.right
-                                    anchors.top: parent.top
-                                    anchors.topMargin: 72
-                                    text: fapp.modelData ? Services.AppsService.displayName(fapp.modelData) : ""
-                                    color: "#FFFFFF"
-                                    font.family: Core.Theme.fontFamily
-                                    font.pixelSize: 11
-                                    horizontalAlignment: Text.AlignHCenter
-                                    wrapMode: Text.Wrap
-                                    maximumLineCount: 2
-                                    elide: Text.ElideRight
-                                }
+                                    property real flowX: {
+                                        if (fapp.moving || launcher.flowLock)
+                                            return 0;
+                                        return (fapp.vis % folderLayer.folderCols - fapp.col) * folderLayer.cellW;
+                                    }
+                                    property real flowY: {
+                                        if (fapp.moving || launcher.flowLock)
+                                            return 0;
+                                        return (Math.floor(fapp.vis / folderLayer.folderCols) - fapp.row) * folderLayer.cellH;
+                                    }
 
-                                MouseArea {
-                                    anchors.fill: parent
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: {
-                                        launcher.dismiss();
-                                        Services.AppsService.launch(fapp.modelData);
+                                    Behavior on flowX {
+                                        enabled: !launcher.flowLock
+                                        NumberAnimation {
+                                            duration: 160
+                                            easing.type: Easing.OutCubic
+                                        }
+                                    }
+                                    Behavior on flowY {
+                                        enabled: !launcher.flowLock
+                                        NumberAnimation {
+                                            duration: 160
+                                            easing.type: Easing.OutCubic
+                                        }
+                                    }
+
+                                    Image {
+                                        anchors.horizontalCenter: parent.horizontalCenter
+                                        anchors.top: parent.top
+                                        anchors.topMargin: 6
+                                        width: 64
+                                        height: 64
+                                        source: fapp.appEntry ? Services.AppsService.iconSource(fapp.appEntry) : ""
+                                        fillMode: Image.PreserveAspectFit
+                                        smooth: true
+                                        asynchronous: true
+                                        cache: true
+                                        sourceSize.width: 128
+                                        sourceSize.height: 128
+                                    }
+
+                                    Text {
+                                        anchors.left: parent.left
+                                        anchors.right: parent.right
+                                        anchors.top: parent.top
+                                        anchors.topMargin: 76
+                                        anchors.leftMargin: 6
+                                        anchors.rightMargin: 6
+                                        text: fapp.appEntry ? Services.AppsService.displayName(fapp.appEntry) : ""
+                                        color: "#FFFFFF"
+                                        font.family: Core.Theme.fontFamily
+                                        font.pixelSize: 11
+                                        horizontalAlignment: Text.AlignHCenter
+                                        wrapMode: Text.Wrap
+                                        maximumLineCount: 2
+                                        elide: Text.ElideRight
+                                    }
+
+                                    MouseArea {
+                                        id: fappMouse
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        preventStealing: true
+                                        acceptedButtons: Qt.LeftButton
+                                        cursorShape: launcher.folderDragging ? Qt.ClosedHandCursor : Qt.PointingHandCursor
+                                        property real pressX: 0
+                                        property real pressY: 0
+                                        property bool dragged: false
+
+                                        onPressed: function (mouse) {
+                                            pressX = mouse.x;
+                                            pressY = mouse.y;
+                                            dragged = false;
+                                        }
+                                        onPositionChanged: function (mouse) {
+                                            if (!fappMouse.pressed)
+                                                return;
+                                            if (!dragged && Math.hypot(mouse.x - pressX, mouse.y - pressY) > 8) {
+                                                dragged = true;
+                                                launcher.folderDragApp = fapp.appEntry;
+                                                launcher.folderDragFrom = fapp.index;
+                                                launcher.folderHoverSlot = fapp.index;
+                                            }
+                                            if (!dragged)
+                                                return;
+                                            const layer = launcher.parent;
+                                            const p = fappMouse.mapToItem(layer, mouse.x, mouse.y);
+                                            launcher.dragX = p.x;
+                                            launcher.dragY = p.y;
+                                            const overDock = stage.trackDock(fappMouse, mouse.x, mouse.y);
+                                            if (overDock) {
+                                                launcher.folderHoverSlot = launcher.folderDragFrom;
+                                                return;
+                                            }
+                                            launcher.folderHoverSlot = stage.folderSlotAt(fappMouse, mouse.x, mouse.y);
+                                        }
+                                        onReleased: function (mouse) {
+                                            if (dragged && launcher.folderDragging) {
+                                                dragged = false;
+                                                stage.finishFolderDrag(fappMouse, mouse.x, mouse.y);
+                                                return;
+                                            }
+                                            dragged = false;
+                                            launcher.folderDragApp = null;
+                                            launcher.folderDragFrom = -1;
+                                            launcher.folderHoverSlot = -1;
+                                            Services.AppsService.launch(fapp.appEntry);
+                                            launcher.dismiss();
+                                        }
+                                        onCanceled: {
+                                            dragged = false;
+                                            launcher.folderDragApp = null;
+                                            launcher.folderDragFrom = -1;
+                                            launcher.folderHoverSlot = -1;
+                                            Services.AppsService.clearDockDrop();
+                                        }
                                     }
                                 }
                             }

@@ -1,11 +1,18 @@
+{
+  config,
+  params,
+  ...
+}:
+
 let
   kittyIcon = ./dots/aurora-qs/assets/kitty.png;
+  kittyConf = "${config.home.homeDirectory}/${params.repo}/home/kitty/config/kitty.conf";
 in
 {
   programs.kitty.enable = true;
 
   xdg.configFile."kitty/kitty.conf" = {
-    source = ./kitty/config/kitty.conf;
+    source = config.lib.file.mkOutOfStoreSymlink kittyConf;
     force = true;
   };
 

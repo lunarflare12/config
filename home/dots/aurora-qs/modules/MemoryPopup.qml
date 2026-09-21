@@ -31,38 +31,31 @@ Components.PopupSurface {
                 color: Core.Theme.separator
             }
 
-            Components.PercentBoard {
+            Components.DiskBar {
                 width: parent.width
-                height: 120
                 icon: "ram"
-                title: "RAM"
-                seriesColor: "#A6E3A1"
-                values: Services.SystemMonitor.memoryHistory
-                currentValue: Services.SystemMonitor.memory
-                detailText: Services.SystemMonitor.formatBytes(Services.SystemMonitor.ramUsedBytes) + " / " + Services.SystemMonitor.formatBytes(Services.SystemMonitor.ramTotalBytes)
+                barColor: "#A6E3A1"
+                label: "RAM"
+                usedBytes: Services.SystemMonitor.ramUsedBytes
+                totalBytes: Services.SystemMonitor.ramTotalBytes
             }
 
-            Components.PercentBoard {
+            Components.DiskBar {
                 width: parent.width
-                height: 120
                 icon: "gpu"
-                title: "VRAM"
-                seriesColor: "#89B4FA"
-                values: Services.SystemMonitor.vramHistory
-                currentValue: Services.SystemMonitor.vram
-                detailText: Services.SystemMonitor.formatBytes(Services.SystemMonitor.vramUsedBytes) + " / " + Services.SystemMonitor.formatBytes(Services.SystemMonitor.vramTotalBytes)
+                barColor: "#89B4FA"
+                label: "VRAM"
+                usedBytes: Services.SystemMonitor.vramUsedBytes
+                totalBytes: Services.SystemMonitor.vramTotalBytes
             }
 
-            Components.PercentBoard {
-                visible: Services.SystemMonitor.swapEnabled
+            Components.DiskBar {
                 width: parent.width
-                height: Services.SystemMonitor.swapEnabled ? 120 : 0
                 icon: "swap"
-                title: "SWAP"
-                seriesColor: "#F9E2AF"
-                values: Services.SystemMonitor.swapHistory
-                currentValue: Services.SystemMonitor.swap
-                detailText: Services.SystemMonitor.formatBytes(Services.SystemMonitor.swapUsedBytes) + " / " + Services.SystemMonitor.formatBytes(Services.SystemMonitor.swapTotalBytes)
+                barColor: "#F9E2AF"
+                label: "SWAP"
+                usedBytes: Services.SystemMonitor.swapUsedBytes
+                totalBytes: Services.SystemMonitor.swapTotalBytes
             }
 
             Components.DiskBar {

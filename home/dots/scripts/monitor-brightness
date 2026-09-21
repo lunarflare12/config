@@ -7,6 +7,7 @@ Never set hyprsunset gamma: it is global and blacks out every monitor.
 
 from __future__ import annotations
 
+import fcntl
 import json
 import os
 import re
@@ -16,6 +17,7 @@ import time
 
 STATE_DIR = os.environ.get("XDG_STATE_HOME") or os.path.join(os.environ.get("HOME", "/tmp"), ".local", "state")
 STATE_PATH = os.path.join(STATE_DIR, "aurora", "brightness.json")
+LOCK_PATH = os.path.join(STATE_DIR, "aurora", "ddcutil.lock")
 LEGACY_PATH = os.path.join(STATE_DIR, "monitor-brightness")
 
 HYPR_MIN = 10
@@ -23,7 +25,13 @@ HYPR_MAX = 100
 DDC_MIN = 0
 DDC_MAX = 100
 
-os.environ["PATH"] = "/run/current-system/sw/bin:/etc/profiles/per-user/dd/bin:" + os.environ.get("PATH", "")
+_USER = os.environ.get("USER") or os.environ.get("LOGNAME") or "dd"
+os.environ["PATH"] = (
+    "/run/current-system/sw/bin:/etc/profiles/per-user/"
+    + _USER
+    + "/bin:"
+    + os.environ.get("PATH", "")
+)
 
 
 def clamp(value: int, lo: int, hi: int) -> int:
@@ -38,6 +46,13 @@ def run(cmd: list[str], timeout: float = 4.0) -> str:
     out = proc.stdout or ""
     err = proc.stderr or ""
     return out if out else err
+
+
+def ddcutil_run(args: list[str], timeout: float = 4.0) -> str:
+    os.makedirs(os.path.dirname(LOCK_PATH), exist_ok=True)
+    with open(LOCK_PATH, "a+", encoding="utf-8") as lock:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        return run(["ddcutil", *args], timeout=timeout)
 
 
 def load_state() -> dict:
@@ -167,9 +182,7 @@ def parse_ddc_detect(text: str) -> dict[str, int | None]:
 
 
 def discover_ddc(state: dict) -> dict:
-    text = run(["ddcutil", "detect", "--brief", "--force"], timeout=16.0)
-    if not text.strip():
-        text = run(["ddcutil", "detect", "--brief"], timeout=16.0)
+    text = ddcutil_run(["detect", "--brief"], timeout=16.0)
     mapping = parse_ddc_detect(text)
     ddc = {}
     for name, bus in mapping.items():
@@ -190,8 +203,8 @@ def discover_ddc(state: dict) -> dict:
 
 
 def read_ddc(bus: int) -> int | None:
-    text = run(
-        ["ddcutil", "--bus", str(bus), "--brief", "--force", "--sleep-multiplier", ".2", "getvcp", "10"],
+    text = ddcutil_run(
+        ["--bus", str(bus), "--brief", "--sleep-multiplier", ".2", "getvcp", "10"],
         timeout=5.0,
     )
     match = re.search(r"VCP\s+10\s+\S+\s+(\d+)\s+(\d+)", text)
@@ -204,13 +217,12 @@ def read_ddc(bus: int) -> int | None:
 
 def set_ddc(bus: int, percent: int) -> None:
     value = clamp(percent, DDC_MIN, DDC_MAX)
-    run(
+    ddcutil_run(
         [
-            "ddcutil",
             "--bus",
             str(bus),
             "--noverify",
-            "--force",
+            "--permit-unknown-feature",
             "--sleep-multiplier",
             ".2",
             "setvcp",

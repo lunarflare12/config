@@ -42,8 +42,17 @@ in
       xwayland.enable = true;
     };
     dconf.enable = true;
-    thunar.enable = params.fileManager == "thunar";
+    thunar = {
+      enable = params.fileManager == "thunar";
+      plugins = [
+        pkgs.thunar-archive-plugin
+        pkgs.thunar-volman
+        pkgs.thunar-media-tags-plugin
+      ];
+    };
   };
+
+  services.tumbler.enable = true;
 
   security = {
     pam.services.hyprlock = { };

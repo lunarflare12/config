@@ -2,6 +2,9 @@
   systemArch = "x86_64-linux";
   stateVersion = "26.05";
   userName = "dd";
+  # Git checkout of this flake, relative to $HOME. Hypr/QS/scripts are
+  # live-linked here so edits apply without copying into the Nix store.
+  repo = "projects/config";
 
   users = {
     dd = {
@@ -26,7 +29,7 @@
     virt-manager = true;
     bluetooth = false;
     battery = false;
-    ollama = true;
+    whisper = true;
   };
 
   packages = [
@@ -34,6 +37,7 @@
     "ansible"
     "go"
     "nodejs_latest"
+    "claude-code"
     "python3"
     "ffmpeg"
     "telegram-desktop"
@@ -48,7 +52,6 @@
     "btop"
     "vagrant"
     "vlc"
-    "spotify"
     "xournalpp"
     "prismlauncher"
     "libreoffice-stable"
@@ -56,16 +59,16 @@
 
   monitors = [
     {
-      output = "HDMI-A-1";
-      mode = "1920x1080@60.00Hz";
+      output = "DP-1";
+      mode = "2560x1080@200.00Hz";
       position = "0x0";
       scale = 1;
       bitdepth = 8;
     }
     {
-      output = "DP-1";
-      mode = "2560x1080@200.00Hz";
-      position = "1920x0";
+      output = "HDMI-A-1";
+      mode = "1920x1080@60.00Hz";
+      position = "2560x0";
       scale = 1;
       bitdepth = 8;
     }

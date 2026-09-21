@@ -6,6 +6,8 @@ import "../services" as Services
 Rectangle {
     id: root
 
+    property string icon: "disk"
+    property color barColor: Core.Theme.accent
     property string label: "/"
     property real usedBytes: 0
     property real totalBytes: 0
@@ -15,7 +17,7 @@ Rectangle {
     visible: root.totalBytes > 0
     implicitHeight: root.visible ? 52 : 0
     height: implicitHeight
-    radius: Core.Theme.radiusRow
+    radius: 0
     color: Core.Theme.surface
     border.color: Core.Theme.accent
     border.width: 1
@@ -38,15 +40,18 @@ Rectangle {
                 width: 14
                 height: 14
 
-                name: "disk"
-                color: Core.Theme.accent
+                name: root.icon
+                color: root.barColor
             }
 
             Text {
                 anchors.left: diskIcon.right
                 anchors.leftMargin: 6
+                anchors.right: percentLabel.left
+                anchors.rightMargin: 8
                 anchors.verticalCenter: parent.verticalCenter
                 text: root.label + "  " + Services.SystemMonitor.formatBytes(root.usedBytes) + " / " + Services.SystemMonitor.formatBytes(root.totalBytes)
+                elide: Text.ElideRight
                 color: Core.Theme.foreground
                 font.family: Core.Theme.fontFamily
                 font.pixelSize: Core.Theme.fontSizeSmall
@@ -55,6 +60,7 @@ Rectangle {
             }
 
             Text {
+                id: percentLabel
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
                 text: root.percent + "%"
@@ -77,7 +83,7 @@ Rectangle {
                 anchors.bottom: parent.bottom
                 width: Math.max(0, Math.min(1, root.percent / 100.0)) * parent.width
                 radius: parent.radius
-                color: Core.Theme.accent
+                color: root.barColor
             }
         }
     }

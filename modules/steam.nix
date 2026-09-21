@@ -2,16 +2,12 @@
   lib,
   pkgs,
   host,
-  desktopEnv,
   ...
 }:
 
 let
   shaderCacheDir = "/home/${host.userName}/.cache/steam-shadercache";
   dxvkCacheDir = "/home/${host.userName}/.cache/dxvk";
-  glExports = lib.concatStringsSep "\n" (
-    lib.mapAttrsToList (key: value: "export ${key}=${lib.escapeShellArg value}") desktopEnv.nvidiaGl
-  );
 in
 lib.mkIf (host.enabled "steam") {
   users.groups.steam = { };
@@ -37,7 +33,16 @@ lib.mkIf (host.enabled "steam") {
         export PROTON_ENABLE_NGX_UPDATER=0
         export DXVK_STATE_CACHE=1
         export DXVK_STATE_CACHE_PATH=${lib.escapeShellArg dxvkCacheDir}
-        ${glExports}
+        export __GLX_VENDOR_LIBRARY_NAME=nvidia
+        export __GL_GSYNC_ALLOWED=0
+        export __GL_VRR_ALLOWED=0
+        export __GL_SYNC_TO_VBLANK=0
+        export __GL_SHADER_DISK_CACHE=1
+        export __GL_SHADER_DISK_CACHE_SKIP_CLEANUP=1
+        export __GL_SHADER_DISK_CACHE_SIZE=34359738368
+        # Session GBM_BACKEND=nvidia-drm breaks Steam CEF on XWayland (black window).
+        unset GBM_BACKEND
+        unset NVD_BACKEND
         mkdir -p ${lib.escapeShellArg shaderCacheDir} ${lib.escapeShellArg dxvkCacheDir}
       '';
     };

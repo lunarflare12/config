@@ -10,6 +10,7 @@ Rectangle {
     property string icon: ""
     property string iconName: ""
     property string themeIcon: ""
+    property url iconSource: ""
     property string title: ""
     property string subtitle: ""
     property string trailing: ""
@@ -23,6 +24,8 @@ Rectangle {
     property bool glassActive: false
     property bool busy: false
     property bool dimmed: false
+
+    readonly property bool hovered: mouse.containsMouse
 
     // Right-click gives window-space coordinates for the menu
     signal activated
@@ -97,13 +100,29 @@ Rectangle {
             }
         }
 
+        Image {
+            id: leadingPix
+            anchors.centerIn: parent
+            width: 18
+            height: 18
+            visible: root.iconSource !== "" && status === Image.Ready
+            source: root.iconSource
+            sourceSize.width: 48
+            sourceSize.height: 48
+            fillMode: Image.PreserveAspectFit
+            asynchronous: true
+            cache: true
+            smooth: true
+            mipmap: true
+        }
+
         MetricIcon {
             anchors.centerIn: parent
 
             width: 18
             height: 18
 
-            visible: root.iconName !== "" && root.themeIcon === ""
+            visible: !leadingPix.visible && root.iconName !== "" && root.themeIcon === ""
 
             name: root.iconName
             color: root.active ? Core.Theme.accent : root.iconColor
@@ -113,14 +132,14 @@ Rectangle {
             anchors.centerIn: parent
             width: 18
             height: 18
-            visible: root.themeIcon !== ""
+            visible: !leadingPix.visible && root.themeIcon !== ""
             name: root.themeIcon
         }
 
         Text {
             anchors.centerIn: parent
 
-            visible: root.iconName === "" && root.themeIcon === ""
+            visible: !leadingPix.visible && root.iconName === "" && root.themeIcon === ""
 
             text: root.icon
 
@@ -229,8 +248,10 @@ Rectangle {
         width: {
             if (root.actionLabel !== "")
                 return Math.max(16, actionLabelText.implicitWidth);
-            if (root.trailingName !== "" || root.trailing !== "")
+            if (root.trailingName !== "")
                 return 16;
+            if (root.trailing !== "")
+                return Math.max(16, trailingLabel.implicitWidth);
             return 0;
         }
         height: 16
@@ -257,6 +278,7 @@ Rectangle {
         }
 
         Text {
+            id: trailingLabel
             anchors.centerIn: parent
 
             visible: root.actionLabel === "" && root.trailingName === "" && root.trailing !== ""

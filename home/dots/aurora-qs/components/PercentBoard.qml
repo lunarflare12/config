@@ -14,7 +14,7 @@ Rectangle {
     property string detailText: ""
     property int hoverIndex: -1
 
-    radius: Core.Theme.radiusRow
+    radius: 0
     color: Core.Theme.surface
     border.color: Core.Theme.accent
     border.width: 1
@@ -113,16 +113,17 @@ Rectangle {
                 const xAt = index => index * (width - 1) / (values.length - 1);
                 const yAt = value => padTop + chartHeight - (Math.max(0, Math.min(100, value)) / 100) * chartHeight;
                 const c = board.seriesColor;
+                const cr = Math.round(c.r * 255);
+                const cg = Math.round(c.g * 255);
+                const cb = Math.round(c.b * 255);
 
-                context.strokeStyle = Core.Theme.separator;
-                context.lineWidth = 1;
-                context.setLineDash([2, 3]);
-                context.strokeRect(0.5, 0.5, width - 1, height - 1);
-                context.beginPath();
-                context.moveTo(0, padTop + 0.5);
-                context.lineTo(width, padTop + 0.5);
-                context.stroke();
-                context.setLineDash([]);
+                const step = 7;
+                context.fillStyle = "rgba(255, 255, 255, 0.16)";
+                for (let y = padTop; y <= height - padBottom; y += step) {
+                    for (let x = 1; x <= width - 1; x += step) {
+                        context.fillRect(x, y, 1.25, 1.25);
+                    }
+                }
 
                 context.beginPath();
                 context.moveTo(xAt(0), height - padBottom);
@@ -130,7 +131,7 @@ Rectangle {
                     context.lineTo(xAt(i), yAt(values[i]));
                 context.lineTo(xAt(values.length - 1), height - padBottom);
                 context.closePath();
-                context.fillStyle = "rgba(" + Math.round(c.r * 255) + ", " + Math.round(c.g * 255) + ", " + Math.round(c.b * 255) + ", 0.40)";
+                context.fillStyle = "rgba(" + cr + ", " + cg + ", " + cb + ", 0.16)";
                 context.fill();
 
                 context.beginPath();

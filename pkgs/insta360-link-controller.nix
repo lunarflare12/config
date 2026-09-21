@@ -75,11 +75,16 @@ stdenv.mkDerivation {
   '';
 
   installPhase = ''
-    runHook preInstall
-    install -Dm755 insta360linkgui $out/bin/insta360linkgui
-    install -Dm755 linkctl $out/bin/linkctl
-    install -Dm644 99-insta360-link.rules $out/lib/udev/rules.d/99-insta360-link.rules
-    runHook postInstall
+        runHook preInstall
+        install -Dm755 insta360linkgui $out/bin/insta360linkgui
+        install -Dm755 linkctl $out/bin/linkctl
+        install -Dm644 /dev/stdin $out/lib/udev/rules.d/99-insta360-link.rules <<'EOF'
+    # Insta360 Link / Link 2 — non-root access + no USB autosuspend
+    SUBSYSTEM=="video4linux", ATTRS{idVendor}=="2e1a", MODE="0666", GROUP="video"
+    SUBSYSTEM=="usb", ATTR{idVendor}=="2e1a", MODE="0666", ATTR{power/control}="on", ATTR{power/autosuspend}="-1"
+    SUBSYSTEM=="usb", ATTRS{idVendor}=="2e1a", TEST=="power/control", ATTR{power/control}="on"
+    EOF
+        runHook postInstall
   '';
 
   meta = {

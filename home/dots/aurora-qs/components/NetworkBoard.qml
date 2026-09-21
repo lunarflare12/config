@@ -153,15 +153,12 @@ Rectangle {
                 const xAt = index => index * (width - 1) / (points - 1)
                 const yAt = kib => padTop + chartHeight - (Services.SystemMonitor.toMbit(kib) / maxValue) * chartHeight
 
-                context.strokeStyle = Core.Theme.separator
-                context.lineWidth = 1
-                context.setLineDash([2, 3])
-                context.strokeRect(0.5, 0.5, width - 1, height - 1)
-                context.beginPath()
-                context.moveTo(0, padTop + 0.5)
-                context.lineTo(width, padTop + 0.5)
-                context.stroke()
-                context.setLineDash([])
+                const step = 7
+                context.fillStyle = "rgba(255, 255, 255, 0.16)"
+                for (let y = padTop; y <= height - padBottom; y += step) {
+                    for (let x = 1; x <= width - 1; x += step)
+                        context.fillRect(x, y, 1.25, 1.25)
+                }
 
                 context.beginPath()
                 context.moveTo(xAt(0), height - padBottom)
@@ -169,7 +166,7 @@ Rectangle {
                     context.lineTo(xAt(i), yAt(downloads[i]))
                 context.lineTo(xAt(downloads.length - 1), height - padBottom)
                 context.closePath()
-                context.fillStyle = "rgba(98, 160, 234, 0.45)"
+                context.fillStyle = "rgba(98, 160, 234, 0.16)"
                 context.fill()
 
                 context.beginPath()

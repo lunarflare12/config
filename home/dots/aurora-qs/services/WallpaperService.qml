@@ -11,7 +11,6 @@ QtObject {
 
     readonly property string home: Quickshell.env("HOME")
     readonly property string wallpaperDirectory: root.home + "/Wallpapers"
-    readonly property string riceDirectory: root.home + "/.wall"
     readonly property string thumbDirectory: root.home + "/.cache/aurora/wallpaper-thumbs"
     readonly property string statePath: root.home + "/.cache/aurora/current-wallpaper"
     readonly property string thumbScript: root.home + "/.config/scripts/cache-wallpaper-thumbs.sh"
@@ -40,10 +39,9 @@ QtObject {
         command: [
             "sh",
             "-c",
-            "thumbdir=\"$3\"; mkdir -p \"$thumbdir\"; [ -x \"$4\" ] && \"$4\" \"$1\" \"$2\" >/dev/null 2>&1 || true; { find -L \"$1\" -maxdepth 1 -type f \\( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' -o -iname '*.gif' \\) ! -name '.*' -printf '%f\\t%p\\n'; find -L \"$2\" -maxdepth 1 -type f \\( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' -o -iname '*.gif' \\) ! -name '.*' -printf '%f\\t%p\\n'; } 2>/dev/null | awk -F '\\t' '!seen[$1]++' | sort -f | while IFS=$(printf '\\t') read -r name path; do stem=${name%.*}; thumb=\"$thumbdir/$stem.jpg\"; [ -f \"$thumb\" ] || thumb=$path; printf '%s\\t%s\\t%s\\n' \"$name\" \"$path\" \"$thumb\"; done",
+            "thumbdir=\"$2\"; mkdir -p \"$thumbdir\"; [ -x \"$3\" ] && \"$3\" \"$1\" >/dev/null 2>&1 || true; find -L \"$1\" -maxdepth 1 -type f \\( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' -o -iname '*.gif' \\) ! -name '.*' -printf '%f\\t%p\\n' 2>/dev/null | sort -f | while IFS=$(printf '\\t') read -r name path; do stem=${name%.*}; thumb=\"$thumbdir/$stem.jpg\"; [ -f \"$thumb\" ] || thumb=$path; printf '%s\\t%s\\t%s\\n' \"$name\" \"$path\" \"$thumb\"; done",
             "sh",
             root.wallpaperDirectory,
-            root.riceDirectory,
             root.thumbDirectory,
             root.thumbScript
         ]

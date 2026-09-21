@@ -68,7 +68,7 @@ QtObject {
 
     readonly property string scripts: Quickshell.env("HOME") + "/.config/scripts"
     readonly property int workspacesPerMonitor: 10
-    readonly property var monitorOrder: ["HDMI-A-1", "DP-1"]
+    readonly property var monitorOrder: ["DP-1", "HDMI-A-1"]
     readonly property string gameMonitor: "DP-1"
     property bool forceHideGameBar: false
     property FileView gameFlagFile: FileView {
@@ -82,7 +82,7 @@ QtObject {
 
     onOverviewOpenChanged: {
         if (root.overviewOpen)
-            root.screenshotOpen = false;
+            root.dismissScreenshot();
         else {
             root.clearOverviewDrag();
             root.packTimer.restart();
@@ -108,9 +108,34 @@ QtObject {
         root.desktopEdit = !root.desktopEdit;
     }
 
+    function dismissScreenshot() {
+        root.screenshotOpen = false;
+        Quickshell.execDetached(["hyprctl", "dispatch", "closewindow", "class:^(com.gabm.satty|satty)$"]);
+        Quickshell.execDetached(["pkill", "-f", "satty"]);
+    }
+
     function closeOverlays() {
         root.overviewOpen = false;
-        root.screenshotOpen = false;
+        root.dismissScreenshot();
+    }
+
+    readonly property bool sattyOpen: {
+        const values = (Hyprland.toplevels && Hyprland.toplevels.values) ? Hyprland.toplevels.values : [];
+        for (let i = 0; i < values.length; i++) {
+            const t = values[i];
+            const ipc = t.lastIpcObject || {};
+            const cls = String(ipc.class || ipc.initialClass || ipc.initial_class || t.className || "").toLowerCase();
+            if (cls.indexOf("satty") !== -1)
+                return true;
+        }
+        return false;
+    }
+
+    readonly property int mainWorkspace: root.activeWorkspaceOnMonitor(root.gameMonitor)
+
+    onMainWorkspaceChanged: {
+        if (root.screenshotOpen || root.sattyOpen)
+            root.dismissScreenshot();
     }
 
     function monitorIndex(name) {

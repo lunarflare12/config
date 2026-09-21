@@ -24,7 +24,7 @@ PanelWindow {
     }
 
     // Opaque while the menu is up so live windows cannot show through.
-    color: root.intro > 0.01 ? "#101014" : "transparent"
+    color: root.intro > 0.01 ? "#101014" : (root.stripOpen ? Qt.rgba(0, 0, 0, 0.12) : "transparent")
     exclusionMode: ExclusionMode.Ignore
     visible: !(Core.Session.overviewOpen && !root.launcherOpen)
     exclusiveZone: 0
@@ -59,8 +59,11 @@ PanelWindow {
 
     readonly property bool launcherOpen: root.host && root.activeLauncher !== null
     readonly property bool launchpadOpen: root.host && appLauncher.open
+    readonly property bool wallpaperOpen: root.host && wallpaperPicker.open
+    readonly property bool themeOpen: root.host && themePicker.open
+    readonly property bool stripOpen: root.wallpaperOpen || root.themeOpen
     readonly property bool showLaunchpad: root.launchpadOpen || (root.closingLaunchpad && root.intro > 0.01)
-    readonly property bool showCard: root.launcherOpen && !root.showLaunchpad
+    readonly property bool showCard: root.launcherOpen && !root.showLaunchpad && !root.stripOpen
     readonly property bool onMain: Core.Session.isDesktopMonitor(Core.Session.monitorNameForScreen(root.screen))
     readonly property bool showLaunchpadDock: root.showLaunchpad && root.onMain
 
@@ -195,13 +198,22 @@ PanelWindow {
 
     Item {
         z: 50
-        visible: root.showLaunchpad && appLauncher.dragging && appLauncher.dragFrom >= 0 && appLauncher.dragFrom < appLauncher.itemCount
+        visible: root.showLaunchpad && dragTile !== null
         width: 118
         height: 118
         x: appLauncher.dragX - width / 2
         y: appLauncher.dragY - height / 2
         scale: 1.16
-        readonly property var dragTile: appLauncher.dragging ? appLauncher.results[appLauncher.dragFrom] : null
+        readonly property var dragTile: {
+            if (appLauncher.folderDragging && appLauncher.folderDragApp)
+                return {
+                    "type": "app",
+                    "entry": appLauncher.folderDragApp
+                };
+            if (appLauncher.dragging && appLauncher.dragFrom >= 0 && appLauncher.dragFrom < appLauncher.itemCount)
+                return appLauncher.results[appLauncher.dragFrom];
+            return null;
+        }
 
         Rectangle {
             anchors.centerIn: parent
@@ -270,16 +282,6 @@ PanelWindow {
         Item {
             anchors.fill: parent
 
-            Modules.WallpaperPicker {
-                id: wallpaperPicker
-                anchors.fill: parent
-            }
-
-            Modules.ThemePicker {
-                id: themePicker
-                anchors.fill: parent
-            }
-
             Modules.Clipboard {
                 id: clipboardView
                 anchors.fill: parent
@@ -295,5 +297,19 @@ PanelWindow {
                 anchors.fill: parent
             }
         }
+    }
+
+    Modules.WallpaperPicker {
+        id: wallpaperPicker
+        anchors.fill: parent
+        z: 3
+        hosted: root.host
+    }
+
+    Modules.ThemePicker {
+        id: themePicker
+        anchors.fill: parent
+        z: 3
+        hosted: root.host
     }
 }

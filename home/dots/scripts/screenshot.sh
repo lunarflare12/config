@@ -20,6 +20,7 @@ trap cleanup EXIT INT TERM HUP
 
 edit() {
   local src=$1
+  hyprctl dispatch focusmonitor DP-1 >/dev/null 2>&1 || true
   satty \
     --filename "$src" \
     --output-filename "$SCREENSHOT_PATH" \

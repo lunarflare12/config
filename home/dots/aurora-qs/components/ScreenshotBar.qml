@@ -12,22 +12,20 @@ PanelWindow {
     property var modelData: null
     screen: root.modelData
 
-    readonly property bool onFocused: {
-        const mon = Hyprland.focusedMonitor;
-        if (!mon || !root.screen)
-            return true;
-        return mon.name === root.screen.name;
+    readonly property string monitorName: Core.Session.monitorNameForScreen(root.screen)
+    readonly property bool onMain: Core.Session.isDesktopMonitor(root.monitorName)
+
+    anchors {
+        top: true
+        left: true
+        right: true
+        bottom: true
     }
 
-    anchors.bottom: true
-    anchors.left: true
-    anchors.right: true
-
-    implicitHeight: 120
     exclusiveZone: 0
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
-    visible: Core.Session.screenshotOpen && root.onFocused && !Core.Session.gameFullscreenOnScreen(root.screen)
+    visible: Core.Session.screenshotOpen && root.onMain && !Core.Session.gameFullscreenOnScreen(root.screen)
 
     WlrLayershell.namespace: "aurora-screenshot"
     WlrLayershell.layer: WlrLayer.Overlay
@@ -47,14 +45,18 @@ PanelWindow {
         delayed.restart();
     }
 
+    function dismiss() {
+        Core.Session.dismissScreenshot();
+    }
+
     Item {
         anchors.fill: parent
         focus: root.visible
-        Keys.onEscapePressed: Core.Session.screenshotOpen = false
+        Keys.onEscapePressed: root.dismiss()
 
         MouseArea {
             anchors.fill: parent
-            onClicked: Core.Session.screenshotOpen = false
+            onClicked: root.dismiss()
         }
     }
 
@@ -141,11 +143,5 @@ PanelWindow {
                 }
             }
         }
-    }
-
-    Item {
-        anchors.fill: parent
-        focus: root.visible
-        Keys.onEscapePressed: Core.Session.screenshotOpen = false
     }
 }

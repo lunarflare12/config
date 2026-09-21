@@ -63,12 +63,12 @@ static const SAppConfig* getAppConfig(const std::string& appClass) {
 
     const auto lower = lowerCopy(appClass);
     for (const auto& ac : g_appConfigs) {
-        if (ac.szClass == appClass)
-            return &ac;
         const auto acLower = lowerCopy(ac.szClass);
         if (acLower == lower)
             return &ac;
-        if (lower.find(acLower) != std::string::npos || acLower.find(lower) != std::string::npos)
+        // Class may be "steam_app_2357570" while we registered that id.
+        // Never the reverse: class "steam" must not match "steam_app_*".
+        if (acLower.size() >= 8 && lower.find(acLower) != std::string::npos)
             return &ac;
     }
     return nullptr;

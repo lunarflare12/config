@@ -1,5 +1,5 @@
 local WS_PER = 10
-local MONITORS = { "HDMI-A-1", "DP-1" }
+local MONITORS = { "DP-1", "HDMI-A-1" }
 
 for i, name in ipairs(MONITORS) do
     local base = (i - 1) * WS_PER

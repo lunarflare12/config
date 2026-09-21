@@ -1,10 +1,15 @@
-{ config, pkgs, ... }:
+{
+  config,
+  pkgs,
+  params,
+  ...
+}:
 
 {
   programs.hyprlock.enable = true;
 
   xdg.configFile."hypr/hyprlock.conf".source =
-    config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/config/home/dots/hypr/hyprlock.conf";
+    config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/${params.repo}/home/dots/hypr/hyprlock.conf";
   xdg.configFile."hypr/hypridle.conf".source = ./dots/hypr/hypridle.conf;
 
   xdg.configFile."hyprlock/images/avatar.jpg".source = ../modules/sddm/glyph/assets/images/avatar.jpg;

@@ -32,6 +32,8 @@ game_strip_overlay() {
 game_low_latency() {
   export __GL_SYNC_TO_VBLANK=0
   export vblank_mode=0
+  # Steam client pins SDL to X11. Wrappers that want X11 set it again after this.
+  unset SDL_VIDEODRIVER || true
 }
 
 game_gamescope() {
@@ -79,7 +81,7 @@ for _, x in ipairs(hl.get_windows()) do
 end
 if w then
   pcall(function()
-    hl.dispatch(hl.dsp.window.move({ workspace = 14, window = w }))
+    hl.dispatch(hl.dsp.window.move({ workspace = 4, window = w }))
   end)
   pcall(function()
     hl.dispatch(hl.dsp.window.fullscreen_state({ window = w, internal = 1, client = 0 }))

@@ -13,8 +13,8 @@ let
     Active=0
 
     [Preview]
-    Width=1920
-    Height=1080
+    Width=1280
+    Height=720
 
     [Presets]
     Name0=Stream Face

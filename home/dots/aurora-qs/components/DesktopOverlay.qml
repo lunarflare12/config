@@ -18,8 +18,26 @@ PanelWindow {
     readonly property bool shown: !root.gameFullscreen && !Core.Session.overviewOpen
     readonly property bool desktopHost: Core.Session.isDesktopMonitor(root.monitorName)
 
+    readonly property int cellW: root.grid.cellWFor(width)
+    readonly property int cellH: root.grid.cellHFor(height)
     readonly property int cols: root.grid.colsFor(width)
     readonly property int rows: root.grid.rowsFor(height)
+
+    function posX(col) {
+        return root.grid.posX(col, root.cellW);
+    }
+
+    function posY(row) {
+        return root.grid.posY(row, root.cellH);
+    }
+
+    function colAt(x) {
+        return root.grid.colAt(x, root.cellW);
+    }
+
+    function rowAt(y) {
+        return root.grid.rowAt(y, root.cellH);
+    }
 
     property bool boxing: false
     property real boxX: 0
@@ -147,7 +165,7 @@ PanelWindow {
         const ry = Math.min(root.boxY, root.boxY2);
         const rw = Math.abs(root.boxX2 - root.boxX);
         const rh = Math.abs(root.boxY2 - root.boxY);
-        return x < rx + rw && x + root.grid.cellW > rx && y < ry + rh && y + root.grid.cellH > ry;
+        return x < rx + rw && x + root.cellW > rx && y < ry + rh && y + root.cellH > ry;
     }
 
     function applyBoxSelect() {
@@ -158,7 +176,7 @@ PanelWindow {
             const cell = root.occupied[id];
             if (!cell)
                 continue;
-            if (root.intersectsBox(root.grid.posX(cell.col), root.grid.posY(cell.row)))
+            if (root.intersectsBox(root.posX(cell.col), root.posY(cell.row)))
                 paths.push(items[i].path);
         }
         root.svc.selectPaths(paths);
@@ -215,7 +233,15 @@ PanelWindow {
 
     WlrLayershell.namespace: "aurora-desktop"
     WlrLayershell.layer: WlrLayer.Bottom
-    WlrLayershell.keyboardFocus: (root.shown && (Core.Session.desktopEdit || root.menuOpen)) ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+    WlrLayershell.keyboardFocus: {
+        if (!root.shown)
+            return WlrKeyboardFocus.None;
+        if (root.menuOpen)
+            return WlrKeyboardFocus.Exclusive;
+        if (Core.Session.desktopEdit)
+            return WlrKeyboardFocus.OnDemand;
+        return WlrKeyboardFocus.None;
+    }
 
     mask: Region {
         item: passBar
@@ -231,6 +257,14 @@ PanelWindow {
         id: stage
         anchors.fill: parent
         focus: root.shown
+
+        Connections {
+            target: Core.Session
+            function onDesktopEditChanged() {
+                if (Core.Session.desktopEdit)
+                    stage.forceActiveFocus();
+            }
+        }
 
         Keys.onPressed: function (event) {
             if (event.key === Qt.Key_Escape) {
@@ -298,8 +332,16 @@ PanelWindow {
             }
 
             onReleased: function (mouse) {
-                if (mouse.button === Qt.LeftButton)
-                    root.boxing = false;
+                if (mouse.button !== Qt.LeftButton)
+                    return;
+                const dragged = Math.hypot(root.boxX2 - root.boxX, root.boxY2 - root.boxY) > 8;
+                root.boxing = false;
+                if (!dragged)
+                    Core.Session.dismissScreenshot();
+                if (root.editing && !dragged) {
+                    root.svc.clearSelection();
+                    Core.Session.desktopEdit = false;
+                }
             }
         }
 
@@ -311,10 +353,10 @@ PanelWindow {
                 readonly property int col: index % root.cols
                 readonly property int row: Math.floor(index / root.cols)
 
-                x: root.grid.posX(col) + 6
-                y: root.grid.posY(row) + 6
-                width: root.grid.cellW - 12
-                height: root.grid.cellH - 12
+                x: root.posX(col) + 3
+                y: root.posY(row) + 3
+                width: root.cellW - 6
+                height: root.cellH - 6
                 z: 1
                 radius: 12
                 visible: !root.cellTaken(col, row)
@@ -332,6 +374,18 @@ PanelWindow {
         }
 
         DesktopMetrics {
+            host: root
+            modelData: root.modelData
+            z: 6
+        }
+
+        DesktopLabs {
+            host: root
+            modelData: root.modelData
+            z: 6
+        }
+
+        DesktopNowPlaying {
             host: root
             modelData: root.modelData
             z: 6
@@ -358,10 +412,10 @@ PanelWindow {
                 property real dragX: 0
                 property real dragY: 0
 
-                width: root.grid.cellW
-                height: root.grid.cellH
-                x: cell.dragging ? cell.dragX : root.grid.posX(cell.col)
-                y: cell.dragging ? cell.dragY : root.grid.posY(cell.row)
+                width: root.cellW
+                height: root.cellH
+                x: cell.dragging ? cell.dragX : root.posX(cell.col)
+                y: cell.dragging ? cell.dragY : root.posY(cell.row)
                 z: cell.dragging ? 30 : 4
 
                 function layout() {
@@ -395,7 +449,7 @@ PanelWindow {
                     function onDesktopEditChanged() {
                         if (Core.Session.desktopEdit || !cell.dragging)
                             return;
-                        const snap = root.snapTo(root.grid.colAt(cell.dragX), root.grid.rowAt(cell.dragY), 1, 1, cell.slotId);
+                        const snap = root.snapTo(root.colAt(cell.dragX), root.rowAt(cell.dragY), 1, 1, cell.slotId);
                         cell.col = snap.col;
                         cell.row = snap.row;
                         cell.dragging = false;
@@ -407,7 +461,7 @@ PanelWindow {
 
                 Tactile {
                     anchors.fill: parent
-                    anchors.margins: 6
+                    anchors.margins: 4
                     radius: 12
                     hovered: iconMouse.containsMouse
                     pressed: iconMouse.pressed
@@ -420,9 +474,9 @@ PanelWindow {
                 Image {
                     id: glyph
                     anchors.horizontalCenter: parent.horizontalCenter
-                    y: 12
-                    width: 56
-                    height: 56
+                    y: 8
+                    width: 52
+                    height: 52
                     asynchronous: true
                     cache: true
                     sourceSize.width: 64
@@ -435,9 +489,9 @@ PanelWindow {
                 Text {
                     visible: glyph.status !== Image.Ready
                     anchors.horizontalCenter: parent.horizontalCenter
-                    y: 20
-                    width: 48
-                    height: 48
+                    y: 16
+                    width: 44
+                    height: 44
                     text: cell.modelData.isDir ? "📁" : "📄"
                     font.pixelSize: 36
                     horizontalAlignment: Text.AlignHCenter
@@ -450,8 +504,8 @@ PanelWindow {
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.bottom: parent.bottom
-                    anchors.margins: 6
-                    height: 32
+                    anchors.margins: 4
+                    height: 26
                     text: root.svc.displayName(cell.modelData)
                     color: Core.Theme.foreground
                     font.family: Core.Theme.fontFamily
@@ -468,8 +522,8 @@ PanelWindow {
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.bottom: parent.bottom
-                    anchors.margins: 6
-                    height: 32
+                    anchors.margins: 4
+                    height: 26
                     text: root.svc.displayName(cell.modelData)
                     color: Core.Theme.foreground
                     font.family: Core.Theme.fontFamily
@@ -536,7 +590,7 @@ PanelWindow {
                         if (mouse.button !== Qt.LeftButton)
                             return;
                         if (cell.dragging) {
-                            const snap = root.snapTo(root.grid.colAt(cell.dragX), root.grid.rowAt(cell.dragY), 1, 1, cell.slotId);
+                            const snap = root.snapTo(root.colAt(cell.dragX), root.rowAt(cell.dragY), 1, 1, cell.slotId);
                             cell.col = snap.col;
                             cell.row = snap.row;
                             cell.dragging = false;

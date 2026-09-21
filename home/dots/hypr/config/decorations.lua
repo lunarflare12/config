@@ -1,14 +1,16 @@
 local game_flag = io.open("/home/dd/.local/state/aurora-game", "r")
-local in_game = game_flag ~= nil
+local playing = game_flag ~= nil
 if game_flag then
     game_flag:close()
 end
 
 hl.config({
     general = {
-        gaps_in = in_game and 0 or 4,
-        gaps_out = in_game and { top = 0, right = 0, bottom = 0, left = 0 } or { top = 4, right = 10, bottom = 10, left = 10 },
-        border_size = in_game and 0 or 4,
+        -- Keep desktop chrome even if aurora-game is left behind. Games already
+        -- get border_size 0 + fullscreen via window rules.
+        gaps_in = 4,
+        gaps_out = { top = 4, right = 10, bottom = 10, left = 10 },
+        border_size = 4,
         resize_on_border = false,
         allow_tearing = true,
         layout = "dwindle",
@@ -19,14 +21,16 @@ hl.config({
         active_opacity = 1,
         fullscreen_opacity = 1,
         shadow = {
-            enabled = not in_game,
+            enabled = not playing,
             range = 36,
             render_power = 4,
             color = "rgba(000000a8)",
             offset = "0 10",
         },
         blur = {
-            enabled = not in_game,
+            -- Games already set no_blur. Keep compositor blur so Kitty's
+            -- background_blur protocol still works if aurora-game is leftover.
+            enabled = true,
             size = 8,
             passes = 3,
             xray = false,
@@ -40,10 +44,10 @@ hl.config({
         -- Auto scanout on NVIDIA exclusive FS blanks the other output.
         direct_scanout = 0,
         cm_enabled = false,
-        -- Needed so immediate/tearing window rules actually mark the game.
-        -- Plugin reports 1920x1080; stretch that buffer onto the 2560 window.
-        expand_undersized_textures = true,
-        send_content_type = in_game,
+        -- Never globally. Overwatch 1920→2560 is toggled in windows.lua
+        -- when that window is focused; otherwise Steam CEF clicks miss.
+        expand_undersized_textures = false,
+        send_content_type = playing,
         -- Triple-buffer scheduling made 1% lows worse on 200Hz+60Hz NVIDIA.
         new_render_scheduling = false,
     },
@@ -63,16 +67,16 @@ hl.config({
         force_default_wallpaper = 0,
         disable_hyprland_logo = true,
         middle_click_paste = false,
-        mouse_move_focuses_monitor = not in_game,
+        mouse_move_focuses_monitor = not playing,
         -- Xiaomi DP-1 is not VRR-capable. vrr=2 waits on a signal that
         -- never comes and hitchs a 205 FPS cap.
         vrr = 0,
-        render_unfocused_fps = in_game and 205 or 15,
+        render_unfocused_fps = playing and 205 or 15,
     },
     debug = {
         -- Mixed 200Hz + 60Hz NVIDIA: VFR emits empty damage rects and hitches.
         vfr = false,
-        render_solitary_wo_damage = in_game,
+        render_solitary_wo_damage = playing,
     },
     binds = {
         disable_keybind_grabbing = true,

@@ -66,5 +66,4 @@ done
 
 if [ "$#" -eq 0 ]; then
   scan_dir "$HOME/Wallpapers"
-  scan_dir "$HOME/.wall"
 fi

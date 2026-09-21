@@ -1,5 +1,5 @@
---- a/umainform.pas
-+++ b/umainform.pas
+--- a/umainform.pas	2026-09-21 14:38:27.852205583 +0300
++++ b/umainform.pas	2026-09-21 14:39:50.887309032 +0300
 @@ -32,6 +32,8 @@
      FCam: TInsta360Link;
      FUpdating: Boolean; // Prevent feedback loops on slider changes
@@ -33,8 +33,8 @@
    FCam.OnLog := @CamLog;
    FUpdating := False;
    FActiveLook := 0;
-+  FPrefW := 1920;
-+  FPrefH := 1080;
++  FPrefW := 1280;
++  FPrefH := 720;
    FCapture := TVideoCapture.Create;
    FPreviewBmp := TBitmap.Create;
    BuildUI;
@@ -103,21 +103,21 @@
 +  cboResolution.Items.BeginUpdate;
 +  try
 +    cboResolution.Items.Clear;
-+    cboResolution.Items.Add('3840x2160');
-+    cboResolution.Items.Add('1920x1440');
-+    cboResolution.Items.Add('1920x1080');
-+    cboResolution.Items.Add('1280x960');
 +    cboResolution.Items.Add('1280x720');
 +    cboResolution.Items.Add('960x540');
 +    cboResolution.Items.Add('640x360');
++    cboResolution.Items.Add('1920x1080');
++    cboResolution.Items.Add('1920x1440');
++    cboResolution.Items.Add('3840x2160');
++    cboResolution.Items.Add('1280x960');
 +  finally
 +    cboResolution.Items.EndUpdate;
 +  end;
 +  cboResolution.ItemIndex := cboResolution.Items.IndexOf(want);
 +  if cboResolution.ItemIndex < 0 then
-+    cboResolution.ItemIndex := cboResolution.Items.IndexOf('1920x1080');
++    cboResolution.ItemIndex := cboResolution.Items.IndexOf('1280x720');
 +  if cboResolution.ItemIndex < 0 then
-+    cboResolution.ItemIndex := 2;
++    cboResolution.ItemIndex := 0;
 +end;
 +
 +function TfrmMain.SelectedWidth: Integer;
@@ -177,9 +177,9 @@
 +  FPrefH := h;
 +
 +  if FCapture.StartOnDevice(FCam.DevicePath, w, h)
-+     or FCapture.StartOnDevice(FCam.DevicePath, 1920, 1080)
       or FCapture.StartOnDevice(FCam.DevicePath, 1280, 720)
 -     or FCapture.Start(FCam.FD, 640, 360) then
++     or FCapture.StartOnDevice(FCam.DevicePath, 960, 540)
 +     or FCapture.StartOnDevice(FCam.DevicePath, 640, 360)
 +     or FCapture.Start(FCam.FD, w, h) then
    begin
@@ -194,12 +194,13 @@
      for i := 0 to 3 do
      begin
        p := FCam.GetPreset(i);
-@@ -1558,6 +1649,8 @@
+@@ -1558,6 +1649,9 @@
      FActiveLook := ini.ReadInteger('Looks', 'Active', 0);
      if (FActiveLook < 0) or (FActiveLook > 3) then
        FActiveLook := 0;
-+  FPrefW := 1920;
-+  FPrefH := 1080;
++    FPrefW := ini.ReadInteger('Preview', 'Width', 1280);
++    FPrefH := ini.ReadInteger('Preview', 'Height', 720);
++    if Assigned(cboResolution) then FillResolutions;
      HighlightLook(FActiveLook);
  
      // Re-select the last-used device if it's still present in the list.

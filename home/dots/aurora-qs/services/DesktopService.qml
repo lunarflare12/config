@@ -190,7 +190,7 @@ QtObject {
     }
 
     function openDesktop() {
-        Quickshell.execDetached(["thunar", root.desktopPath]);
+        Quickshell.execDetached([root.home + "/.config/scripts/finder.sh", root.desktopPath]);
     }
 
     function createFolder() {
@@ -245,7 +245,7 @@ QtObject {
         Quickshell.execDetached([
             "sh",
             "-c",
-            "mkdir -p \"$HOME/.local/share/Trash/files\" \"$HOME/.local/share/Trash/info\"; if gio list trash:// >/dev/null 2>&1; then exec thunar trash:///; fi; exec thunar \"$HOME/.local/share/Trash/files\""
+            "mkdir -p \"$HOME/.local/share/Trash/files\" \"$HOME/.local/share/Trash/info\"; fm=\"$HOME/.config/scripts/finder.sh\"; if gio list trash:// >/dev/null 2>&1; then exec \"$fm\" trash:///; fi; exec \"$fm\" \"$HOME/.local/share/Trash/files\""
         ]);
     }
 

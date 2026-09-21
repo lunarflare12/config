@@ -20,8 +20,8 @@ for _, animation in ipairs({
     { leaf = "windowsOut", speed = 4, bezier = "smoothIn", style = "popin 80%" },
     { leaf = "layers", speed = 5, bezier = "smoothOut" },
     { leaf = "fade", speed = 5, bezier = "smoothOut" },
-    { leaf = "workspaces", speed = 4, bezier = "smoothOut", style = "slide" },
-    { leaf = "specialWorkspace", speed = 4, bezier = "smoothOut", style = "slide" },
+    { leaf = "workspaces", speed = 5, bezier = "smoothOut", style = "slidefade 18%" },
+    { leaf = "specialWorkspace", speed = 5, bezier = "smoothOut", style = "slidefade 18%" },
 }) do
     animation.enabled = not in_game
     hl.animation(animation)

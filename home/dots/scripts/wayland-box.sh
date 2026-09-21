@@ -5,12 +5,13 @@ set -euo pipefail
 
 usage() {
   cat >&2 <<'EOF'
-wayland-box [--name NAME] [--offline] [--home DIR] [--bind PATH]... [--] CMD [ARGS...]
+wayland-box [--name NAME] [--offline] [--home DIR] [--bind PATH]... [--map SRC DST]... [--] CMD [ARGS...]
 
   --name     sandbox id (default: command basename)
   --offline  no network
   --home     override isolated HOME
   --bind     extra host path, mounted at the same place (repeatable)
+  --map      extra host path SRC mounted at DST (repeatable)
 EOF
   exit 2
 }
@@ -35,6 +36,7 @@ NAME=""
 OFFLINE=0
 BOX_HOME=""
 EXTRA_BINDS=()
+EXTRA_MAPS=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -54,6 +56,10 @@ while [[ $# -gt 0 ]]; do
     --bind)
       EXTRA_BINDS+=("${2:-}")
       shift 2
+      ;;
+    --map)
+      EXTRA_MAPS+=("${2:-}" "${3:-}")
+      shift 3
       ;;
     --)
       shift
@@ -114,6 +120,9 @@ if [[ -n "$PROXY" && -x "$PROXY" ]]; then
     --talk=org.freedesktop.portal.IBus \
     --talk=org.freedesktop.portal.IBus.Portal \
     --talk=org.freedesktop.impl.portal.PermissionStore \
+    --talk=org.freedesktop.secrets \
+    --own=org.mpris.MediaPlayer2.spotify \
+    --own=org.mpris.MediaPlayer2.spotify.* \
     --call=org.freedesktop.portal.*=* \
     --broadcast=org.freedesktop.portal.*=@/org/freedesktop/portal/* \
     >/dev/null 2>&1 &
@@ -195,6 +204,13 @@ fi
 for p in "${EXTRA_BINDS[@]+"${EXTRA_BINDS[@]}"}"; do
   [[ -e "$p" ]] || continue
   args+=(--bind "$p" "$p")
+done
+
+for ((i = 0; i < ${#EXTRA_MAPS[@]}; i += 2)); do
+  src="${EXTRA_MAPS[i]}"
+  dst="${EXTRA_MAPS[i + 1]}"
+  [[ -e "$src" && -n "$dst" && -e "$dst" ]] || continue
+  args+=(--bind "$src" "$dst")
 done
 
 "$BWRAP" "${args[@]}" -- "$@"

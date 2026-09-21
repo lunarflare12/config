@@ -46,29 +46,23 @@
         "application/vnd.ms-powerpoint" = "libreoffice-impress.desktop";
         "application/vnd.openxmlformats-officedocument.presentationml.presentation" =
           "libreoffice-impress.desktop";
+        "inode/directory" = "thunar.desktop";
       };
     };
     configFile."mimeapps.list".force = true;
   };
 
-  # Stale *.hm.bak from earlier switches block checkLinkTargets, and a
-  # hand-enabled OpenCluely unit is a real file instead of a store symlink.
+  # Stale *.hm.bak and a hand-enabled OpenCluely wants link block checkLinkTargets.
   home.activation.dropStaleHmBackups = lib.hm.dag.entryBefore [ "checkLinkTargets" ] ''
     configHome="${config.xdg.configHome}"
-    find "$configHome/aurora" "$configHome/hypr" -name '*.hm.bak' -delete 2>/dev/null || true
+    find "$configHome/aurora" "$configHome/hypr" "$configHome/systemd" -name '*.hm.bak' -delete 2>/dev/null || true
+    rm -f "$configHome/hypr/ow-vkfix-dir"
 
     unit="$configHome/systemd/user/opencluely.service"
     wants="$configHome/systemd/user/graphical-session.target.wants/opencluely.service"
+    rm -f "$wants"
     if [ -e "$unit" ] && [ ! -L "$unit" ]; then
       rm -f "$unit"
-    fi
-    if [ -L "$wants" ]; then
-      case "$(readlink "$wants")" in
-        /nix/store/*) ;;
-        *) rm -f "$wants" ;;
-      esac
-    elif [ -e "$wants" ]; then
-      rm -f "$wants"
     fi
   '';
 
@@ -84,5 +78,7 @@
     ./git.nix
     ./insta360.nix
     ./libreoffice.nix
+    ./thunar.nix
+    ./spicetify.nix
   ];
 }

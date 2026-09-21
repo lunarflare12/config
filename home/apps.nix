@@ -11,11 +11,12 @@ let
   scripts = "${config.home.homeDirectory}/.config/scripts";
   zenBrowser = inputs.zen-browser.packages.${pkgs.stdenv.hostPlatform.system}.default;
   chromeBin = lib.getExe pkgs.google-chrome;
-  steamBin = lib.getExe pkgs.steam;
   ideaBin = lib.getExe pkgs.jetbrains.idea;
   chromeFlags = "--force-dark-mode --enable-features=WebUIDarkMode,MemorySaverMode --disable-features=SpareRendererForSitePerProcess --process-per-site --renderer-process-limit=8";
   chromeWrap = wrap "google-chrome" ''exec ${chromeBin} ${chromeFlags} "$@"'';
-  steamWrap = wrap "steam" ''exec ${steamBin} -cef-disable-gpu -cef-disable-gpu-compositing "$@"'';
+  steamWrap = wrap "steam" ''
+    exec ${scripts}/steam.sh "$@"
+  '';
   discordWrap = wrap "discord" ''
     export NIXOS_OZONE_WL=0
     export ELECTRON_OZONE_PLATFORM_HINT=x11
@@ -36,7 +37,7 @@ let
   chromeEntry = {
     name = "Google Chrome";
     genericName = "Web Browser";
-    exec = "${lib.getExe chromeWrap} %U";
+    exec = "${scripts}/google-chrome.sh %U";
     icon = "google-chrome";
     categories = [
       "Network"
@@ -95,7 +96,6 @@ in
   home.sessionPath = [ scripts ];
 
   home.packages = [
-    (pkgs.${params.fileManager} or pkgs.thunar)
     zenBrowser
     pkgs.xrandr
     chromeWrap
@@ -117,7 +117,7 @@ in
     "com.google.Chrome" = chromeEntry;
     steam = {
       name = "Steam";
-      exec = "${lib.getExe steamWrap} %U";
+      exec = "${scripts}/steam.sh %U";
       icon = "steam";
       categories = [ "Game" ];
       mimeType = [
@@ -143,7 +143,7 @@ in
       name = "Cursor";
       genericName = "Text Editor";
       exec = "${pkgs.code-cursor}/bin/cursor --force-dark-mode %F";
-      icon = "cursor";
+      icon = "${pkgs.code-cursor}/share/pixmaps/cursor.png";
       categories = [
         "Utility"
         "TextEditor"
@@ -152,6 +152,7 @@ in
       ];
       mimeType = ideMime;
       startupNotify = true;
+      settings.StartupWMClass = "cursor";
     };
     code = {
       name = "Visual Studio Code";

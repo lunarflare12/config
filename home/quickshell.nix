@@ -2,6 +2,7 @@
   config,
   lib,
   pkgs,
+  params,
   ...
 }:
 
@@ -66,7 +67,8 @@ let
     PY
   '';
 
-  auroraQsDir = "${config.home.homeDirectory}/config/home/dots/aurora-qs";
+  repoRoot = "${config.home.homeDirectory}/${params.repo}";
+  auroraQsDir = "${repoRoot}/home/dots/aurora-qs";
 in
 {
   # Flakes omit untracked QML. Point ~/.config/quickshell at the git tree so
@@ -83,7 +85,7 @@ in
   xdg.configFile."fastfetch".recursive = true;
 
   xdg.configFile."scripts" = {
-    source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/config/home/dots/scripts";
+    source = config.lib.file.mkOutOfStoreSymlink "${repoRoot}/home/dots/scripts";
     force = true;
   };
 
@@ -102,9 +104,6 @@ in
     source = ./dots/satty/config.toml;
     force = true;
   };
-
-  home.file.".wall".source = ./dots/wallpapers;
-  home.file.".wall".recursive = true;
 
   xdg.dataFile."icons/hicolor/512x512/apps/keymapp.png" = {
     source = ./dots/aurora-qs/assets/keymapp.png;
@@ -210,7 +209,7 @@ in
   home.activation.auroraState = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     mkdir -p "${auroraQsDir}/assets"
     ln -sfn ${emojiDatabase} "${auroraQsDir}/assets/emoji.json"
-    mkdir -p "$HOME/.local/state/aurora" "$HOME/.cache/aurora" "$HOME/.wall" "$HOME/Pictures/Screenshots" "$HOME/.local/state"
+    mkdir -p "$HOME/.local/state/aurora" "$HOME/.cache/aurora" "$HOME/Wallpapers" "$HOME/Pictures/Screenshots" "$HOME/.local/state"
 
     if [ ! -f "$HOME/.local/state/monitor-brightness" ]; then
       echo 100 > "$HOME/.local/state/monitor-brightness"
@@ -219,10 +218,10 @@ in
     if [ ! -s "$HOME/.local/state/aurora/wallpaper" ] && [ -s "$HOME/.cache/aurora/current-wallpaper" ]; then
       cp -f "$HOME/.cache/aurora/current-wallpaper" "$HOME/.local/state/aurora/wallpaper"
     fi
-    if [ ! -s "$HOME/.local/state/aurora/wallpaper" ] && [ -s "$HOME/.wall/.current.default" ]; then
-      name="$(tr -d '[:space:]' < "$HOME/.wall/.current.default")"
-      if [ -f "$HOME/.wall/$name" ]; then
-        printf '%s\n' "$HOME/.wall/$name" > "$HOME/.local/state/aurora/wallpaper"
+    if [ ! -s "$HOME/.local/state/aurora/wallpaper" ]; then
+      first="$(find -L "$HOME/Wallpapers" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' \) ! -name '.*' 2>/dev/null | sort | head -n 1 || true)"
+      if [ -n "$first" ]; then
+        printf '%s\n' "$first" > "$HOME/.local/state/aurora/wallpaper"
       fi
     fi
   '';

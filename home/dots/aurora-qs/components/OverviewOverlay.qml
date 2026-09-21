@@ -74,14 +74,62 @@ PanelWindow {
         const _ = (Hyprland.toplevels && Hyprland.toplevels.values) ? Hyprland.toplevels.values.length : 0;
         return root.windowsOn(root.base + root.previewLocal);
     }
-    readonly property real spacesBarH: Math.round(root.monitorH * 0.118) + 28
+    property bool spacesExpanded: false
+    readonly property color spaceActive: "#0A84FF"
+    readonly property int thumbGap: 10
+    readonly property int compactGap: 32
+    readonly property int plusSize: 24
+    readonly property real compactBarH: 42
+    readonly property real expandedBarH: root.thumbH + 48
+    property real spacesBarH: root.spacesExpanded ? root.expandedBarH : root.compactBarH
+
+    Behavior on spacesBarH {
+        NumberAnimation {
+            duration: 180
+            easing.type: Easing.OutCubic
+        }
+    }
     readonly property real thumbW: {
-        const n = root.spaceLocals.length + (root.canAddSpace ? 1 : 0);
-        const avail = Math.min(root.width - 80, 1180);
-        return Math.min(158, Math.max(88, Math.floor((avail - Math.max(0, n - 1) * 12) / Math.max(1, n))));
+        const n = Math.max(1, root.spaceLocals.length);
+        const avail = Math.min(root.width - 120, 1480);
+        return Math.min(186, Math.max(100, Math.floor((avail - Math.max(0, n - 1) * root.thumbGap) / n)));
     }
     readonly property real thumbH: Math.round(root.thumbW * root.monitorH / Math.max(1, root.monitorW))
     readonly property real thumbScale: root.thumbW / Math.max(1, root.monitorW)
+    readonly property real thumbsRowW: {
+        const n = root.spaceLocals.length;
+        return n * root.thumbW + Math.max(0, n - 1) * root.thumbGap;
+    }
+    readonly property real compactFocusCenter: {
+        const _ = (Hyprland.toplevels && Hyprland.toplevels.values) ? Hyprland.toplevels.values.length : 0;
+        const n = root.spaceLocals.length;
+        let x = 0;
+        for (let i = 0; i < n; i++) {
+            const local = root.spaceLocals[i];
+            const w = root.compactLabelW(root.spaceLabel(i, local, root.windowsOn(root.base + local)));
+            if (local === Core.Session.localId(root.activeGlobal))
+                return x + w / 2;
+            x += w + root.compactGap;
+        }
+        return x / 2;
+    }
+    readonly property real compactRowX: Math.round(root.width / 2 - root.compactFocusCenter)
+    readonly property real expandedRowX: Math.round((root.width - (root.thumbsRowW + (root.canAddSpace ? root.thumbGap + root.plusSize : 0))) / 2)
+    readonly property real spacesRowX: root.spacesExpanded ? root.expandedRowX : root.compactRowX
+    readonly property real plusX: root.spacesExpanded ? (root.expandedRowX + root.thumbsRowW + root.thumbGap) : (root.width - root.plusSize - 20)
+
+    function stripFade(x, w) {
+        const left = 10;
+        const right = root.width - (root.canAddSpace ? 68 : 12);
+        const mid = x + w / 2;
+        const fadeW = Math.max(110, root.width * 0.12);
+        let o = 1;
+        if (mid < left + fadeW)
+            o = Math.min(o, Math.max(0.06, (mid - left) / fadeW));
+        if (mid > right - fadeW)
+            o = Math.min(o, Math.max(0.06, (right - mid) / fadeW));
+        return o;
+    }
     readonly property var exposeRects: root.computeExpose(root.previewWins)
     readonly property bool pointerHere: Core.Session.overviewDrag && Core.Session.monitorAt(Core.Session.overviewDragX, Core.Session.overviewDragY) === root.monitorName
 
@@ -94,6 +142,7 @@ PanelWindow {
         target: Core.Session
         function onOverviewOpenChanged() {
             if (Core.Session.overviewOpen) {
+                root.spacesExpanded = false;
                 Core.PopupManager.close();
                 root.previewLocal = Core.Session.localId(root.activeGlobal);
                 root.intro = 1;
@@ -125,6 +174,27 @@ PanelWindow {
         return Core.Session.monitorIndex(root.monitorName) === 0 ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None;
     }
 
+    property Region emptyMask: Region {
+        width: 0
+        height: 0
+    }
+
+    Item {
+        id: belowBar
+        anchors.fill: parent
+        anchors.topMargin: Core.Theme.barHeight
+    }
+
+    property Region belowBarMask: Region {
+        item: belowBar
+    }
+
+    mask: {
+        if (!(Core.Session.overviewOpen || root.intro > 0.01))
+            return root.emptyMask;
+        return null;
+    }
+
     function windowsOn(globalId) {
         const out = [];
         const tops = (Hyprland.toplevels && Hyprland.toplevels.values) ? Hyprland.toplevels.values : [];
@@ -143,32 +213,50 @@ PanelWindow {
 
     function computeExpose(wins) {
         const n = wins.length;
-        const stageW = Math.max(1, root.width - 96);
-        const stageH = Math.max(1, root.height - root.spacesBarH - 48);
-        const originX = 48;
-        const originY = root.spacesBarH + 8;
+        const stageX = 40;
+        const stageY = root.spacesBarH + 12;
+        const stageW = Math.max(1, root.width - 80);
+        const stageH = Math.max(1, root.height - stageY - 28);
         if (n === 0)
             return [];
-        const cols = n === 1 ? 1 : n === 2 ? 2 : n <= 4 ? 2 : n <= 6 ? 3 : 4;
+        const out = [];
+        if (n === 1) {
+            const ipc = wins[0].lastIpcObject || {};
+            const size = ipc.size || [root.monitorW, root.monitorH];
+            const rw = Math.max(1, Number(size[0]));
+            const rh = Math.max(1, Number(size[1]));
+            const maxW = stageW * 0.78;
+            const maxH = stageH * 0.86;
+            const s = Math.min(maxW / rw, maxH / rh);
+            const w = Math.max(280, rw * s);
+            const h = Math.max(160, rh * s);
+            out.push({
+                x: stageX + (stageW - w) / 2,
+                y: stageY + (stageH - h) / 2,
+                w: w,
+                h: h
+            });
+            return out;
+        }
+        const cols = n === 2 ? 2 : n <= 4 ? 2 : n <= 6 ? 3 : 4;
         const rows = Math.ceil(n / cols);
-        const gap = 36;
+        const gap = 28;
         const cellW = (stageW - gap * (cols + 1)) / cols;
         const cellH = (stageH - gap * (rows + 1)) / rows;
-        const out = [];
         for (let i = 0; i < n; i++) {
             const ipc = wins[i].lastIpcObject || {};
             const size = ipc.size || [960, 540];
             const rw = Math.max(1, Number(size[0]));
             const rh = Math.max(1, Number(size[1]));
-            const maxW = cellW * 0.92;
-            const maxH = cellH * 0.78;
+            const maxW = cellW * 0.94;
+            const maxH = cellH * 0.9;
             const s = Math.min(maxW / rw, maxH / rh);
             const w = Math.max(160, rw * s);
             const h = Math.max(100, rh * s);
             const col = i % cols;
             const row = Math.floor(i / cols);
-            const cx = originX + gap + col * (cellW + gap) + cellW / 2;
-            const cy = originY + gap + row * (cellH + gap) + cellH / 2 - 10;
+            const cx = stageX + gap + col * (cellW + gap) + cellW / 2;
+            const cy = stageY + gap + row * (cellH + gap) + cellH / 2;
             out.push({
                 x: cx - w / 2,
                 y: cy - h / 2,
@@ -177,6 +265,27 @@ PanelWindow {
             });
         }
         return out;
+    }
+
+    function spaceLabel(index, localWs, wins) {
+        if (wins && wins.length === 1) {
+            const t = wins[0];
+            const ipc = (t && t.lastIpcObject) ? t.lastIpcObject : {};
+            const title = String((t && t.title) || ipc.title || "").trim();
+            const cls = String(ipc.class || ipc.initialClass || "");
+            const name = Services.AppsService.nameForClass(cls, "");
+            if (title && title !== name && title.length >= 3)
+                return title;
+            if (name)
+                return name;
+            if (title)
+                return title;
+        }
+        return "Desktop " + (index + 1);
+    }
+
+    function compactLabelW(text) {
+        return Math.max(64, Math.min(340, String(text || "").length * 7.8 + 18));
     }
 
     function monitorIndexLeft() {
@@ -257,14 +366,11 @@ PanelWindow {
         const lx = (gx - root.monitorX) * scaleX;
         const ly = (gy - root.monitorY) * scaleY;
         if (ly <= root.spacesBarH) {
-            const n = root.spaceLocals.length + (root.canAddSpace ? 1 : 0);
-            const total = n * root.thumbW + Math.max(0, n - 1) * 12;
-            const start = (root.width - total) / 2;
-            const idx = Math.floor((lx - start) / (root.thumbW + 12));
-            if (idx >= 0 && idx < root.spaceLocals.length)
-                Core.Session.setOverviewDrop(root.monitorName, root.spaceLocals[idx], false, null);
-            else if (root.canAddSpace && idx === root.spaceLocals.length)
+            const slot = root.spaceSlotAt(lx);
+            if (slot.plus)
                 Core.Session.setOverviewDrop(root.monitorName, 0, true, null);
+            else if (slot.localWs >= 1)
+                Core.Session.setOverviewDrop(root.monitorName, slot.localWs, false, null);
             else
                 Core.Session.setOverviewDrop(root.monitorName, root.previewLocal, false, null);
             return;
@@ -286,14 +392,18 @@ PanelWindow {
     }
 
     function spaceSlotAt(lx) {
-        const n = root.spaceLocals.length + (root.canAddSpace ? 1 : 0);
-        const total = n * root.thumbW + Math.max(0, n - 1) * 12;
-        const start = (root.width - total) / 2;
-        const idx = Math.floor((lx - start) / (root.thumbW + 12));
-        if (idx >= 0 && idx < root.spaceLocals.length)
-            return { "index": idx, "localWs": root.spaceLocals[idx], "plus": false };
-        if (root.canAddSpace && idx === root.spaceLocals.length)
-            return { "index": idx, "localWs": 0, "plus": true };
+        const n = root.spaceLocals.length;
+        const gap = root.spacesExpanded ? root.thumbGap : root.compactGap;
+        let x = root.spacesRowX;
+        for (let i = 0; i < n; i++) {
+            const local = root.spaceLocals[i];
+            const w = root.spacesExpanded ? root.thumbW : root.compactLabelW(root.spaceLabel(i, local, root.windowsOn(root.base + local)));
+            if (lx >= x && lx <= x + w)
+                return { "index": i, "localWs": local, "plus": false };
+            x += w + gap;
+        }
+        if (root.canAddSpace && lx >= root.plusX - 8 && lx <= root.plusX + root.plusSize + 8)
+            return { "index": n, "localWs": 0, "plus": true };
         return { "index": -1, "localWs": 0, "plus": false };
     }
 
@@ -305,37 +415,42 @@ PanelWindow {
             "toplevel": null,
             "close": false
         };
-        const n = root.spaceLocals.length + (root.canAddSpace ? 1 : 0);
-        const total = n * root.thumbW + Math.max(0, n - 1) * 12;
-        const start = (root.width - total) / 2;
-        const deskY = 14;
-        if (ly >= deskY && ly <= deskY + root.thumbH + 22) {
-            const idx = Math.floor((lx - start) / (root.thumbW + 12));
-            if (idx >= 0 && idx < root.spaceLocals.length) {
-                const sx = start + idx * (root.thumbW + 12);
-                const close = root.spaceLocals.length > 1 && lx >= sx + 2 && lx <= sx + 24 && ly >= deskY + 2 && ly <= deskY + 24;
-                return {
-                    "kind": close ? "spaceClose" : "space",
-                    "index": idx,
-                    "localWs": root.spaceLocals[idx],
-                    "toplevel": null,
-                    "close": close
-                };
-            }
-            if (root.canAddSpace && idx === root.spaceLocals.length)
+        const deskY = root.spacesExpanded ? 10 : 8;
+        const hitH = root.spacesExpanded ? root.thumbH + 22 : 28;
+        const n = root.spaceLocals.length;
+        if (ly >= 0 && ly <= deskY + hitH) {
+            const slot = root.spaceSlotAt(lx);
+            if (slot.plus)
                 return {
                     "kind": "add",
-                    "index": idx,
+                    "index": slot.index,
                     "localWs": 0,
                     "toplevel": null,
                     "close": false
                 };
+            if (slot.localWs >= 1) {
+                let sx = root.spacesRowX;
+                const gap = root.spacesExpanded ? root.thumbGap : root.compactGap;
+                for (let i = 0; i < slot.index; i++) {
+                    const local = root.spaceLocals[i];
+                    const w = root.spacesExpanded ? root.thumbW : root.compactLabelW(root.spaceLabel(i, local, root.windowsOn(root.base + local)));
+                    sx += w + gap;
+                }
+                const close = root.spacesExpanded && n > 1 && lx >= sx + 2 && lx <= sx + 22 && ly >= deskY + 2 && ly <= deskY + 22;
+                return {
+                    "kind": close ? "spaceClose" : "space",
+                    "index": slot.index,
+                    "localWs": slot.localWs,
+                    "toplevel": null,
+                    "close": close
+                };
+            }
         }
         const rects = root.exposeRects;
         const wins = root.previewWins;
         for (let i = rects.length - 1; i >= 0; i--) {
             const r = rects[i];
-            if (lx < r.x || lx > r.x + r.w || ly < r.y || ly > r.y + r.h + 44)
+            if (lx < r.x || lx > r.x + r.w || ly < r.y || ly > r.y + r.h)
                 continue;
             const close = lx >= r.x + 4 && lx <= r.x + 26 && ly >= r.y + 4 && ly <= r.y + 26;
             return {
@@ -360,7 +475,7 @@ PanelWindow {
 
     Rectangle {
         anchors.fill: parent
-        color: Qt.rgba(0, 0, 0, 0.18 + root.intro * 0.28)
+        color: Qt.rgba(0, 0, 0, 0.22 + root.intro * 0.3)
     }
 
     Item {
@@ -370,13 +485,22 @@ PanelWindow {
         height: root.spacesBarH
         y: 0
         opacity: 1
+        clip: true
 
         Row {
             id: spacesRow
-            anchors.horizontalCenter: parent.horizontalCenter
+            x: root.spacesRowX
             anchors.top: parent.top
-            anchors.topMargin: 14
-            spacing: 12
+            anchors.topMargin: root.spacesExpanded ? 12 : 10
+            spacing: root.spacesExpanded ? root.thumbGap : root.compactGap
+
+            Behavior on x {
+                enabled: !root.spacesExpanded
+                NumberAnimation {
+                    duration: 220
+                    easing.type: Easing.OutCubic
+                }
+            }
 
             Repeater {
                 model: ListModel {
@@ -401,19 +525,37 @@ PanelWindow {
                     readonly property bool closeHovered: !grab.dragging && grab.hoverKind === "spaceClose" && grab.hoverIndex === spaceCard.index
                     readonly property var wins: root.windowsOn(spaceCard.workspace)
 
-                    width: root.thumbW
-                    height: root.thumbH + 22
-                    opacity: spaceCard.draggingThis ? 0.35 : 1
+                    readonly property string caption: root.spaceLabel(spaceCard.index, spaceCard.localWs, spaceCard.wins)
+
+                    width: root.spacesExpanded ? root.thumbW : root.compactLabelW(spaceCard.caption)
+                    height: root.spacesExpanded ? root.thumbH + 22 : 22
+                    opacity: {
+                        if (spaceCard.draggingThis)
+                            return 0.35;
+                        if (root.spacesExpanded)
+                            return 1;
+                        return root.stripFade(root.spacesRowX + spaceCard.x, spaceCard.width);
+                    }
+
+                    Behavior on opacity {
+                        enabled: !root.spacesExpanded
+                        NumberAnimation {
+                            duration: 160
+                            easing.type: Easing.OutCubic
+                        }
+                    }
 
                     Tactile {
-                        anchors.fill: parent
-                        radius: 8
+                        width: parent.width
+                        height: root.spacesExpanded ? root.thumbH : parent.height
+                        anchors.top: parent.top
+                        radius: root.spacesExpanded ? 6 : 4
                         hovered: spaceCard.hovered
                         pressed: grab.pressed && !grab.dragging && grab.pressKind === "space" && grab.pressIndex === spaceCard.index
                         active: spaceCard.focused || spaceCard.dropTarget
                         restScale: spaceCard.dropTarget ? 1.06 : 1
-                        hoverScale: 1.04
-                        pressScale: 0.96
+                        hoverScale: root.spacesExpanded ? 1.04 : 1
+                        pressScale: root.spacesExpanded ? 0.96 : 0.98
                         activeFill: "transparent"
                     }
 
@@ -422,10 +564,11 @@ PanelWindow {
                         width: root.thumbW
                         height: root.thumbH
                         anchors.top: parent.top
-                        radius: 8
+                        visible: root.spacesExpanded
+                        radius: 6
                         color: Qt.rgba(0.08, 0.08, 0.1, 0.72)
-                        border.width: spaceCard.dropTarget ? 3 : (spaceCard.focused ? 2 : 1)
-                        border.color: spaceCard.dropTarget ? "#FFFFFF" : (spaceCard.focused ? "#FFFFFF" : Qt.rgba(1, 1, 1, 0.22))
+                        border.width: (spaceCard.focused || spaceCard.dropTarget) ? 3 : 1
+                        border.color: (spaceCard.focused || spaceCard.dropTarget) ? root.spaceActive : Qt.rgba(1, 1, 1, 0.22)
                         clip: true
                         antialiasing: true
 
@@ -480,13 +623,16 @@ PanelWindow {
                     }
 
                     Text {
-                        anchors.top: desk.bottom
-                        anchors.topMargin: 4
+                        id: spaceCaption
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: "Desktop " + (spaceCard.index + 1)
-                        color: spaceCard.focused ? "#FFFFFF" : Qt.rgba(1, 1, 1, 0.72)
+                        y: root.spacesExpanded ? root.thumbH + 4 : Math.round((parent.height - implicitHeight) / 2)
+                        width: parent.width
+                        elide: Text.ElideRight
+                        horizontalAlignment: Text.AlignHCenter
+                        text: spaceCard.caption
+                        color: spaceCard.focused ? "#FFFFFF" : Qt.rgba(1, 1, 1, 0.78)
                         font.family: Core.Theme.fontFamily
-                        font.pixelSize: 11
+                        font.pixelSize: root.spacesExpanded ? 11 : 14
                         font.weight: spaceCard.focused ? Font.DemiBold : Font.Medium
                     }
 
@@ -500,7 +646,7 @@ PanelWindow {
                         anchors.left: desk.left
                         anchors.topMargin: 6
                         anchors.leftMargin: 6
-                        visible: root.spaceLocals.length > 1
+                        visible: root.spacesExpanded && root.spaceLocals.length > 1
                         color: spaceCard.closeHovered ? "#FF5F57" : Qt.rgba(0.18, 0.18, 0.2, 0.92)
                         opacity: spaceCard.hovered && !Core.Session.overviewDrag ? 1 : 0
                         border.width: 1
@@ -522,44 +668,53 @@ PanelWindow {
                     }
                 }
             }
+        }
 
-            Item {
-                id: addCard
-                visible: root.canAddSpace
-                width: root.thumbW
-                height: root.thumbH + 22
+        Item {
+            id: addCard
+            visible: root.canAddSpace
+            width: root.plusSize
+            height: root.spacesExpanded ? root.thumbH + 22 : 22
+            x: root.plusX
+            y: root.spacesExpanded ? 12 : 10
+            z: 40
 
-                Tactile {
-                    anchors.fill: parent
-                    radius: 8
-                    hovered: !grab.dragging && grab.hoverKind === "add"
-                    pressed: grab.pressed && !grab.dragging && grab.pressKind === "add"
-                    active: Core.Session.overviewDrag && Core.Session.overviewDropPlus && Core.Session.overviewDropMonitor === root.monitorName
-                    restScale: Core.Session.overviewDrag && Core.Session.overviewDropPlus && Core.Session.overviewDropMonitor === root.monitorName ? 1.06 : 1
-                    hoverScale: 1.04
-                    pressScale: 0.96
-                    activeFill: "transparent"
-                }
+            Tactile {
+                width: root.plusSize
+                height: root.plusSize
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.top: parent.top
+                anchors.topMargin: root.spacesExpanded ? Math.max(0, (root.thumbH - root.plusSize) / 2) : 0
+                radius: root.plusSize / 2
+                hovered: !grab.dragging && grab.hoverKind === "add"
+                pressed: grab.pressed && !grab.dragging && grab.pressKind === "add"
+                active: Core.Session.overviewDrag && Core.Session.overviewDropPlus && Core.Session.overviewDropMonitor === root.monitorName
+                restScale: Core.Session.overviewDrag && Core.Session.overviewDropPlus && Core.Session.overviewDropMonitor === root.monitorName ? 1.08 : 1
+                hoverScale: 1.06
+                pressScale: 0.94
+                activeFill: "transparent"
+            }
 
-                Rectangle {
-                    id: addDesk
-                    width: root.thumbW
-                    height: root.thumbH
-                    anchors.top: parent.top
-                    radius: 8
-                    color: Qt.rgba(1, 1, 1, (!grab.dragging && grab.hoverKind === "add") ? 0.14 : 0.07)
-                    border.width: 1
-                    border.color: Qt.rgba(1, 1, 1, 0.28)
-                    antialiasing: true
+            Rectangle {
+                id: addDesk
+                width: root.plusSize
+                height: root.plusSize
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.top: parent.top
+                anchors.topMargin: root.spacesExpanded ? Math.max(0, (root.thumbH - root.plusSize) / 2) : 0
+                radius: root.plusSize / 2
+                color: Qt.rgba(1, 1, 1, (!grab.dragging && grab.hoverKind === "add") ? 0.22 : 0.12)
+                border.width: (Core.Session.overviewDrag && Core.Session.overviewDropPlus && Core.Session.overviewDropMonitor === root.monitorName) ? 2 : 1
+                border.color: (Core.Session.overviewDrag && Core.Session.overviewDropPlus && Core.Session.overviewDropMonitor === root.monitorName) ? root.spaceActive : Qt.rgba(1, 1, 1, 0.34)
+                antialiasing: true
 
-                    Text {
-                        anchors.centerIn: parent
-                        text: "+"
-                        color: "#FFFFFF"
-                        opacity: 0.85
-                        font.pixelSize: Math.round(addDesk.height * 0.32)
-                        font.weight: Font.Light
-                    }
+                Text {
+                    anchors.centerIn: parent
+                    text: "+"
+                    color: "#FFFFFF"
+                    opacity: 0.9
+                    font.pixelSize: Math.round(addDesk.height * 0.55)
+                    font.weight: Font.Light
                 }
             }
         }
@@ -591,7 +746,7 @@ PanelWindow {
             x: win.rect.x
             y: win.rect.y
             width: win.rect.w
-            height: win.rect.h + 44
+            height: win.rect.h
             z: win.draggingThis ? 80 : 10
             opacity: 1
             scale: win.dropTarget ? 1.04 : 1
@@ -600,23 +755,23 @@ PanelWindow {
             Rectangle {
                 id: shadow
                 anchors.fill: chrome
-                anchors.margins: -10
-                radius: 18
-                color: Qt.rgba(0, 0, 0, 0.35)
-                opacity: 0.7
+                anchors.margins: -14
+                radius: 28
+                color: Qt.rgba(0, 0, 0, 0.42)
+                opacity: 0.8
             }
 
             Rectangle {
                 id: chrome
-                width: parent.width
-                height: parent.height - 44
-                radius: Core.Theme.radiusRow
+                anchors.fill: parent
+                radius: 20
                 color: Qt.rgba(0.16, 0.17, 0.2, 0.92)
-                border.width: win.dropTarget ? 3 : 1
-                border.color: win.dropTarget ? "#FFFFFF" : Qt.rgba(1, 1, 1, 0.16)
+                border.width: win.dropTarget ? 3 : 0
+                border.color: win.dropTarget ? root.spaceActive : "transparent"
                 clip: true
                 antialiasing: true
-                scale: 1
+                layer.enabled: true
+                layer.smooth: true
 
                 WindowPreview {
                     id: livePreview
@@ -632,46 +787,6 @@ PanelWindow {
                     opacity: 0.22
                     visible: status === Image.Ready && !livePreview.ready
                 }
-            }
-
-            Image {
-                id: appIcon
-                z: 4
-                width: Math.round(Math.min(58, chrome.height * 0.28))
-                height: width
-                anchors.horizontalCenter: chrome.horizontalCenter
-                anchors.verticalCenter: chrome.bottom
-                asynchronous: true
-                cache: true
-                fillMode: Image.PreserveAspectFit
-                source: Services.AppsService.iconPathForClass(win.cls, win.winTitle)
-                visible: status === Image.Ready
-            }
-
-            Text {
-                visible: appIcon.status !== Image.Ready
-                z: 4
-                anchors.horizontalCenter: chrome.horizontalCenter
-                anchors.verticalCenter: chrome.bottom
-                text: Core.Icons.forApp(win.cls || win.winTitle)
-                font.family: Core.Theme.iconFont
-                font.pixelSize: 28
-                color: "#FFFFFF"
-            }
-
-            Text {
-                anchors.top: chrome.bottom
-                anchors.topMargin: 22
-                anchors.horizontalCenter: parent.horizontalCenter
-                width: parent.width
-                elide: Text.ElideRight
-                horizontalAlignment: Text.AlignHCenter
-                text: win.winTitle
-                color: "#FFFFFF"
-                font.family: Core.Theme.fontFamily
-                font.pixelSize: 12
-                style: Text.Raised
-                styleColor: Qt.rgba(0, 0, 0, 0.55)
             }
 
             Rectangle {
@@ -785,6 +900,11 @@ PanelWindow {
         property real dragY: 0
 
         function applyHover(mouse) {
+            const band = root.spacesExpanded ? root.spacesBarH + 8 : root.compactBarH + 6;
+            if (grab.dragging || Core.Session.overviewDrag || mouse.y <= band)
+                root.spacesExpanded = true;
+            else
+                root.spacesExpanded = false;
             const h = root.hitAt(mouse.x, mouse.y);
             grab.hoverKind = h.kind;
             grab.hoverIndex = h.index;
@@ -892,6 +1012,8 @@ PanelWindow {
         onExited: {
             if (grab.dragging)
                 return;
+            if (!Core.Session.overviewDrag)
+                root.spacesExpanded = false;
             grab.hoverKind = "";
             grab.hoverIndex = -1;
             grab.hoverToplevel = null;

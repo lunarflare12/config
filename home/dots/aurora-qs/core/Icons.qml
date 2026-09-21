@@ -250,4 +250,8 @@ QtObject {
     readonly property string mouse: "\udb80\udf7c"
     readonly property string watch: "\udb81\udd71"
     readonly property string gamepad: "\udb81\udd8b"
+    readonly property string server: "\udb81\udc30"
+    readonly property string docker: "\udb82\udd07"
+    readonly property string vpn: "\udb81\uddbc"
+    readonly property string shield: "\udb81\udc1a"
 }

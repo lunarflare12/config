@@ -336,6 +336,8 @@ Item {
                             Core.Session.toggleOverview();
                             return;
                         }
+                        if (Core.Session.overviewOpen)
+                            Core.Session.overviewOpen = false;
                         Core.Session.focusLocalWorkspace(root.monitorName, cell.localWs);
                     }
                 }

@@ -43,8 +43,8 @@ Item {
     // Pick evenly distributed values from the existing
     // 11-band Cava spectrum.
     //
-    // This means Cava still runs at 11 bands, while the
-    // UI stays compact.
+    // Cava runs a denser band count for the desktop visualizer;
+    // the bar EQ just samples it down.
     function cavaIndex(i) {
         const sourceCount = Services.CavaService.barCount;
 
@@ -75,10 +75,23 @@ Item {
     // Cava lifecycle
     // --------------------------------------------------
 
-    Binding {
-        target: Services.CavaService
-        property: "enabled"
-        value: root.shown
+    property bool cavaHold: false
+
+    function syncCava() {
+        if (root.shown === root.cavaHold)
+            return;
+        root.cavaHold = root.shown;
+        if (root.shown)
+            Services.CavaService.retain();
+        else
+            Services.CavaService.release();
+    }
+
+    onShownChanged: root.syncCava()
+    Component.onCompleted: root.syncCava()
+    Component.onDestruction: {
+        if (root.cavaHold)
+            Services.CavaService.release();
     }
 
     // --------------------------------------------------

@@ -1,8 +1,14 @@
-{ lib, host, ... }:
+{
+  lib,
+  pkgs,
+  host,
+  ...
+}:
 
 {
   nix = {
     channel.enable = false;
+    nixPath = [ "nixpkgs=${pkgs.path}" ];
     settings = {
       experimental-features = [
         "nix-command"
@@ -36,6 +42,13 @@
       dates = [ "weekly" ];
     };
   };
+
+  # Leftover channel profiles make `nixos-rebuild` warn after flakes.
+  system.activationScripts.removeNixChannels.text = ''
+    rm -rf /root/.nix-defexpr/channels /root/.nix-defexpr/channels_root
+    rm -rf /nix/var/nix/profiles/per-user/root/channels
+    rm -rf /home/${host.userName}/.nix-defexpr/channels
+  '';
 
   programs.gamemode.settings.custom = lib.mkForce {
     start = "/home/${host.userName}/.config/scripts/gamemode-start.sh";

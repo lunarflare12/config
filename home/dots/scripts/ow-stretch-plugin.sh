@@ -55,7 +55,6 @@ if hl.plugin and hl.plugin.csgo_vulkan_fix and hl.plugin.csgo_vulkan_fix.vkfix_a
         plugin = {
             csgo_vulkan_fix = { fix_mouse = false },
         },
-        render = { expand_undersized_textures = true },
     })
     hl.plugin.csgo_vulkan_fix.vkfix_app({ app = "steam_app_2357570", w = 1920, h = 1080 })
     hl.plugin.csgo_vulkan_fix.vkfix_app({ app = "overwatch.exe", w = 1920, h = 1080 })

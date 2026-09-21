@@ -227,6 +227,12 @@ Scope {
         LauncherOverlay {}
     }
 
+    Variants {
+        model: Quickshell.screens
+
+        LaunchSplashOverlay {}
+    }
+
     Lock {}
     NetworkPopup {}
     CpuPopup {}

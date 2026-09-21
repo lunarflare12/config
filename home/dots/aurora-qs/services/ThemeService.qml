@@ -182,6 +182,7 @@ QtObject {
         if (!themeId || themeId.length === 0)
             return
 
-        Quickshell.execDetached([root.switcherPath, themeId])
+        Quickshell.execDetached([root.switcherPath, themeId]);
+        Quickshell.execDetached(["python3", root.home + "/.config/scripts/spotify-theme"]);
     }
 }

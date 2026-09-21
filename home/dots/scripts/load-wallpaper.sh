@@ -1,11 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-WALL_DIR="$HOME/.wall"
+WALL_DIR="$HOME/Wallpapers"
 STATE_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/aurora/wallpaper"
 CACHE_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/aurora/current-wallpaper"
-CURRENT_FILE="$WALL_DIR/.current"
-DEFAULT_FILE="$WALL_DIR/.current.default"
 
 resolve_wallpaper() {
   local candidate
@@ -14,35 +12,23 @@ resolve_wallpaper() {
       local path
       path=$(tr -d '\n' < "$candidate")
       if [ -f "$path" ]; then
-        printf '%s\n' "$path"
-        return 0
+        case "$path" in
+          "$WALL_DIR"/*)
+            printf '%s\n' "$path"
+            return 0
+            ;;
+        esac
+        local name
+        name=$(basename "$path")
+        if [ -f "$WALL_DIR/$name" ]; then
+          printf '%s\n' "$WALL_DIR/$name"
+          return 0
+        fi
       fi
     fi
   done
 
-  if [ -s "$CURRENT_FILE" ]; then
-    local name
-    name=$(tr -d '[:space:]' < "$CURRENT_FILE")
-    if [ -f "$WALL_DIR/$name" ]; then
-      printf '%s\n' "$WALL_DIR/$name"
-      return 0
-    fi
-    if [ -f "$HOME/Wallpapers/$name" ]; then
-      printf '%s\n' "$HOME/Wallpapers/$name"
-      return 0
-    fi
-  fi
-
-  if [ -s "$DEFAULT_FILE" ]; then
-    local name
-    name=$(tr -d '[:space:]' < "$DEFAULT_FILE")
-    if [ -f "$WALL_DIR/$name" ]; then
-      printf '%s\n' "$WALL_DIR/$name"
-      return 0
-    fi
-  fi
-
-  find -L "$WALL_DIR" "$HOME/Wallpapers" -maxdepth 1 -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.webp" \) ! -name ".*" 2>/dev/null | head -n 1
+  find -L "$WALL_DIR" -maxdepth 1 -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.webp" \) ! -name ".*" 2>/dev/null | sort | head -n 1
 }
 
 wait_for_awww() {
@@ -62,7 +48,7 @@ wait_for_awww
 
 wallpaper=$(resolve_wallpaper || true)
 if [ -z "${wallpaper:-}" ] || [ ! -f "$wallpaper" ]; then
-  echo "No wallpaper found" >&2
+  echo "No wallpaper found in ~/Wallpapers" >&2
   exit 1
 fi
 

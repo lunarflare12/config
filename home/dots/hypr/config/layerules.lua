@@ -23,6 +23,13 @@ hl.layer_rule({
 })
 
 hl.layer_rule({
+    name = "aurora-splash",
+    match = { namespace = "^aurora-splash$" },
+    blur = false,
+    order = 7,
+})
+
+hl.layer_rule({
     name = "aurora-dim",
     match = { namespace = "^aurora-dim$" },
     blur = false,

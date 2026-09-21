@@ -13,8 +13,6 @@ Item {
     implicitHeight: Core.Theme.moduleHeight
     clip: true
 
-    readonly property string appleLogo: "file://" + Quickshell.shellDir + "/assets/apple.svg"
-
     readonly property string appTitle: {
         const t = Hyprland.activeToplevel;
         if (!t)
@@ -52,18 +50,13 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         anchors.left: parent.left
         anchors.leftMargin: 8
-        spacing: 8
+        spacing: 6
 
-        Image {
+        Components.ThemeIcon {
             anchors.verticalCenter: parent.verticalCenter
-            width: 14
-            height: 14
-            source: root.appleLogo
-            fillMode: Image.PreserveAspectFit
-            smooth: true
-            asynchronous: true
-            sourceSize.width: 64
-            sourceSize.height: 64
+            name: "arch"
+            width: 16
+            height: 16
         }
 
         Text {

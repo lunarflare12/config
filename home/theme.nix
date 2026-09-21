@@ -211,7 +211,18 @@ in
     enable = true;
     theme = {
       name = "WhiteSur-Dark";
-      package = pkgs.whitesur-gtk-theme;
+      package = pkgs.whitesur-gtk-theme.override {
+        altVariants = [ "alt" ];
+        colorVariants = [
+          "light"
+          "dark"
+        ];
+        opacityVariants = [ "normal" ];
+        themeVariants = [ "default" ];
+        iconVariant = "apple";
+        nautilusStyle = "stable";
+        roundedMaxWindow = true;
+      };
     };
     iconTheme = {
       name = "WhiteSur-dark";
@@ -229,11 +240,15 @@ in
     gtk3.extraConfig = {
       gtk-application-prefer-dark-theme = 1;
       gtk-font-name = "Inter 13";
+      gtk-decoration-layout = "close,minimize,maximize:";
+      gtk-dialogs-use-header = true;
     };
     gtk4.extraConfig = {
       gtk-application-prefer-dark-theme = 1;
       gtk-theme-name = "WhiteSur-Dark";
       gtk-font-name = "Inter 13";
+      gtk-decoration-layout = "close,minimize,maximize:";
+      gtk-dialogs-use-header = true;
     };
   };
 
@@ -249,6 +264,10 @@ in
     cursor-theme = cursor.name;
     font-name = "Inter 13";
     document-font-name = "Inter 13";
+  };
+
+  dconf.settings."org/gnome/desktop/wm/preferences" = {
+    button-layout = "close,minimize,maximize:";
   };
 
   home.activation.initializeAuroraTheme = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
@@ -400,6 +419,10 @@ in
       fi
 
       printf '%s\n' "dark" > "$CONFIG_DIR/mode"
+
+      if command -v python3 >/dev/null 2>&1 && [[ -f "$HOME/.config/scripts/spotify-theme" ]]; then
+        python3 "$HOME/.config/scripts/spotify-theme" >/dev/null 2>&1 || true
+      fi
 
       echo "Aurora theme: $selected"
     '';

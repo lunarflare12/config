@@ -6,7 +6,7 @@ import Quickshell.Wayland
 import "../core" as Core
 import "../modules" as Modules
 
-// macOS menu bar: Apple + app on the left, status extras + clock on the right.
+// macOS menu bar: Arch + app on the left, status extras + clock on the right.
 PanelWindow {
     id: root
 

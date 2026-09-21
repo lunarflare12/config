@@ -229,6 +229,44 @@ QtObject {
         return true
     }
 
+    function resolveStoredId(id) {
+        const needle = String(id || "")
+        if (!needle)
+            return ""
+        const lower = needle.toLowerCase().replace(/\.desktop$/, "")
+        const compact = lower.replace(/[^a-z0-9]/g, "")
+        const list = root.entries
+        for (let i = 0; i < list.length; i++) {
+            const e = list[i]
+            const eid = String(e && e.id || "")
+            if (!eid)
+                continue
+            const el = eid.toLowerCase().replace(/\.desktop$/, "")
+            if (el === lower)
+                return eid
+        }
+        if (compact.length >= 3) {
+            for (let i = 0; i < list.length; i++) {
+                const e = list[i]
+                const eid = String(e && e.id || "")
+                if (!eid)
+                    continue
+                const ec = eid.toLowerCase().replace(/\.desktop$/, "").replace(/[^a-z0-9]/g, "")
+                if (ec === compact || (compact.length >= 5 && (ec.indexOf(compact) !== -1 || compact.indexOf(ec) !== -1)))
+                    return eid
+            }
+        }
+        for (let i = 0; i < list.length; i++) {
+            const e = list[i]
+            const eid = String(e && e.id || "")
+            if (!eid)
+                continue
+            if (root.haystack(e).indexOf(lower) !== -1)
+                return eid
+        }
+        return ""
+    }
+
     function defaultDockIds(entries) {
         const ids = []
         const seen = {}
@@ -315,27 +353,33 @@ QtObject {
         const seenDock = {}
         const prevDock = root.dockOrder || []
         for (let i = 0; i < prevDock.length; i++) {
-            const id = String(prevDock[i] || "")
-            if (!id || seenDock[id])
+            const raw = String(prevDock[i] || "")
+            if (!raw || seenDock[raw])
                 continue
-            if (id.indexOf("folder-") === 0) {
-                if (!seenLp["folder:" + id])
-                    continue
-            } else if (!seenLp["app:" + id]) {
+            if (raw.indexOf("folder-") === 0) {
+                seenDock[raw] = true
+                dock.push(raw)
                 continue
             }
+            const id = root.resolveStoredId(raw) || raw
+            if (!id || seenDock[id])
+                continue
             seenDock[id] = true
-            dock.push(id)
+            seenDock[raw] = true
+            dock.push(seenLp["app:" + id] ? id : raw)
         }
 
         let dockChanged = false
-        if (!root.dockConfigured && dock.length === 0) {
+        if (dock.length === 0 && !root.dockConfigured) {
             const defaults = root.defaultDockIds(list)
             if (defaults.length) {
                 root.dockOrder = defaults
                 root.dockConfigured = true
                 dockChanged = true
             }
+        } else if (dock.length < prevDock.length && prevDock.length > 2) {
+            // Desktop entries arrive in waves. A short catalog used to persist
+            // an empty dock and wipe pins across restarts.
         } else if (!root.sameIds(root.dockOrder, dock)) {
             root.dockOrder = dock
             dockChanged = true
@@ -389,9 +433,10 @@ QtObject {
         for (let i = 0; i < _n; i++) {
             const item = order[i]
             if (typeof item === "string") {
-                const e = map[item]
+                const id = root.resolveStoredId(item) || item
+                const e = map[id] || map[item]
                 if (e)
-                    out.push({ "type": "app", "id": item, "name": root.displayName(e), "entry": e, "apps": [] })
+                    out.push({ "type": "app", "id": String(e.id || id), "name": root.displayName(e), "entry": e, "apps": [] })
                 continue
             }
             if (!root.isFolderTile(item))
@@ -399,7 +444,9 @@ QtObject {
             const apps = []
             const ids = item.apps || []
             for (let a = 0; a < ids.length; a++) {
-                const e = map[String(ids[a])]
+                const raw = String(ids[a] || "")
+                const id = root.resolveStoredId(raw) || raw
+                const e = map[id] || map[raw]
                 if (e)
                     apps.push(e)
             }
@@ -439,16 +486,21 @@ QtObject {
         }
         const out = []
         for (let i = 0; i < _n; i++) {
-            const id = String(order[i] || "")
-            if (!id)
+            const raw = String(order[i] || "")
+            if (!raw)
                 continue
+            if (folders[raw]) {
+                out.push(folders[raw])
+                continue
+            }
+            const id = root.resolveStoredId(raw) || raw
             if (folders[id]) {
                 out.push(folders[id])
                 continue
             }
-            const e = map[id]
+            const e = map[id] || map[raw]
             if (e)
-                out.push({ "type": "app", "id": id, "name": root.displayName(e), "entry": e, "apps": [] })
+                out.push({ "type": "app", "id": String(e.id || id), "name": root.displayName(e), "entry": e, "apps": [] })
         }
         return out
     }
@@ -508,15 +560,36 @@ QtObject {
         return nextVisible.concat(rest)
     }
 
+    function orderIndexOfTile(tile) {
+        if (!tile)
+            return -1
+        const src = root.launchpadOrder || []
+        const id = String(tile.id || "")
+        if (!id)
+            return -1
+        for (let i = 0; i < src.length; i++) {
+            if (tile.type === "folder") {
+                if (root.isFolderTile(src[i]) && String(src[i].id) === id)
+                    return i
+            } else if (typeof src[i] === "string" && (String(src[i]) === id || root.resolveStoredId(src[i]) === id)) {
+                return i
+            }
+        }
+        return -1
+    }
+
     function moveLaunchpad(from, to) {
+        const tiles = root.launchpadTiles
+        if (from < 0 || to < 0 || from >= tiles.length || to >= tiles.length)
+            return
+        const fromOrder = root.orderIndexOfTile(tiles[from])
+        const toOrder = root.orderIndexOfTile(tiles[to])
+        if (fromOrder < 0 || toOrder < 0 || fromOrder === toOrder)
+            return
         const next = root.launchpadOrder.slice()
-        if (from < 0 || from >= next.length)
-            return
-        const dest = Math.max(0, Math.min(next.length - 1, to))
-        if (from === dest)
-            return
-        const item = next.splice(from, 1)[0]
-        next.splice(dest, 0, item)
+        const dest = Math.max(0, Math.min(next.length - 1, toOrder))
+        const item = next.splice(fromOrder, 1)[0]
+        next.splice(Math.max(0, Math.min(next.length, dest)), 0, item)
         if (root.sameLaunchpad(next, root.launchpadOrder))
             return
         root.launchpadOrder = next
@@ -524,18 +597,25 @@ QtObject {
     }
 
     function mergeLaunchpad(from, to) {
+        const tiles = root.launchpadTiles
         if (from < 0 || to < 0 || from === to)
             return
-        const src = root.launchpadOrder.slice()
-        if (from >= src.length || to >= src.length)
+        if (from >= tiles.length || to >= tiles.length)
             return
-        const moving = root.cloneTile(src[from])
-        const target = root.cloneTile(src[to])
+        const movingTile = tiles[from]
+        const targetTile = tiles[to]
+        const fromOrder = root.orderIndexOfTile(movingTile)
+        const toOrder = root.orderIndexOfTile(targetTile)
+        if (fromOrder < 0 || toOrder < 0)
+            return
+        const src = root.launchpadOrder.slice()
+        const moving = root.cloneTile(src[fromOrder])
+        const target = root.cloneTile(src[toOrder])
         if (root.isFolderTile(moving)) {
             root.moveLaunchpad(from, to)
             return
         }
-        const appId = root.tileId(moving)
+        const appId = root.tileId(moving) || String(movingTile.id || "")
         if (!appId)
             return
         if (root.isFolderTile(target)) {
@@ -543,13 +623,14 @@ QtObject {
             if (apps.indexOf(appId) < 0)
                 apps.push(appId)
             target.apps = apps
-            src[to] = target
-            src.splice(from, 1)
+            src[toOrder] = target
+            src.splice(fromOrder, 1)
             root.launchpadOrder = root.normalizeLaunchpad(src)
+            root.openFolderId = String(target.id || targetTile.id || "")
             root.saveLayout()
             return
         }
-        const otherId = root.tileId(target)
+        const otherId = root.tileId(target) || String(targetTile.id || "")
         if (!otherId || otherId === appId)
             return
         const folder = {
@@ -557,10 +638,10 @@ QtObject {
             "name": "Folder",
             "apps": [otherId, appId]
         }
-        const insertAt = from < to ? to - 1 : to
+        const insertAt = fromOrder < toOrder ? toOrder - 1 : toOrder
         const next = []
         for (let i = 0; i < src.length; i++) {
-            if (i === from || i === to)
+            if (i === fromOrder || i === toOrder)
                 continue
             next.push(src[i])
         }
@@ -590,6 +671,25 @@ QtObject {
         root.saveLayout()
     }
 
+    function moveInFolder(folderId, from, to) {
+        const fid = String(folderId || "")
+        const src = root.launchpadOrder.slice()
+        for (let i = 0; i < src.length; i++) {
+            if (!root.isFolderTile(src[i]) || String(src[i].id) !== fid)
+                continue
+            const tile = root.cloneTile(src[i])
+            const apps = (tile.apps || []).map(String)
+            const next = root.moveIds(apps, from, to)
+            if (root.sameIds(next, apps))
+                return
+            tile.apps = next
+            src[i] = tile
+            root.launchpadOrder = src
+            root.saveLayout()
+            return
+        }
+    }
+
     function removeFromFolder(folderId, appId) {
         const fid = String(folderId || "")
         const aid = String(appId || "")
@@ -610,6 +710,8 @@ QtObject {
             return
         src.splice(folderIndex + 1, 0, aid)
         root.launchpadOrder = root.normalizeLaunchpad(src)
+        if (!root.findFolder(fid))
+            root.openFolderId = ""
         root.saveLayout()
     }
 
@@ -623,7 +725,7 @@ QtObject {
     }
 
     function moveDock(from, to) {
-        const next = root.moveVisibleIds(root.dockEntries, from, to, root.dockOrder)
+        const next = root.moveVisibleIds(root.dockTiles, from, to, root.dockOrder)
         if (root.sameIds(next, root.dockOrder))
             return
         root.dockOrder = next
@@ -708,6 +810,7 @@ QtObject {
     readonly property string keymappIcon: "file://" + Quickshell.shellDir + "/assets/keymapp.png"
     readonly property string sattyIcon: "file://" + Quickshell.shellDir + "/assets/satty.png"
     readonly property string kittyIcon: "file://" + Quickshell.shellDir + "/assets/kitty.png"
+    readonly property string amneziaIcon: "file://" + Quickshell.shellDir + "/assets/amnezia.png"
 
     function haystack(entry) {
         return [
@@ -777,7 +880,7 @@ QtObject {
 
     function isMainFileManager(entry) {
         const id = String(entry.id || "").toLowerCase()
-        return id === "thunar" || id === "org.xfce.thunar"
+        return id === "thunar" || id === "org.xfce.thunar" || id === "finder"
     }
 
     function isKeymapp(entry) {
@@ -797,6 +900,33 @@ QtObject {
         return blob.indexOf("kitty") !== -1 || icon.indexOf("kitty") !== -1
     }
 
+    function isAmnezia(entry) {
+        if (!entry)
+            return false
+        return root.haystack(entry).indexOf("amnezia") !== -1
+    }
+
+    function isSpotify(entry) {
+        if (!entry)
+            return false
+        const id = String(entry.id || "").toLowerCase()
+        if (id === "spotify" || id.indexOf("spotify") !== -1)
+            return true
+        return root.haystack(entry).indexOf("spotify") !== -1
+    }
+
+    function resolveIcon(icon, fallback) {
+        const name = String(icon || "")
+        const fb = fallback || "application-x-executable"
+        if (!name)
+            return Quickshell.iconPath(fb)
+        if (name.indexOf("://") >= 0)
+            return name
+        if (name.charAt(0) === "/")
+            return "file://" + name
+        return Quickshell.iconPath(name, fb)
+    }
+
     function iconSource(entry) {
         if (!entry)
             return Quickshell.iconPath("application-x-executable")
@@ -808,7 +938,9 @@ QtObject {
             return root.sattyIcon
         if (root.isKitty(entry))
             return root.kittyIcon
-        return Quickshell.iconPath(entry.icon, "application-x-executable")
+        if (root.isAmnezia(entry))
+            return root.amneziaIcon
+        return root.resolveIcon(entry.icon, "application-x-executable")
     }
 
     function displayName(entry) {
@@ -1021,19 +1153,71 @@ QtObject {
 
     // Actions
 
+    property var pendingLaunch: null
+    property bool launchConsumed: false
+    signal spawnStarting()
+
+    function splashKind(app) {
+        const text = root.haystack(app);
+        if (text.indexOf("firefox") !== -1 || text.indexOf("chrome") !== -1 || text.indexOf("chromium") !== -1 || text.indexOf("zen") !== -1 || text.indexOf("brave") !== -1)
+            return "browser";
+        return "app";
+    }
+
+    function skipSplash(app) {
+        const text = root.haystack(app);
+        if (text.indexOf("steam_app") !== -1 || text.indexOf("rungameid") !== -1)
+            return true;
+        if (text.indexOf("gamescope") !== -1)
+            return true;
+        if (text.indexOf("satty") !== -1)
+            return true;
+        return false;
+    }
+
     function launch(entry) {
         if (!entry)
-            return
+            return;
         if (entry.type === "folder") {
-            root.toggleFolder(entry.id)
-            return
+            root.toggleFolder(entry.id);
+            return;
         }
-        const app = entry.entry || entry
-        if (!app || typeof app.execute !== "function")
-            return
-        root.bump(app.id)
-        app.execute()
-        root.closeFolder()
+        let app = entry.entry || entry;
+        if (app && app.type === "app" && app.entry)
+            app = app.entry;
+        if (!app)
+            return;
+        const id = String(app.id || entry.id || "");
+        if (id)
+            root.bump(id);
+        root.closeFolder();
+        root.pendingLaunch = app;
+        root.launchConsumed = false;
+        root.spawnStarting();
+        if (root.launchConsumed) {
+            root.pendingLaunch = null;
+            return;
+        }
+        if (root.isSpotify(app) || root.isSpotify(entry)) {
+            Quickshell.execDetached([root.home + "/.config/scripts/spotify"]);
+            root.pendingLaunch = null;
+            return;
+        }
+        if (app.execute) {
+            app.execute();
+            root.pendingLaunch = null;
+            return;
+        }
+        const cmd = app.command;
+        if (cmd && cmd.length) {
+            Quickshell.execDetached(cmd);
+            root.pendingLaunch = null;
+            return;
+        }
+        const line = String(app.execString || app.exec || "");
+        if (line)
+            Quickshell.execDetached(["sh", "-c", "exec " + line]);
+        root.pendingLaunch = null;
     }
 
     function steamIdFromClass(cls) {
@@ -1141,8 +1325,10 @@ QtObject {
             return root.sattyIcon;
         if (root.isKitty(entry))
             return root.kittyIcon;
+        if (root.isAmnezia(entry))
+            return root.amneziaIcon;
         if (entry.icon)
-            return Quickshell.iconPath(entry.icon, "application-x-executable");
+            return root.resolveIcon(entry.icon, "application-x-executable");
         return "";
     }
 
@@ -1152,6 +1338,8 @@ QtObject {
         const needle = clsStr.toLowerCase();
         if (needle.indexOf("kitty") !== -1 || titleStr.toLowerCase().indexOf("kitty") !== -1)
             return root.kittyIcon;
+        if (needle.indexOf("amnezia") !== -1 || titleStr.toLowerCase().indexOf("amnezia") !== -1)
+            return root.amneziaIcon;
 
         const asset = root.gameAssetIcon(clsStr + " " + titleStr);
         if (asset)
@@ -1182,7 +1370,9 @@ QtObject {
             return root.sattyIcon;
         if (needle.indexOf("kitty") !== -1)
             return root.kittyIcon;
-        if (needle)
+        if (needle.indexOf("amnezia") !== -1)
+            return root.amneziaIcon;
+        if (needle && needle !== "cursor")
             return Quickshell.iconPath(needle, "application-x-executable");
         return Quickshell.iconPath("application-x-executable");
     }

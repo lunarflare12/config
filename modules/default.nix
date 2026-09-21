@@ -5,6 +5,7 @@
     ./nvidia-local.nix
     ./desktop.nix
     ./virt.nix
+    ./vpn.nix
     ./software.nix
     ./steam.nix
     ./obs.nix

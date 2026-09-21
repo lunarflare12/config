@@ -1,0 +1,188 @@
+#!/usr/bin/env python3
+"""Paint Spicetify Dribbblish with the active Aurora palette."""
+
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+
+HOME = Path(os.environ.get("HOME") or "/home/dd")
+AURORA = HOME / ".config" / "aurora"
+OUT = HOME / ".cache" / "aurora" / "spotify-xpui"
+
+KEYS = (
+    "text",
+    "subtext",
+    "sidebar-text",
+    "main",
+    "main-elevated",
+    "highlight",
+    "highlight-elevated",
+    "sidebar",
+    "player",
+    "card",
+    "shadow",
+    "selected-row",
+    "button",
+    "button-active",
+    "button-disabled",
+    "tab-active",
+    "notification",
+    "notification-error",
+    "misc",
+)
+
+
+def hex_of(value: str, fallback: str) -> str:
+    raw = str(value or fallback).strip().lstrip("#")
+    if len(raw) == 3:
+        raw = "".join(ch * 2 for ch in raw)
+    if len(raw) != 6:
+        raw = fallback.lstrip("#")
+    return raw.lower()
+
+
+def rgb_of(hx: str) -> str:
+    return f"{int(hx[0:2], 16)},{int(hx[2:4], 16)},{int(hx[4:6], 16)}"
+
+
+def luminance(hx: str) -> float:
+    r, g, b = (int(hx[i : i + 2], 16) / 255.0 for i in (0, 2, 4))
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def load_colors() -> dict[str, str]:
+    theme_id = "macos-golden-gate"
+    active = AURORA / "active-theme"
+    if active.is_file():
+        theme_id = active.read_text(encoding="utf-8").strip() or theme_id
+    path = AURORA / "themes" / f"{theme_id}.json"
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    colors = data.get("colors") if isinstance(data, dict) else None
+    return colors if isinstance(colors, dict) else {}
+
+
+def palette(colors: dict[str, str]) -> dict[str, str]:
+    c = lambda key, fb: hex_of(colors.get(key, fb), fb)
+    background = c("background", "1c1c1e")
+    surface = c("surface", "2c2c2e")
+    text = c("text", "f5f5f7")
+    accent = c("accent", "0a84ff")
+    return {
+        "text": text,
+        "subtext": c("textSecondary", c("textMuted", "98989d")),
+        "sidebar-text": text,
+        "main": background,
+        "main-elevated": surface,
+        "highlight": c("surfaceHover", "3a3a3c"),
+        "highlight-elevated": c("surfaceActive", "48484a"),
+        "sidebar": c("backgroundDark", background),
+        "player": c("backgroundDark", background),
+        "card": surface,
+        "shadow": c("backgroundDark", "000000"),
+        "selected-row": c("surfaceHover", "3a3a3c"),
+        "button": accent,
+        "button-active": c("accentHover", accent),
+        "button-disabled": c("surfaceActive", "48484a"),
+        "tab-active": accent,
+        "notification": c("info", accent),
+        "notification-error": c("error", "ff453a"),
+        "misc": c("separator", "38383a"),
+    }
+
+
+def write_css(values: dict[str, str]) -> str:
+    lines = [":root {"]
+    for key in KEYS:
+        hx = values[key]
+        lines.append(f"    --spice-{key}: #{hx};")
+    lines.append("")
+    for key in KEYS:
+        hx = values[key]
+        lines.append(f"    --spice-rgb-{key}: {rgb_of(hx)};")
+    lines.append("}")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def write_js(values: dict[str, str], light: bool) -> str:
+    payload = {key: f"#{values[key]}" for key in KEYS}
+    return (
+        "(function () {\n"
+        f"  const light = {str(light).lower()};\n"
+        f"  const palette = {json.dumps(payload, separators=(',', ':'))};\n"
+        "  const html = document.documentElement;\n"
+        "  function paint() {\n"
+        "    html.classList.toggle('encore-light-theme', light);\n"
+        "    html.classList.toggle('encore-dark-theme', !light);\n"
+        "    html.style.colorScheme = light ? 'light' : 'dark';\n"
+        "    Object.keys(palette).forEach(function (name) {\n"
+        "      const hex = String(palette[name] || '').replace('#', '');\n"
+        "      if (hex.length !== 6) return;\n"
+        "      const r = parseInt(hex.slice(0, 2), 16);\n"
+        "      const g = parseInt(hex.slice(2, 4), 16);\n"
+        "      const b = parseInt(hex.slice(4, 6), 16);\n"
+        "      html.style.setProperty('--spice-' + name, '#' + hex);\n"
+        "      html.style.setProperty('--spice-rgb-' + name, r + ',' + g + ',' + b);\n"
+        "    });\n"
+        "  }\n"
+        "  paint();\n"
+        "  if (document.readyState === 'loading')\n"
+        "    document.addEventListener('DOMContentLoaded', paint);\n"
+        "})();\n"
+    )
+
+
+def find_xpui() -> Path | None:
+    env = os.environ.get("SPOTIFY_BIN")
+    candidates: list[Path] = []
+    if env:
+        candidates.append(Path(env))
+    candidates.extend(sorted(Path("/nix/store").glob("*-spicetify-Dribbblish/bin/spotify")))
+    for bin_path in candidates:
+        if not bin_path.exists():
+            continue
+        real = Path(os.path.realpath(bin_path))
+        xpui = real.parent / "Apps" / "xpui"
+        if (xpui / "colors.css").is_file():
+            return xpui
+        xpui = real.parent.parent / "share" / "spotify" / "Apps" / "xpui"
+        if (xpui / "colors.css").is_file():
+            return xpui
+    return None
+
+
+def write_index(xpui: Path) -> None:
+    source = xpui / "index.html"
+    if not source.is_file():
+        return
+    html = source.read_text(encoding="utf-8")
+    tag = "<script defer src='extensions/aurora.js'></script>"
+    if "extensions/aurora.js" not in html:
+        html = html.replace("</body>", tag + "</body>")
+        if "extensions/aurora.js" not in html:
+            html += tag + "\n"
+    (OUT / "index.html").write_text(html, encoding="utf-8")
+
+
+def main() -> int:
+    colors = load_colors()
+    values = palette(colors)
+    light = luminance(values["main"]) > 0.55
+    OUT.mkdir(parents=True, exist_ok=True)
+    (OUT / "colors.css").write_text(write_css(values), encoding="utf-8")
+    (OUT / "aurora.js").write_text(write_js(values, light), encoding="utf-8")
+    xpui = find_xpui()
+    if xpui is not None:
+        write_index(xpui)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

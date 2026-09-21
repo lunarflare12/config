@@ -9,6 +9,7 @@ Item {
 
     property string title: ""
     property string subtitle: ""
+    property url leadingIcon: ""
 
     // Toggle switch
     property bool showToggle: false
@@ -21,9 +22,26 @@ Item {
 
     implicitHeight: 40
 
-    Column {
+    Image {
+        id: lead
+        visible: root.leadingIcon !== ""
         anchors.left: parent.left
-        anchors.leftMargin: 6
+        anchors.leftMargin: 4
+        anchors.verticalCenter: parent.verticalCenter
+        width: 20
+        height: 20
+        source: root.leadingIcon
+        sourceSize.width: 48
+        sourceSize.height: 48
+        fillMode: Image.PreserveAspectFit
+        asynchronous: true
+        smooth: true
+        mipmap: true
+    }
+
+    Column {
+        anchors.left: lead.visible ? lead.right : parent.left
+        anchors.leftMargin: lead.visible ? 8 : 6
         anchors.right: actionRow.left
         anchors.rightMargin: 8
         anchors.verticalCenter: parent.verticalCenter

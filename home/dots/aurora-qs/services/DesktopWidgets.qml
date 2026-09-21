@@ -100,7 +100,7 @@ QtObject {
         if (typeof item.x === "number" && typeof item.y === "number") {
             return {
                 col: Math.round((item.x - 16) / 96),
-                row: Math.round((item.y - 52) / 108)
+                row: Math.round((item.y - 52) / 96)
             };
         }
 
