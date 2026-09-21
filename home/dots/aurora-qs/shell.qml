@@ -226,6 +226,8 @@ Scope {
 
         LauncherOverlay {}
     }
+
+    Lock {}
     NetworkPopup {}
     CpuPopup {}
     MemoryPopup {}

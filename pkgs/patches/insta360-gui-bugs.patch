@@ -1,0 +1,349 @@
+diff --git a/uinsta360link.pas b/uinsta360link.pas
+index d21d317..1dfcd76 100644
+--- a/uinsta360link.pas
++++ b/uinsta360link.pas
+@@ -85,6 +85,9 @@ type
+     Name: string;
+     Pan, Tilt, Zoom: LongInt;
+     Valid: Boolean;
++    Tracking: Boolean;
++    Frame: TTrackingFrame;
++    Mode: TCameraMode;
+   end;
+ 
+   { Event callback types }
+@@ -103,6 +106,7 @@ type
+     FXU_UnitID: Byte;        // Extension Unit ID (9 for Insta360 Link)
+     FXU_UnitIDOverride: Boolean;
+     FXU_Lens: array[1..20] of Word; // Cached GET_LEN for each selector
++    FXU_MissingLenLogged: array[1..20] of Boolean;
+     FPresets: array[0..5] of TPresetPosition; // Software presets
+     FOnLog: TLogEvent;
+ 
+@@ -296,6 +300,8 @@ implementation
+ { ===== TInsta360Link ===== }
+ 
+ constructor TInsta360Link.Create;
++var
++  i: Integer;
+ begin
+   inherited Create;
+   FFD := -1;
+@@ -304,7 +310,18 @@ begin
+   FXU_UnitID := 9; // Default XU unit ID for Insta360 Link
+   FXU_UnitIDOverride := False;
+   FillChar(FXU_Lens, SizeOf(FXU_Lens), 0);
+-  FillChar(FPresets, SizeOf(FPresets), 0);
++  FillChar(FXU_MissingLenLogged, SizeOf(FXU_MissingLenLogged), 0);
++  for i := 0 to 5 do
++  begin
++    FPresets[i].Name := '';
++    FPresets[i].Pan := 0;
++    FPresets[i].Tilt := 0;
++    FPresets[i].Zoom := 100;
++    FPresets[i].Valid := False;
++    FPresets[i].Tracking := False;
++    FPresets[i].Frame := tfHalfBody;
++    FPresets[i].Mode := cmNormal;
++  end;
+   FCurrentMode := cmNormal;
+   FAITrackingEnabled := False;
+   FTrackingFrame := tfHalfBody;
+@@ -360,7 +377,10 @@ begin
+     Result.Max := qc.maximum;
+     Result.Step := qc.step;
+     Result.Default := qc.default_value;
+-    V4L2_GetCtrl(FFD, CtrlID, Result.Current);
++    if not V4L2_GetCtrl(FFD, CtrlID, Result.Current) then
++      Result.Current := Result.Default
++    else if (Result.Current < Result.Min) or (Result.Current > Result.Max) then
++      Result.Current := Result.Default;
+   end;
+ end;
+ 
+@@ -377,6 +397,11 @@ begin
+   FGainRange := QueryControlRange(V4L2_CID_GAIN);
+   FWBTempRange := QueryControlRange(V4L2_CID_WHITE_BALANCE_TEMPERATURE);
+   FExposureRange := QueryControlRange(V4L2_CID_EXPOSURE_ABSOLUTE);
++
++  if FPanRange.Available then
++    FPanPos := FPanRange.Current;
++  if FTiltRange.Available then
++    FTiltPos := FTiltRange.Current;
+ end;
+ 
+ function TInsta360Link.DetectXU_UnitID: Byte;
+@@ -598,7 +623,11 @@ begin
+   expectedLen := FXU_Lens[Selector];
+   if expectedLen = 0 then
+   begin
+-    Log('XU_GetPadded: selector %d has no cached length (not found in scan)', [Selector]);
++    if not FXU_MissingLenLogged[Selector] then
++    begin
++      Log('XU_GetPadded: selector %d has no cached length (not found in scan)', [Selector]);
++      FXU_MissingLenLogged[Selector] := True;
++    end;
+     Exit;
+   end;
+   buf := GetMem(expectedLen);
+@@ -640,7 +669,61 @@ function TInsta360Link.Open(const DevPath: string): Boolean;
+ var
+   cap: Tv4l2_capability;
+   vidName, pidStr: string;
+-  pidFile: TextFile;
++
++  function TryReadSysfs(const Path: string; out Value: string): Boolean;
++  var
++    f: TextFile;
++  begin
++    Result := False;
++    Value := '';
++    if (Path = '') or (not FileExists(Path)) then Exit;
++    AssignFile(f, Path);
++    {$I-}
++    Reset(f);
++    {$I+}
++    if IOResult <> 0 then Exit;
++    ReadLn(f, Value);
++    CloseFile(f);
++    Result := Trim(Value) <> '';
++  end;
++
++  function TryReadProductFromUevent(const Path: string; out Pid: string): Boolean;
++  var
++    f: TextFile;
++    line, prod: string;
++    slash: Integer;
++  begin
++    Result := False;
++    Pid := '';
++    if not FileExists(Path) then Exit;
++    AssignFile(f, Path);
++    {$I-}
++    Reset(f);
++    {$I+}
++    if IOResult <> 0 then Exit;
++    while not Eof(f) do
++    begin
++      ReadLn(f, line);
++      if Copy(line, 1, 8) = 'PRODUCT=' then
++      begin
++        prod := Copy(line, 9, MaxInt);
++        slash := Pos('/', prod);
++        if slash > 0 then
++        begin
++          prod := Copy(prod, slash + 1, MaxInt);
++          slash := Pos('/', prod);
++          if slash > 0 then
++            Pid := Copy(prod, 1, slash - 1)
++          else
++            Pid := prod;
++        end;
++        Result := Pid <> '';
++        Break;
++      end;
++    end;
++    CloseFile(f);
++  end;
++
+ begin
+   Result := False;
+   Close; // Close any previous connection
+@@ -667,19 +750,20 @@ begin
+     Log('WARNING: QUERYCAP failed');
+ 
+   FConnected := True;
++  FillChar(FXU_Lens, SizeOf(FXU_Lens), 0);
++  FillChar(FXU_MissingLenLogged, SizeOf(FXU_MissingLenLogged), 0);
+ 
+-  // Detect camera model from USB PID via sysfs
++  // Detect camera model from USB PID via sysfs. `../` in AssignFile is not
++  // always resolved, so try the real USB device paths and uevent PRODUCT=.
+   FCameraModel := cmUnknown;
+   try
+-    vidName := ExtractFileName(DevPath); // e.g. 'video0'
+-    AssignFile(pidFile, '/sys/class/video4linux/' + vidName + '/device/../idProduct');
+-    {$I-}
+-    Reset(pidFile);
+-    {$I+}
+-    if IOResult = 0 then
++    vidName := ExtractFileName(DevPath);
++    pidStr := '';
++    if TryReadSysfs(ExpandFileName('/sys/class/video4linux/' + vidName + '/device/idProduct'), pidStr)
++       or TryReadSysfs(ExpandFileName('/sys/class/video4linux/' + vidName + '/device/../idProduct'), pidStr)
++       or TryReadSysfs(ExpandFileName('/sys/class/video4linux/' + vidName + '/device/../../idProduct'), pidStr)
++       or TryReadProductFromUevent('/sys/class/video4linux/' + vidName + '/device/uevent', pidStr) then
+     begin
+-      ReadLn(pidFile, pidStr);
+-      CloseFile(pidFile);
+       pidStr := LowerCase(Trim(pidStr));
+       if pidStr = '4c01' then
+         FCameraModel := cmLink
+@@ -813,8 +897,6 @@ begin
+ 
+   if Result then
+   begin
+-    Log('Pan/Tilt: pan=%d→%d tilt=%d→%d',
+-        [FPanPos, newPan, FTiltPos, newTilt]);
+     FPanPos := newPan;
+     FTiltPos := newTilt;
+   end
+@@ -902,7 +984,7 @@ function TInsta360Link.GetAITracking: Boolean;
+ var
+   buf: array[0..51] of Byte;
+ begin
+-  Result := False;
++  Result := FAITrackingEnabled;
+   if not FConnected then Exit;
+   FillChar(buf, SizeOf(buf), 0);
+   if XU_GetPadded(XU_MODE_CONTROL, buf) then
+@@ -1245,6 +1327,9 @@ begin
+   FPresets[Index].Pan := p;
+   FPresets[Index].Tilt := t;
+   FPresets[Index].Zoom := z;
++  FPresets[Index].Tracking := FAITrackingEnabled;
++  FPresets[Index].Frame := FTrackingFrame;
++  FPresets[Index].Mode := FCurrentMode;
+   FPresets[Index].Valid := True;
+   Result := True;
+   Log('Preset %d SAVED: pan=%d tilt=%d zoom=%d', [Index, p, t, z]);
+diff --git a/uvideocap.pas b/uvideocap.pas
+index 81ca0dd..41a46a1 100644
+--- a/uvideocap.pas
++++ b/uvideocap.pas
+@@ -31,7 +31,8 @@ uses
+ type
+   TVideoCapture = class
+   private
+-    FFD: cint;                       // borrowed fd (not owned)
++    FFD: cint;                       // capture fd
++    FOwnedFD: Boolean;               // True if we opened FFD ourselves
+     FBufStart: array of Pointer;     // mmap'd buffer addresses
+     FBufLen: array of PtrUInt;       // mmap'd buffer lengths
+     FWidth, FHeight: Integer;
+@@ -51,6 +52,9 @@ type
+     { Begin streaming on the given fd. PrefW/PrefH are a requested size;
+       the driver negotiates the nearest supported resolution. }
+     function Start(fd: cint; PrefW, PrefH: Integer): Boolean;
++    { Open DevPath ourselves (O_NONBLOCK) so PTZ/XU keep a separate control
++      fd. Required: sharing the control fd with STREAMON races OBS/PTZ. }
++    function StartOnDevice(const DevPath: string; PrefW, PrefH: Integer): Boolean;
+     procedure Stop;
+ 
+     { Dequeue one frame and draw it into Bmp. Returns False if no frame is
+@@ -163,6 +167,7 @@ constructor TVideoCapture.Create;
+ begin
+   inherited Create;
+   FFD := -1;
++  FOwnedFD := False;
+   FStreaming := False;
+ end;
+ 
+@@ -289,6 +294,26 @@ begin
+   Result := True;
+ end;
+ 
++function TVideoCapture.StartOnDevice(const DevPath: string; PrefW, PrefH: Integer): Boolean;
++var
++  fd: cint;
++begin
++  Result := False;
++  if FStreaming then Exit(True);
++  if DevPath = '' then Exit;
++  fd := V4L2_Open(DevPath);
++  if fd < 0 then Exit;
++  FOwnedFD := True;
++  if not Start(fd, PrefW, PrefH) then
++  begin
++    V4L2_Close(fd);
++    FOwnedFD := False;
++    FFD := -1;
++    Exit;
++  end;
++  Result := True;
++end;
++
+ procedure TVideoCapture.Stop;
+ var
+   bt: cint;
+@@ -314,6 +339,9 @@ begin
+     FpIOCtl(FFD, VIDIOC_REQBUFS, @req);
+   end;
+ 
++  if FOwnedFD and (FFD >= 0) then
++    V4L2_Close(FFD);
++  FOwnedFD := False;
+   FFD := -1;
+ end;
+ 
+@@ -321,14 +349,20 @@ procedure TVideoCapture.DecodeMJPEG(Data: Pointer; Len: LongWord; Bmp: TBitmap);
+ var
+   ms: TMemoryStream;
+   jpg: TJPEGImage;
++  p: PByte;
+ begin
++  if (Data = nil) or (Len < 128) or (Bmp = nil) then Exit;
++  p := PByte(Data);
++  if (p[0] <> $FF) or (p[1] <> $D8) then Exit;
++
+   ms := TMemoryStream.Create;
+   jpg := TJPEGImage.Create;
+   try
+     ms.WriteBuffer(Data^, Len);
+     ms.Position := 0;
+     jpg.LoadFromStream(ms);
+-    Bmp.Assign(jpg);
++    if (jpg.Width > 1) and (jpg.Height > 1) then
++      Bmp.Assign(jpg);
+   finally
+     jpg.Free;
+     ms.Free;
+@@ -366,6 +400,7 @@ var
+   end;
+ 
+ begin
++  if (Data = nil) or (FWidth < 2) or (FHeight < 2) or (FWidth > 4096) or (FHeight > 4096) then Exit;
+   p := PByte(Data);
+   Bmp.PixelFormat := pf24bit;
+   Bmp.SetSize(FWidth, FHeight);
+@@ -397,9 +432,10 @@ end;
+ function TVideoCapture.GrabFrame(Bmp: TBitmap): Boolean;
+ var
+   buf: Tv4l2_buffer;
++  nbuf: Integer;
+ begin
+   Result := False;
+-  if not FStreaming then Exit;
++  if not FStreaming or (FFD < 0) or (Bmp = nil) then Exit;
+ 
+   FillChar(buf, SizeOf(buf), 0);
+   buf.btype := V4L2_BUF_TYPE_VIDEO_CAPTURE;
+@@ -409,23 +445,21 @@ begin
+   if FpIOCtl(FFD, VIDIOC_DQBUF, @buf) <> 0 then Exit;
+ 
+   try
+-    if (buf.index <= High(FBufStart)) and
+-       (buf.bytesused <= FBufLen[buf.index]) then
++    nbuf := Length(FBufStart);
++    if (nbuf > 0) and (buf.index < LongWord(nbuf)) and
++       (FBufStart[buf.index] <> nil) and
++       (buf.bytesused > 0) and (buf.bytesused <= FBufLen[buf.index]) then
+     begin
+       case FPixFmt of
+         V4L2_PIX_FMT_MJPEG: DecodeMJPEG(FBufStart[buf.index], buf.bytesused, Bmp);
+         V4L2_PIX_FMT_YUYV:  DecodeYUYV(FBufStart[buf.index], Bmp);
+       end;
+-      Result := True;
++      Result := (Bmp.Width > 1) and (Bmp.Height > 1);
+     end;
+   except
+-    // A malformed frame should be dropped, not terminate the GUI timer or
+-    // permanently remove this buffer from the capture queue.
+     Result := False;
+   end;
+ 
+-  // Every successfully dequeued buffer must be returned, even after a decode
+-  // error, or the stream eventually runs out of buffers and stalls.
+   FpIOCtl(FFD, VIDIOC_QBUF, @buf);
+ end;
+ 

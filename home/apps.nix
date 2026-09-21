@@ -10,6 +10,21 @@
 let
   scripts = "${config.home.homeDirectory}/.config/scripts";
   zenBrowser = inputs.zen-browser.packages.${pkgs.stdenv.hostPlatform.system}.default;
+  chromeBin = lib.getExe pkgs.google-chrome;
+  steamBin = lib.getExe pkgs.steam;
+  ideaBin = lib.getExe pkgs.jetbrains.idea;
+  chromeFlags = "--force-dark-mode --enable-features=WebUIDarkMode,MemorySaverMode --disable-features=SpareRendererForSitePerProcess --process-per-site --renderer-process-limit=8";
+  chromeWrap = wrap "google-chrome" ''exec ${chromeBin} ${chromeFlags} "$@"'';
+  steamWrap = wrap "steam" ''exec ${steamBin} -cef-disable-gpu -cef-disable-gpu-compositing "$@"'';
+  discordWrap = wrap "discord" ''
+    export NIXOS_OZONE_WL=0
+    export ELECTRON_OZONE_PLATFORM_HINT=x11
+    exec ${lib.getExe pkgs.discord} --ozone-platform=x11 --disable-gpu --disable-gpu-compositing "$@"
+  '';
+  ideaWrap = wrap "idea-ultimate" ''
+    export IDEA_ULTIMATE_BIN=${lib.escapeShellArg ideaBin}
+    exec ${./dots/scripts/idea-ultimate.sh} "$@"
+  '';
   chromeMime = [
     "application/pdf"
     "text/html"
@@ -21,7 +36,7 @@ let
   chromeEntry = {
     name = "Google Chrome";
     genericName = "Web Browser";
-    exec = "${scripts}/google-chrome.sh %U";
+    exec = "${lib.getExe chromeWrap} %U";
     icon = "google-chrome";
     categories = [
       "Network"
@@ -35,6 +50,12 @@ let
     "text/plain"
     "inode/directory"
   ];
+  wrap =
+    name: command:
+    pkgs.writeShellApplication {
+      inherit name;
+      text = command;
+    };
 in
 {
   programs.firefox = lib.mkIf (params.browser == "firefox") {
@@ -77,15 +98,15 @@ in
     (pkgs.${params.fileManager} or pkgs.thunar)
     zenBrowser
     pkgs.xrandr
-    (pkgs.writeShellScriptBin "google-chrome-stable" ''
-      exec ${scripts}/google-chrome.sh "$@"
+    chromeWrap
+    steamWrap
+    discordWrap
+    ideaWrap
+    (pkgs.runCommand "google-chrome-stable-bin" { } ''
+      mkdir -p $out/bin
+      ln -s ${lib.getExe chromeWrap} $out/bin/google-chrome-stable
     '')
-    (pkgs.writeShellScriptBin "google-chrome" ''
-      exec ${scripts}/google-chrome.sh "$@"
-    '')
-    (pkgs.writeShellScriptBin "steam" ''
-      exec ${scripts}/steam.sh "$@"
-    '')
+    (wrap "wayland-box" ''exec ${./dots/scripts/wayland-box.sh} "$@"'')
   ]
   ++ lib.optional (
     params.browser != "firefox" && params.browser != "google-chrome"
@@ -96,7 +117,7 @@ in
     "com.google.Chrome" = chromeEntry;
     steam = {
       name = "Steam";
-      exec = "${scripts}/steam.sh %U";
+      exec = "${lib.getExe steamWrap} %U";
       icon = "steam";
       categories = [ "Game" ];
       mimeType = [
@@ -104,6 +125,19 @@ in
         "x-scheme-handler/steamlink"
       ];
       terminal = false;
+    };
+    discord = {
+      name = "Discord";
+      exec = "${lib.getExe discordWrap}";
+      icon = "discord";
+      categories = [
+        "Network"
+        "InstantMessaging"
+      ];
+      mimeType = [ "x-scheme-handler/discord" ];
+      terminal = false;
+      startupNotify = true;
+      settings.StartupWMClass = "discord";
     };
     cursor = {
       name = "Cursor";
@@ -144,7 +178,7 @@ in
     idea-ultimate = {
       name = "IntelliJ IDEA Ultimate";
       genericName = "Java IDE";
-      exec = "idea-ultimate %F";
+      exec = "${lib.getExe ideaWrap} %F";
       icon = "${pkgs.jetbrains.idea}/idea/bin/idea.svg";
       categories = [
         "Development"
@@ -155,9 +189,29 @@ in
         "inode/directory"
       ];
       startupNotify = true;
-      startupWMClass = "jetbrains-idea";
+      settings.StartupWMClass = "jetbrains-idea";
     };
   };
 
   home.file."vms/ubuntu/Vagrantfile".source = ./dots/vagrant/ubuntu/Vagrantfile;
+
+  systemd.user.services.opencluely = {
+    Unit = {
+      Description = "OpenCluely (Go)";
+      PartOf = [ "graphical-session.target" ];
+      After = [ "graphical-session.target" ];
+      ConditionEnvironment = "WAYLAND_DISPLAY";
+    };
+    Service = {
+      Type = "simple";
+      WorkingDirectory = "${config.home.homeDirectory}/projects/opencluely";
+      ExecStart = "${config.home.homeDirectory}/projects/opencluely/opencluely tray";
+      Environment = "PATH=/run/current-system/sw/bin:/etc/profiles/per-user/${config.home.username}/bin";
+      Restart = "on-failure";
+      RestartSec = "5";
+      KillMode = "mixed";
+      TimeoutStopSec = "15";
+    };
+    Install.WantedBy = [ "graphical-session.target" ];
+  };
 }

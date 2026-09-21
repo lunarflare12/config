@@ -3,7 +3,7 @@ import "../components" as Components
 import "../core" as Core
 import "../services" as Services
 
-// Classic Launchpad: fullscreen icon pages, search, drag to reorder.
+// Android-style vertical app drawer with macOS Launchpad folders.
 Components.LauncherView {
     id: launcher
 
@@ -14,7 +14,7 @@ Components.LauncherView {
     vimNavigation: false
 
     columns: 7
-    pageRows: 4
+    pageRows: 6
     cardWidth: 680
 
     property int dragFrom: -1
@@ -22,18 +22,91 @@ Components.LauncherView {
     property real dragX: 0
     property real dragY: 0
     property Item dockTarget: null
+    property bool flowLock: false
+    property bool mergeDrop: false
     readonly property bool dragging: launcher.dragFrom >= 0
     readonly property bool searching: !!(launcher.query && launcher.query.trim().length)
+    readonly property var openFolder: Services.AppsService.openFolder
+
+    handleEscape: function () {
+        if (Services.AppsService.openFolderId) {
+            Services.AppsService.closeFolder();
+            return true;
+        }
+        return false;
+    }
+
+    onDragFromChanged: Services.AppsService.launchpadDragging = launcher.dragFrom >= 0
+    onDidClose: Services.AppsService.closeFolder()
 
     readonly property var results: {
         if (!launcher.searching)
-            return Services.AppsService.launchpadEntries;
-        return Services.AppsService.search(launcher.query);
+            return Services.AppsService.launchpadTiles;
+        const apps = Services.AppsService.search(launcher.query);
+        const out = [];
+        for (let i = 0; i < apps.length; i++) {
+            const e = apps[i];
+            out.push({
+                "type": "app",
+                "id": e && e.id ? String(e.id) : "",
+                "name": Services.AppsService.displayName(e),
+                "entry": e,
+                "apps": []
+            });
+        }
+        return out;
     }
     itemCount: launcher.results.length
 
-    readonly property int pageCount: Math.max(1, Math.ceil(Math.max(0, launcher.itemCount) / launcher.pageSize))
-    readonly property int currentPage: Math.max(0, Math.min(launcher.pageCount - 1, Math.floor(launcher.selectedIndex / launcher.pageSize)))
+    function flowIndexFor(i) {
+        const from = launcher.dragFrom;
+        const to = launcher.hoverSlot;
+        if (!launcher.dragging || from < 0 || to < 0 || from === to)
+            return i;
+        if (i === from)
+            return to;
+        if (from < to) {
+            if (i > from && i <= to)
+                return i - 1;
+        } else if (i >= to && i < from) {
+            return i + 1;
+        }
+        return i;
+    }
+
+    function resetDrag() {
+        launcher.flowLock = true;
+        launcher.dragFrom = -1;
+        launcher.hoverSlot = -1;
+        launcher.mergeDrop = false;
+        Services.AppsService.clearDockDrop();
+        Qt.callLater(function () {
+            launcher.flowLock = false;
+        });
+    }
+
+    function commitDrag() {
+        const from = launcher.dragFrom;
+        const to = launcher.hoverSlot;
+        const merge = launcher.mergeDrop;
+        const overDock = Services.AppsService.dockDropActive;
+        const slot = Services.AppsService.dockHoverSlot;
+        const entry = from >= 0 ? launcher.results[from] : null;
+        launcher.flowLock = true;
+        launcher.dragFrom = -1;
+        launcher.hoverSlot = -1;
+        launcher.mergeDrop = false;
+        if (overDock)
+            Services.AppsService.pinDock(entry && entry.id, slot);
+        else if (merge && from >= 0 && to >= 0)
+            Services.AppsService.mergeLaunchpad(from, to);
+        else if (from >= 0 && to >= 0)
+            Services.AppsService.moveLaunchpad(from, to);
+        Services.AppsService.clearDockDrop();
+        Qt.callLater(function () {
+            launcher.flowLock = false;
+        });
+    }
 
     onAccepted: {
         if (launcher.dragging)
@@ -41,6 +114,10 @@ Components.LauncherView {
         const entry = launcher.results[launcher.selectedIndex];
         if (!entry)
             return;
+        if (entry.type === "folder") {
+            Services.AppsService.toggleFolder(entry.id);
+            return;
+        }
         launcher.dismiss();
         Services.AppsService.launch(entry);
     }
@@ -49,251 +126,313 @@ Components.LauncherView {
         Item {
             id: stage
 
-            ListView {
-                id: pages
+            readonly property int cellW: Math.max(110, Math.min(170, Math.floor((width - 120) / launcher.columns)))
+            readonly property int cellH: Math.max(118, Math.min(168, Math.round(stage.cellW * 1.12)))
+            readonly property int rows: Math.max(1, Math.ceil(Math.max(1, launcher.itemCount) / launcher.columns))
 
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.top: parent.top
-                anchors.bottom: dots.top
-                orientation: ListView.Horizontal
-                snapMode: ListView.SnapOneItem
-                boundsBehavior: Flickable.StopAtBounds
+            function slotAtGrid(gx, gy) {
+                if (stage.cellW <= 0 || stage.cellH <= 0)
+                    return -1;
+                const col = Math.max(0, Math.min(launcher.columns - 1, Math.floor(gx / stage.cellW)));
+                const row = Math.max(0, Math.floor(gy / stage.cellH));
+                const global = row * launcher.columns + col;
+                if (global < 0)
+                    return 0;
+                if (global >= launcher.itemCount)
+                    return Math.max(0, launcher.itemCount - 1);
+                return global;
+            }
+
+            function overIcon(gx, gy, index) {
+                if (index < 0)
+                    return false;
+                const col = index % launcher.columns;
+                const row = Math.floor(index / launcher.columns);
+                const cx = (col + 0.5) * stage.cellW;
+                const cy = (row + 0.5) * stage.cellH;
+                return Math.abs(gx - cx) < stage.cellW * 0.28 && Math.abs(gy - cy) < stage.cellH * 0.28;
+            }
+
+            Timer {
+                id: edgeScroll
+                interval: 16
+                repeat: true
+                property int dir: 0
+                onTriggered: {
+                    if (!launcher.dragging || edgeScroll.dir === 0)
+                        return;
+                    const next = scroller.contentY + edgeScroll.dir * 24;
+                    scroller.contentY = Math.max(0, Math.min(Math.max(0, scroller.contentHeight - scroller.height), next));
+                }
+            }
+
+            function trackEdge(py) {
+                let dir = 0;
+                if (py < 48)
+                    dir = -1;
+                else if (py > scroller.height - 48)
+                    dir = 1;
+                if (dir === 0) {
+                    edgeScroll.stop();
+                    edgeScroll.dir = 0;
+                    return;
+                }
+                edgeScroll.dir = dir;
+                if (!edgeScroll.running)
+                    edgeScroll.start();
+            }
+
+            Flickable {
+                id: scroller
+                anchors.fill: parent
+                anchors.leftMargin: 24
+                anchors.rightMargin: 24
+                anchors.bottomMargin: 12
                 clip: true
-                interactive: false
-                model: launcher.pageCount
-                currentIndex: launcher.currentPage
-                highlightMoveDuration: 220
-                highlightMoveVelocity: -1
+                boundsBehavior: Flickable.StopAtBounds
+                flickableDirection: Flickable.VerticalFlick
+                interactive: !launcher.dragging && !launcher.openFolder
+                contentWidth: width
+                contentHeight: Math.max(height, stage.rows * stage.cellH + 24)
+                visible: !launcher.openFolder || launcher.searching
 
-                delegate: Item {
-                    id: page
-                    required property int index
-                    width: pages.width
-                    height: pages.height
+                Text {
+                    anchors.centerIn: parent
+                    visible: launcher.itemCount === 0
+                    text: "No Results"
+                    color: Qt.rgba(1, 1, 1, 0.45)
+                    font.family: Core.Theme.fontFamily
+                    font.pixelSize: 18
+                }
 
-                    readonly property var items: {
-                        const start = page.index * launcher.pageSize;
-                        const all = launcher.results;
-                        const out = [];
-                        const end = Math.min(all.length, start + launcher.pageSize);
-                        for (let i = start; i < end; i++)
-                            out.push(all[i]);
-                        return out;
-                    }
+                Item {
+                    id: grid
+                    width: launcher.columns * stage.cellW
+                    height: stage.rows * stage.cellH
+                    x: Math.round((scroller.width - width) / 2)
+                    y: 8
 
-                    MouseArea {
-                        anchors.fill: parent
-                        enabled: !launcher.dragging
-                        property real pressX: 0
-                        property bool dragged: false
+                    Repeater {
+                        model: launcher.results.length
 
-                        onPressed: function (mouse) {
-                            pressX = mouse.x;
-                            dragged = false;
-                        }
-                        onPositionChanged: function (mouse) {
-                            if (Math.abs(mouse.x - pressX) > 24)
-                                dragged = true;
-                        }
-                        onReleased: function (mouse) {
-                            const dx = mouse.x - pressX;
-                            if (dx <= -80) {
-                                launcher.move(launcher.pageSize);
-                                return;
+                        Item {
+                            id: cell
+                            required property int index
+                            readonly property var modelData: launcher.results[cell.index]
+                            readonly property int globalIndex: cell.index
+                            readonly property bool selected: cell.globalIndex === launcher.selectedIndex
+                            readonly property bool moving: launcher.dragging && launcher.dragFrom === cell.globalIndex
+                            readonly property int col: cell.index % launcher.columns
+                            readonly property int row: Math.floor(cell.index / launcher.columns)
+                            readonly property int vis: launcher.flowIndexFor(cell.globalIndex)
+                            readonly property bool isFolder: cell.modelData && cell.modelData.type === "folder"
+
+                            width: stage.cellW
+                            height: stage.cellH
+                            x: cell.col * stage.cellW + cell.flowX
+                            y: cell.row * stage.cellH + cell.flowY
+                            z: cell.moving ? 0 : 1
+
+                            property real flowX: {
+                                if (cell.moving || launcher.flowLock)
+                                    return 0;
+                                return (cell.vis % launcher.columns - cell.col) * stage.cellW;
                             }
-                            if (dx >= 80) {
-                                launcher.move(-launcher.pageSize);
-                                return;
+                            property real flowY: {
+                                if (cell.moving || launcher.flowLock)
+                                    return 0;
+                                return (Math.floor(cell.vis / launcher.columns) - cell.row) * stage.cellH;
                             }
-                            if (!dragged)
-                                launcher.dismiss();
-                        }
-                    }
 
-                    Text {
-                        anchors.centerIn: parent
-                        visible: page.items.length === 0
-                        text: "No Results"
-                        color: Qt.rgba(1, 1, 1, 0.45)
-                        font.family: Core.Theme.fontFamily
-                        font.pixelSize: 18
-                    }
+                            Behavior on flowX {
+                                enabled: !launcher.flowLock
+                                SpringAnimation {
+                                    spring: 4.4
+                                    damping: 0.34
+                                    mass: 1.0
+                                    epsilon: 0.18
+                                }
+                            }
+                            Behavior on flowY {
+                                enabled: !launcher.flowLock
+                                SpringAnimation {
+                                    spring: 4.4
+                                    damping: 0.34
+                                    mass: 1.0
+                                    epsilon: 0.18
+                                }
+                            }
 
-                    Grid {
-                        id: grid
-                        anchors.centerIn: parent
-                        columns: launcher.columns
-                        z: 1
+                            opacity: cell.moving ? 0 : launcher.intro
+                            scale: 0.92 + 0.08 * launcher.intro
+                            transformOrigin: Item.Center
 
-                        Repeater {
-                            model: page.items.length
+                            Rectangle {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                anchors.top: parent.top
+                                anchors.topMargin: 6
+                                width: Math.round(Math.min(88, cell.width * 0.58)) + 10
+                                height: width
+                                radius: 22
+                                color: launcher.mergeDrop && launcher.hoverSlot === cell.globalIndex && launcher.dragFrom !== cell.globalIndex ? Qt.rgba(1, 1, 1, 0.2) : "transparent"
+                            }
 
                             Item {
-                                id: cell
-                                required property int index
-                                readonly property var modelData: page.items[cell.index]
-                                readonly property int globalIndex: page.index * launcher.pageSize + cell.index
-                                readonly property bool selected: cell.globalIndex === launcher.selectedIndex
-                                readonly property bool moving: launcher.dragging && launcher.dragFrom === cell.globalIndex
-                                readonly property bool dropTarget: launcher.dragging && launcher.hoverSlot === cell.globalIndex && launcher.dragFrom !== cell.globalIndex
-                                readonly property int col: cell.index % launcher.columns
-                                readonly property int row: Math.floor(cell.index / launcher.columns)
-                                readonly property real nx: cell.col - (launcher.columns - 1) / 2
-                                readonly property real ny: cell.row - (launcher.pageRows - 1) / 2
-                                readonly property real spread: 1 - launcher.intro
+                                id: glyph
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                anchors.top: parent.top
+                                anchors.topMargin: 8
+                                width: icon.width + 24
+                                height: parent.height - 8
 
-                                width: Math.max(110, Math.min(170, Math.floor((page.width - 160) / launcher.columns)))
-                                height: Math.max(120, Math.min(170, Math.floor((page.height - 20) / launcher.pageRows)))
-
-                                opacity: cell.moving ? 0.28 : launcher.intro
-                                scale: 0.82 + 0.18 * launcher.intro
-                                transformOrigin: Item.Center
-                                transform: Translate {
-                                    x: cell.nx * 14 * cell.spread
-                                    y: cell.ny * 10 * cell.spread
-                                }
-
-                                Item {
-                                    id: glyph
+                                Image {
+                                    id: icon
+                                    visible: !cell.isFolder
                                     anchors.horizontalCenter: parent.horizontalCenter
                                     anchors.top: parent.top
+                                    anchors.topMargin: 10
+                                    width: Math.round(Math.min(88, cell.width * 0.56))
+                                    height: width
+                                    asynchronous: true
+                                    cache: true
+                                    sourceSize.width: 128
+                                    sourceSize.height: 128
+                                    fillMode: Image.PreserveAspectFit
+                                    smooth: true
+                                    source: cell.modelData && cell.modelData.entry ? Services.AppsService.iconSource(cell.modelData.entry) : ""
+                                    scale: iconMouse.containsMouse && !launcher.dragging ? 1.08 : 1
+                                    transformOrigin: Item.Center
+
+                                    Behavior on scale {
+                                        NumberAnimation {
+                                            duration: 140
+                                            easing.type: Easing.OutCubic
+                                        }
+                                    }
+                                }
+
+                                Components.FolderGlyph {
+                                    visible: cell.isFolder
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    anchors.top: parent.top
+                                    anchors.topMargin: 10
+                                    width: Math.round(Math.min(88, cell.width * 0.56))
+                                    height: width
+                                    apps: cell.modelData && cell.modelData.apps ? cell.modelData.apps : []
+                                    scale: iconMouse.containsMouse && !launcher.dragging ? 1.08 : 1
+                                    transformOrigin: Item.Center
+
+                                    Behavior on scale {
+                                        NumberAnimation {
+                                            duration: 140
+                                            easing.type: Easing.OutCubic
+                                        }
+                                    }
+                                }
+
+                                Text {
+                                    anchors.left: parent.left
+                                    anchors.right: parent.right
+                                    anchors.top: icon.bottom
                                     anchors.topMargin: 8
-                                    width: icon.width + 24
-                                    height: parent.height - 8
+                                    text: cell.modelData ? (cell.modelData.name || Services.AppsService.displayName(cell.modelData.entry)) : ""
+                                    color: "#FFFFFF"
+                                    font.family: Core.Theme.fontFamily
+                                    font.pixelSize: 11
+                                    font.weight: cell.selected ? Font.DemiBold : Font.Medium
+                                    horizontalAlignment: Text.AlignHCenter
+                                    wrapMode: Text.Wrap
+                                    maximumLineCount: 2
+                                    elide: Text.ElideRight
+                                    style: Text.Raised
+                                    styleColor: Qt.rgba(0, 0, 0, 0.55)
+                                    opacity: cell.moving ? 0 : 1
+                                }
 
-                                    Image {
-                                        id: icon
-                                        anchors.horizontalCenter: parent.horizontalCenter
-                                        anchors.top: parent.top
-                                        anchors.topMargin: 10
-                                        width: Math.round(Math.min(88, cell.width * 0.56))
-                                        height: width
-                                        asynchronous: true
-                                        cache: true
-                                        sourceSize.width: 128
-                                        sourceSize.height: 128
-                                        fillMode: Image.PreserveAspectFit
-                                        smooth: true
-                                        source: Services.AppsService.iconSource(cell.modelData)
-                                        scale: iconMouse.containsMouse && !launcher.dragging ? 1.12 : (iconMouse.pressed ? 0.92 : 1)
-                                        transformOrigin: Item.Center
+                                MouseArea {
+                                    id: iconMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                    cursorShape: launcher.dragging ? Qt.ClosedHandCursor : Qt.PointingHandCursor
+                                    property real pressX: 0
+                                    property real pressY: 0
+                                    property bool dragged: false
 
-                                        Behavior on scale {
-                                            NumberAnimation {
-                                                duration: iconMouse.pressed ? 70 : 140
-                                                easing.type: Easing.OutCubic
-                                            }
+                                    onPressed: function (mouse) {
+                                        if (mouse.button !== Qt.LeftButton)
+                                            return;
+                                        pressX = mouse.x;
+                                        pressY = mouse.y;
+                                        dragged = false;
+                                        launcher.selectedIndex = cell.globalIndex;
+                                    }
+                                    onPositionChanged: function (mouse) {
+                                        if (!(iconMouse.pressed && (mouse.buttons & Qt.LeftButton)))
+                                            return;
+                                        if (launcher.searching)
+                                            return;
+                                        if (!dragged && Math.hypot(mouse.x - pressX, mouse.y - pressY) > 8) {
+                                            dragged = true;
+                                            launcher.dragFrom = cell.globalIndex;
+                                            launcher.hoverSlot = cell.globalIndex;
                                         }
+                                        if (!dragged)
+                                            return;
+                                        const layer = launcher.parent;
+                                        const p = iconMouse.mapToItem(layer, mouse.x, mouse.y);
+                                        launcher.dragX = p.x;
+                                        launcher.dragY = p.y;
+                                        const dock = launcher.dockTarget;
+                                        let overDock = false;
+                                        if (dock) {
+                                            const d = iconMouse.mapToItem(dock, mouse.x, mouse.y);
+                                            overDock = dock.containsApps ? dock.containsApps(d.x, d.y) : (d.x >= -24 && d.x <= dock.width + 24 && d.y >= -28 && d.y <= dock.height + 28);
+                                            Services.AppsService.dockDropActive = overDock;
+                                            if (overDock)
+                                                Services.AppsService.dockHoverSlot = dock.slotAt(d.x, d.y);
+                                        }
+                                        if (overDock) {
+                                            launcher.hoverSlot = launcher.dragFrom;
+                                            launcher.mergeDrop = false;
+                                            edgeScroll.stop();
+                                            edgeScroll.dir = 0;
+                                            return;
+                                        }
+                                        const g = iconMouse.mapToItem(grid, mouse.x, mouse.y);
+                                        const s = iconMouse.mapToItem(scroller, mouse.x, mouse.y);
+                                        stage.trackEdge(s.y);
+                                        const slot = stage.slotAtGrid(g.x, g.y);
+                                        if (slot >= 0)
+                                            launcher.hoverSlot = slot;
+                                        launcher.mergeDrop = slot >= 0 && slot !== launcher.dragFrom && stage.overIcon(g.x, g.y, slot);
                                     }
-
-                                    Rectangle {
-                                        id: iconRing
-                                        anchors.centerIn: icon
-                                        width: icon.width + 12
-                                        height: icon.height + 12
-                                        radius: 16
-                                        z: 2
-                                        color: "transparent"
-                                        border.width: (cell.selected || iconMouse.containsMouse || cell.dropTarget) ? 2 : 0
-                                        border.color: Qt.rgba(1, 1, 1, cell.dropTarget ? 0.9 : 0.7)
-                                        visible: iconRing.border.width > 0
-                                    }
-
-                                    Text {
-                                        anchors.left: parent.left
-                                        anchors.right: parent.right
-                                        anchors.top: icon.bottom
-                                        anchors.topMargin: 8
-                                        text: Services.AppsService.displayName(cell.modelData)
-                                        color: "#FFFFFF"
-                                        font.family: Core.Theme.fontFamily
-                                        font.pixelSize: 11
-                                        font.weight: cell.selected ? Font.DemiBold : Font.Medium
-                                        horizontalAlignment: Text.AlignHCenter
-                                        wrapMode: Text.Wrap
-                                        maximumLineCount: 2
-                                        elide: Text.ElideRight
-                                        style: Text.Raised
-                                        styleColor: Qt.rgba(0, 0, 0, 0.55)
-                                    }
-
-                                    MouseArea {
-                                        id: iconMouse
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        acceptedButtons: Qt.LeftButton | Qt.RightButton
-                                        cursorShape: launcher.dragging ? Qt.ClosedHandCursor : Qt.PointingHandCursor
-                                        property real pressX: 0
-                                        property real pressY: 0
-                                        property bool dragged: false
-
-                                        onPressed: function (mouse) {
-                                            if (mouse.button !== Qt.LeftButton)
-                                                return;
-                                            pressX = mouse.x;
-                                            pressY = mouse.y;
+                                    onReleased: function (mouse) {
+                                        if (mouse.button !== Qt.LeftButton) {
                                             dragged = false;
-                                            launcher.selectedIndex = cell.globalIndex;
+                                            return;
                                         }
-                                        onPositionChanged: function (mouse) {
-                                            if (!(iconMouse.pressed && (mouse.buttons & Qt.LeftButton)))
-                                                return;
-                                            if (launcher.searching)
-                                                return;
-                                            if (!dragged && Math.hypot(mouse.x - pressX, mouse.y - pressY) > 8) {
-                                                dragged = true;
-                                                launcher.dragFrom = cell.globalIndex;
-                                                launcher.hoverSlot = cell.globalIndex;
-                                            }
-                                            if (!dragged)
-                                                return;
-                                            const layer = launcher.parent;
-                                            const p = iconMouse.mapToItem(layer, mouse.x, mouse.y);
-                                            launcher.dragX = p.x;
-                                            launcher.dragY = p.y;
-                                            const dock = launcher.dockTarget;
-                                            let overDock = false;
-                                            if (dock) {
-                                                const d = iconMouse.mapToItem(dock, mouse.x, mouse.y);
-                                                overDock = dock.containsApps ? dock.containsApps(d.x, d.y) : (d.x >= -24 && d.x <= dock.width + 24 && d.y >= -28 && d.y <= dock.height + 28);
-                                                Services.AppsService.dockDropActive = overDock;
-                                                if (overDock)
-                                                    Services.AppsService.dockHoverSlot = dock.slotAt(d.x, d.y);
-                                            }
-                                            if (overDock) {
-                                                launcher.hoverSlot = -1;
-                                                return;
-                                            }
-                                            const g = iconMouse.mapToItem(grid, mouse.x, mouse.y);
-                                            const hit = grid.childAt(g.x, g.y);
-                                            if (hit && hit.globalIndex !== undefined)
-                                                launcher.hoverSlot = hit.globalIndex;
-                                        }
-                                        onReleased: function (mouse) {
-                                            if (mouse.button !== Qt.LeftButton) {
-                                                dragged = false;
-                                                return;
-                                            }
-                                            if (dragged && launcher.dragFrom >= 0) {
-                                                const entry = launcher.results[launcher.dragFrom];
-                                                if (Services.AppsService.dockDropActive)
-                                                    Services.AppsService.pinDock(entry && entry.id, Services.AppsService.dockHoverSlot);
-                                                else if (launcher.hoverSlot >= 0)
-                                                    Services.AppsService.moveLaunchpad(launcher.dragFrom, launcher.hoverSlot);
-                                                launcher.dragFrom = -1;
-                                                launcher.hoverSlot = -1;
-                                                dragged = false;
-                                                Services.AppsService.clearDockDrop();
-                                                return;
-                                            }
+                                        edgeScroll.stop();
+                                        edgeScroll.dir = 0;
+                                        if (dragged && launcher.dragFrom >= 0) {
                                             dragged = false;
-                                            launcher.selectedIndex = cell.globalIndex;
-                                            launcher.accepted();
+                                            launcher.commitDrag();
+                                            return;
                                         }
+                                        dragged = false;
+                                        launcher.selectedIndex = cell.globalIndex;
+                                        launcher.accepted();
+                                    }
+                                    onCanceled: {
+                                        dragged = false;
+                                        edgeScroll.stop();
+                                        edgeScroll.dir = 0;
+                                        launcher.resetDrag();
+                                    }
                                     onClicked: function (mouse) {
                                         if (mouse.button === Qt.RightButton) {
-                                            Services.AppsService.toggleDockPin(cell.modelData && cell.modelData.id);
+                                            if (cell.modelData && cell.modelData.type !== "folder")
+                                                Services.AppsService.toggleDockPin(cell.modelData.id);
                                             mouse.accepted = true;
                                         }
                                     }
@@ -302,39 +441,121 @@ Components.LauncherView {
                                             launcher.selectedIndex = cell.globalIndex;
                                     }
                                 }
-                                }
                             }
                         }
                     }
                 }
             }
 
-            Row {
-                id: dots
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.bottom: parent.bottom
-                anchors.bottomMargin: 28
-                height: 18
-                spacing: 8
-                visible: launcher.pageCount > 1
-                opacity: launcher.intro
+            Rectangle {
+                anchors.fill: parent
+                visible: !!(launcher.openFolder && !launcher.searching)
+                z: 30
+                color: Qt.rgba(0, 0, 0, 0.38)
 
-                Repeater {
-                    model: launcher.pageCount
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: Services.AppsService.closeFolder()
+                }
 
-                    Rectangle {
-                        required property int index
-                        width: 7
-                        height: 7
-                        radius: 4
+                Rectangle {
+                    id: sheet
+                    width: Math.min(parent.width - 80, 560)
+                    height: Math.min(parent.height - 80, folderGrid.implicitHeight + 88)
+                    anchors.centerIn: parent
+                    radius: 28
+                    color: Qt.rgba(0.12, 0.12, 0.14, 0.82)
+                    border.width: 1
+                    border.color: Qt.rgba(1, 1, 1, 0.28)
+                    clip: true
+
+                    MouseArea {
+                        anchors.fill: parent
+                    }
+
+                    Components.Glass {
+                        anchors.fill: parent
+                        radius: parent.radius
+                        strength: 1.0
+                    }
+
+                    TextInput {
+                        id: folderTitle
+                        anchors.top: parent.top
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.topMargin: 18
+                        height: 28
+                        text: launcher.openFolder ? launcher.openFolder.name : ""
                         color: "#FFFFFF"
-                        opacity: index === launcher.currentPage ? 0.95 : 0.28
+                        font.family: Core.Theme.fontFamily
+                        font.pixelSize: 18
+                        font.weight: Font.DemiBold
+                        horizontalAlignment: Text.AlignHCenter
+                        selectByMouse: true
+                        onEditingFinished: {
+                            if (launcher.openFolder)
+                                Services.AppsService.renameFolder(launcher.openFolder.id, folderTitle.text);
+                        }
+                    }
 
-                        MouseArea {
-                            anchors.fill: parent
-                            anchors.margins: -6
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: launcher.selectedIndex = Math.min(launcher.itemCount - 1, index * launcher.pageSize)
+                    Grid {
+                        id: folderGrid
+                        anchors.top: folderTitle.bottom
+                        anchors.topMargin: 12
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        columns: 4
+                        rowSpacing: 14
+                        columnSpacing: 18
+
+                        Repeater {
+                            model: launcher.openFolder ? launcher.openFolder.apps.length : 0
+
+                            Item {
+                                id: fapp
+                                required property int index
+                                readonly property var modelData: launcher.openFolder ? launcher.openFolder.apps[fapp.index] : null
+                                width: 96
+                                height: 112
+
+                                Image {
+                                    anchors.horizontalCenter: parent.horizontalCenter
+                                    anchors.top: parent.top
+                                    width: 64
+                                    height: 64
+                                    source: fapp.modelData ? Services.AppsService.iconSource(fapp.modelData) : ""
+                                    fillMode: Image.PreserveAspectFit
+                                    smooth: true
+                                    asynchronous: true
+                                    cache: true
+                                    sourceSize.width: 128
+                                    sourceSize.height: 128
+                                }
+
+                                Text {
+                                    anchors.left: parent.left
+                                    anchors.right: parent.right
+                                    anchors.top: parent.top
+                                    anchors.topMargin: 72
+                                    text: fapp.modelData ? Services.AppsService.displayName(fapp.modelData) : ""
+                                    color: "#FFFFFF"
+                                    font.family: Core.Theme.fontFamily
+                                    font.pixelSize: 11
+                                    horizontalAlignment: Text.AlignHCenter
+                                    wrapMode: Text.Wrap
+                                    maximumLineCount: 2
+                                    elide: Text.ElideRight
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        launcher.dismiss();
+                                        Services.AppsService.launch(fapp.modelData);
+                                    }
+                                }
+                            }
                         }
                     }
                 }

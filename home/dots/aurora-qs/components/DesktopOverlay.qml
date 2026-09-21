@@ -218,7 +218,13 @@ PanelWindow {
     WlrLayershell.keyboardFocus: (root.shown && (Core.Session.desktopEdit || root.menuOpen)) ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
     mask: Region {
-        item: stage
+        item: passBar
+    }
+
+    Item {
+        id: passBar
+        anchors.fill: parent
+        anchors.topMargin: Core.Theme.barHeight
     }
 
     Item {

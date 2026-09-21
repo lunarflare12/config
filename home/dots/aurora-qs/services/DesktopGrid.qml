@@ -10,7 +10,7 @@ QtObject {
 
     readonly property int cellW: 96
     readonly property int cellH: 108
-    readonly property int originX: 16
+    readonly property int originX: 16 + Core.Theme.dockReserve
     readonly property int originY: Core.Theme.barHeight + 12
     readonly property int bottomPad: 16
     readonly property int rightPad: 16

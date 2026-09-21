@@ -62,6 +62,34 @@ game_host() {
     "$@"
 }
 
+game_place_overwatch() {
+  (
+    local i
+    for i in $(seq 1 12); do
+      sleep 0.5
+      game_host hyprctl eval '
+local w
+for _, x in ipairs(hl.get_windows()) do
+  local c = string.lower(tostring(x.initial_class or x.class or ""))
+  local t = string.lower(tostring(x.title or ""))
+  if c:find("steam_app_2357570", 1, true) or c:find("overwatch", 1, true) or t:find("overwatch", 1, true) then
+    w = x
+    break
+  end
+end
+if w then
+  pcall(function()
+    hl.dispatch(hl.dsp.window.move({ workspace = 14, window = w }))
+  end)
+  pcall(function()
+    hl.dispatch(hl.dsp.window.fullscreen_state({ window = w, internal = 1, client = 0 }))
+  end)
+end
+' >/dev/null 2>&1 || true
+    done
+  ) &
+}
+
 game_monitor() {
   game_host hyprctl monitors 2>/dev/null | awk '
     /^Monitor / { name = $2 }

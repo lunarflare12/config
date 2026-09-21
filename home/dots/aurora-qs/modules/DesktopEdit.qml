@@ -38,6 +38,7 @@ Item {
         id: mouse
         anchors.fill: parent
         hoverEnabled: true
+        z: 2
         cursorShape: Qt.PointingHandCursor
         onClicked: Core.Session.toggleDesktopEdit()
     }

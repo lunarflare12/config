@@ -76,7 +76,7 @@ hl.bind(mod .. " + SHIFT + R", hl.dsp.exec_cmd(programs.scripts .. "/reload-hypr
 hl.bind(mod .. " + SHIFT + W", hl.dsp.exec_cmd("qs ipc call wallpaper toggle"))
 hl.bind(mod .. " + SHIFT + T", hl.dsp.exec_cmd("qs ipc call theme toggle"))
 hl.bind(mod .. " + SHIFT + G", hl.dsp.exec_cmd("qs ipc call shaders toggle"))
-hl.bind(mod .. " + ALT + L", hl.dsp.exec_cmd("loginctl lock-session"))
+hl.bind(mod .. " + ALT + L", hl.dsp.exec_cmd("qs ipc call lock lock"))
 hl.bind("F24", hl.dsp.exec_cmd("hyprctl switchxkblayout all next"))
 
 for key, direction in pairs({ h = "l", l = "r", j = "u", k = "d" }) do
@@ -119,3 +119,13 @@ for key, command in pairs({
 }) do
     hl.bind(key, hl.dsp.exec_cmd(command), { locked = true })
 end
+
+local opencluely = (os.getenv("HOME") or "") .. "/projects/opencluely/opencluely"
+hl.bind("CTRL + SHIFT + S", hl.dsp.exec_cmd(opencluely .. " shortcut screenshot"))
+hl.bind("CTRL + SHIFT + V", hl.dsp.exec_cmd(opencluely .. " shortcut toggle"))
+hl.bind("CTRL + SHIFT + I", hl.dsp.exec_cmd(opencluely .. " shortcut interactive"))
+hl.bind("CTRL + SHIFT + C", hl.dsp.exec_cmd(opencluely .. " shortcut show"))
+hl.bind("CTRL + SHIFT + backslash", hl.dsp.exec_cmd(opencluely .. " shortcut reset"))
+hl.bind("ALT + A", hl.dsp.exec_cmd(opencluely .. " shortcut interactive"))
+hl.bind("ALT + R", hl.dsp.exec_cmd(opencluely .. " shortcut mic"))
+hl.bind("CTRL + comma", hl.dsp.exec_cmd(opencluely .. " shortcut settings"))

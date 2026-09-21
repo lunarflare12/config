@@ -2,7 +2,7 @@ import QtQuick
 
 import "../core" as Core
 
-// Shared press language for every chip, row, and tile.
+// macOS-style hover: a quiet rounded wash, no gloss, no border, no bounce.
 Item {
     id: root
 
@@ -11,11 +11,11 @@ Item {
     property bool active: false
     property bool feel: true
     property Item feelTarget: parent
-    property real hoverScale: Core.Theme.hoverScale
-    property real pressScale: Core.Theme.pressScale
+    property real hoverScale: 1
+    property real pressScale: 1
     property real restScale: 1
     property color activeFill: Qt.rgba(1, 1, 1, 0.10)
-    property real radius: parent && parent.height > 0 ? Math.min(parent.height, parent.width) / 2 : 12
+    property real radius: 6
 
     readonly property real targetScale: {
         if (!root.feel)
@@ -24,8 +24,6 @@ Item {
             return root.pressScale;
         if (root.hovered)
             return root.hoverScale;
-        if (root.active)
-            return Math.max(root.restScale, 1);
         return root.restScale;
     }
 
@@ -33,17 +31,14 @@ Item {
     Component.onCompleted: root.kick()
 
     function kick() {
-        if (!root.feelTarget)
+        if (!root.feelTarget || !root.feel)
             return;
         root.feelTarget.transformOrigin = Item.Center;
-        if (!root.feel)
-            return;
         scaleAnim.stop();
         scaleAnim.target = root.feelTarget;
         scaleAnim.to = root.targetScale;
-        scaleAnim.duration = root.pressed ? 70 : 240;
-        scaleAnim.easing.type = root.pressed ? Easing.OutCubic : Easing.OutBack;
-        scaleAnim.easing.overshoot = 2.5;
+        scaleAnim.duration = root.pressed ? 80 : 140;
+        scaleAnim.easing.type = Easing.OutCubic;
         scaleAnim.start();
     }
 
@@ -54,45 +49,25 @@ Item {
 
     Rectangle {
         anchors.fill: parent
+        anchors.topMargin: 1
+        anchors.bottomMargin: 1
         radius: root.radius
         antialiasing: true
         color: {
             if (root.pressed)
-                return Qt.rgba(0, 0, 0, 0.34);
+                return Qt.rgba(1, 1, 1, 0.22);
             if (root.active)
                 return root.activeFill;
             if (root.hovered)
-                return Qt.rgba(1, 1, 1, 0.16);
+                return Qt.rgba(1, 1, 1, 0.14);
             return "transparent";
         }
-        border.width: root.pressed || root.hovered || root.active ? 1 : 0
-        border.color: root.pressed ? Qt.rgba(0, 0, 0, 0.45) : Qt.rgba(1, 1, 1, 0.26)
 
         Behavior on color {
             ColorAnimation {
-                duration: 80
+                duration: 90
                 easing.type: Easing.OutCubic
             }
-        }
-
-        Rectangle {
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.top: parent.top
-            anchors.margins: 1
-            height: Math.max(6, parent.height * 0.42)
-            radius: parent.radius
-            color: Qt.rgba(1, 1, 1, root.pressed ? 0.05 : root.hovered ? 0.22 : root.active ? 0.10 : 0)
-        }
-
-        Rectangle {
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.bottom: parent.bottom
-            height: parent.height * 0.5
-            radius: parent.radius
-            visible: root.pressed
-            color: Qt.rgba(0, 0, 0, 0.32)
         }
     }
 }

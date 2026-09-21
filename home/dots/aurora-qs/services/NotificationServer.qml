@@ -143,29 +143,40 @@ Singleton {
         return "Notification";
     }
 
-    // Icon source for a notification, or "" when the sender gave us nothing
-    // usable and the caller should fall back to a glyph.
-    //
-    // `image` already covers image-data, image_data, icon_data AND
-    // image-path/image_path: Quickshell resolves all of them into this one
-    // property, so there is no separate path to check.
+    // Icon for a notification. Known apps win over a broken image-data payload
+    // (Satty ships one that Qt paints as the magenta checkerboard).
     function iconFor(n) {
         if (!n)
             return "";
 
+        const label = String(root.appLabel(n) || "").toLowerCase();
+        let desktop = "";
+        try {
+            desktop = String(n.desktopEntry || "").toLowerCase();
+        } catch (e) {
+        }
+        let appIcon = "";
+        try {
+            if (n.appIcon !== undefined && n.appIcon !== null)
+                appIcon = String(n.appIcon);
+        } catch (e) {
+        }
+
+        const hay = label + " " + desktop + " " + appIcon.toLowerCase();
+        if (hay.indexOf("satty") !== -1 || hay.indexOf("screenshot") !== -1)
+            return "file://" + Quickshell.shellDir + "/assets/satty.png";
+
+        if (appIcon !== "") {
+            if (appIcon.indexOf("/") !== -1 || appIcon.indexOf(":") !== -1)
+                return appIcon;
+            return Quickshell.iconPath(appIcon, true);
+        }
+
         try {
             if (n.image !== undefined && n.image !== null && String(n.image) !== "")
                 return String(n.image);
-        } catch (e) {}
-
-        try {
-            if (n.appIcon !== undefined && n.appIcon !== null && String(n.appIcon) !== "") {
-                const icon = String(n.appIcon);
-                if (icon.toLowerCase().indexOf("satty") !== -1)
-                    return "file://" + Quickshell.shellDir + "/assets/satty.png";
-                return Quickshell.iconPath(icon, true);
-            }
-        } catch (e) {}
+        } catch (e) {
+        }
 
         return "";
     }

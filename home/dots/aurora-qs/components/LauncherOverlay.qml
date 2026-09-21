@@ -1,5 +1,7 @@
 import QtQuick
 
+import QtQuick.Effects
+
 import Quickshell
 import Quickshell.Wayland
 
@@ -21,9 +23,10 @@ PanelWindow {
         bottom: true
     }
 
-    color: "transparent"
+    // Opaque while the menu is up so live windows cannot show through.
+    color: root.intro > 0.01 ? "#101014" : "transparent"
     exclusionMode: ExclusionMode.Ignore
-    visible: true
+    visible: !(Core.Session.overviewOpen && !root.launcherOpen)
     exclusiveZone: 0
 
     WlrLayershell.namespace: "aurora-launcher"
@@ -58,6 +61,8 @@ PanelWindow {
     readonly property bool launchpadOpen: root.host && appLauncher.open
     readonly property bool showLaunchpad: root.launchpadOpen || (root.closingLaunchpad && root.intro > 0.01)
     readonly property bool showCard: root.launcherOpen && !root.showLaunchpad
+    readonly property bool onMain: Core.Session.isDesktopMonitor(Core.Session.monitorNameForScreen(root.screen))
+    readonly property bool showLaunchpadDock: root.showLaunchpad && root.onMain
 
     Behavior on intro {
         NumberAnimation {
@@ -107,45 +112,67 @@ PanelWindow {
     Item {
         id: frost
         anchors.fill: parent
-        opacity: Math.min(1, root.intro)
         visible: root.intro > 0.01
         clip: true
 
+        readonly property string wall: Services.WallpaperService.current ? ("file://" + Services.WallpaperService.current) : ""
+
+        // Solid wallpaper crop. Covers every pixel so windows never leak through.
         Image {
             anchors.fill: parent
-            source: Services.WallpaperService.current ? ("file://" + Services.WallpaperService.current) : ""
+            source: frost.wall
             fillMode: Image.PreserveAspectCrop
-            visible: status === Image.Ready
-            sourceSize.width: Math.max(160, Math.round(root.width / 10))
-            sourceSize.height: Math.max(90, Math.round(root.height / 10))
+            asynchronous: true
+            cache: true
+            mipmap: true
             smooth: true
-            scale: 1.02 + 0.06 * root.intro
+        }
+
+        Item {
+            id: wallSrc
+            width: Math.max(1, Math.round(frost.width / 4))
+            height: Math.max(1, Math.round(frost.height / 4))
+            x: -width - 8
+            layer.enabled: true
+            layer.smooth: true
+            layer.mipmap: true
+
+            Image {
+                anchors.fill: parent
+                source: frost.wall
+                fillMode: Image.PreserveAspectCrop
+                asynchronous: true
+                cache: true
+                mipmap: true
+                smooth: true
+            }
+        }
+
+        MultiEffect {
+            anchors.fill: parent
+            source: wallSrc
+            autoPaddingEnabled: false
+            blurEnabled: true
+            blurMax: 48
+            blur: 1.0
+            saturation: 0.85
         }
 
         Rectangle {
             anchors.fill: parent
-            color: Qt.rgba(0.08, 0.08, 0.10, 0.34)
+            color: Qt.rgba(0.08, 0.08, 0.10, 0.42)
         }
 
         Rectangle {
             anchors.fill: parent
-            color: Qt.rgba(1, 1, 1, 0.08)
+            color: Qt.rgba(1, 1, 1, 0.06)
         }
-    }
-
-    Image {
-        visible: false
-        asynchronous: true
-        cache: true
-        source: Services.WallpaperService.current ? ("file://" + Services.WallpaperService.current) : ""
-        sourceSize.width: 320
-        sourceSize.height: 180
     }
 
     Modules.AppLauncher {
         id: appLauncher
         anchors.fill: parent
-        anchors.bottomMargin: 96
+        anchors.leftMargin: root.showLaunchpadDock ? 96 : 0
         z: 2
         intro: root.intro
         opacity: root.showLaunchpad ? 1 : 0
@@ -155,32 +182,58 @@ PanelWindow {
     DockBar {
         id: launchpadDock
         z: 4
-        anchors.bottom: parent.bottom
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottomMargin: 8
-        intro: root.showLaunchpad ? root.intro : 0
-        visible: root.showLaunchpad && root.intro > 0.01
+        anchors.left: parent.left
+        anchors.leftMargin: 8
+        anchors.verticalCenter: parent.verticalCenter
+        intro: root.intro
+        fadeWithIntro: false
         interactive: true
+        visible: root.showLaunchpadDock
+        enabled: root.showLaunchpadDock
         onLaunched: Core.PopupManager.close()
     }
 
-    Image {
+    Item {
         z: 50
         visible: root.showLaunchpad && appLauncher.dragging && appLauncher.dragFrom >= 0 && appLauncher.dragFrom < appLauncher.itemCount
-        width: 88
-        height: 88
+        width: 118
+        height: 118
         x: appLauncher.dragX - width / 2
         y: appLauncher.dragY - height / 2
-        source: {
-            if (!appLauncher.dragging)
-                return "";
-            const e = appLauncher.results[appLauncher.dragFrom];
-            return e ? Services.AppsService.iconSource(e) : "";
+        scale: 1.16
+        readonly property var dragTile: appLauncher.dragging ? appLauncher.results[appLauncher.dragFrom] : null
+
+        Rectangle {
+            anchors.centerIn: parent
+            width: 72
+            height: 72
+            radius: 18
+            color: Qt.rgba(0, 0, 0, 0.28)
         }
-        fillMode: Image.PreserveAspectFit
-        smooth: true
-        cache: true
-        opacity: 0.92
+
+        FolderGlyph {
+            anchors.centerIn: parent
+            width: 72
+            height: 72
+            visible: parent.dragTile && parent.dragTile.type === "folder"
+            apps: parent.dragTile && parent.dragTile.apps ? parent.dragTile.apps : []
+        }
+
+        Image {
+            anchors.centerIn: parent
+            width: 96
+            height: 96
+            visible: parent.dragTile && parent.dragTile.type !== "folder"
+            source: {
+                const e = parent.dragTile;
+                if (!e || e.type === "folder")
+                    return "";
+                return e.entry ? Services.AppsService.iconSource(e.entry) : "";
+            }
+            fillMode: Image.PreserveAspectFit
+            smooth: true
+            cache: true
+        }
     }
 
     Rectangle {

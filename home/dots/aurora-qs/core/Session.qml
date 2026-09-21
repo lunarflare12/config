@@ -282,7 +282,7 @@ QtObject {
             return false;
         const cls = String(ipc.class || ipc.initialClass || ipc.initial_class || t.className || "").toLowerCase();
         const title = String(t.title || ipc.title || "").toLowerCase();
-        if (cls.indexOf("steam_app_") !== -1 || cls.indexOf("gamescope") !== -1)
+        if (cls.indexOf("steam_app_") !== -1 || cls.indexOf("gamescope") !== -1 || cls.indexOf("dota2") !== -1)
             return true;
         if (cls.indexOf("prism") !== -1)
             return false;

@@ -122,15 +122,15 @@ Item {
 
                     radius: height / 2
 
-                    color: "transparent"
+                    color: Qt.rgba(1, 1, 1, chipMouse.containsMouse ? 0.16 : 0.08)
+                    border.width: 1
+                    border.color: Qt.rgba(1, 1, 1, 0.12)
 
-                    Tactile {
-                        anchors.fill: parent
-                        radius: height / 2
-                        hovered: chipMouse.containsMouse
-                        pressed: chipMouse.pressed
-                        hoverScale: 1.08
-                        pressScale: 0.9
+                    Behavior on color {
+                        ColorAnimation {
+                            duration: 90
+                            easing.type: Easing.OutCubic
+                        }
                     }
 
                     Image {
@@ -194,25 +194,18 @@ Item {
 
                 radius: height / 2
 
-                color: "transparent"
-
-                Tactile {
-                    anchors.fill: parent
-                    radius: height / 2
-                    hovered: replyChipMouse.containsMouse
-                    pressed: replyChipMouse.pressed
-                    hoverScale: 1.08
-                    pressScale: 0.9
-                }
+                color: Qt.rgba(Core.Theme.accent.r, Core.Theme.accent.g, Core.Theme.accent.b, replyChipMouse.containsMouse ? 0.28 : 0.16)
+                border.width: 1
+                border.color: Qt.rgba(Core.Theme.accent.r, Core.Theme.accent.g, Core.Theme.accent.b, 0.45)
 
                 Text {
                     id: replyChipText
 
                     anchors.centerIn: parent
 
-                    text: Core.Icons.send + "  " + Services.NotificationServer.replyPlaceholder(root.notification)
+                    text: "Reply"
 
-                    font.family: Core.Theme.iconFont
+                    font.family: Core.Theme.fontFamily
 
                     font.pixelSize: Core.Theme.fontSizeSmall
 

@@ -144,13 +144,6 @@ QtObject {
         if (!path || path.length === 0)
             return
 
-        Quickshell.execDetached([
-            "sh",
-            "-c",
-            "mkdir -p \"$(dirname \"$2\")\" \"$HOME/Wallpapers\" && awww img \"$1\" --transition-type fade --transition-fps 60 --transition-step 30 && printf '%s\\n' \"$1\" > \"$2\" && basename \"$1\" > \"$HOME/.wall/.current\"",
-            "sh",
-            path,
-            root.statePath
-        ])
+        Quickshell.execDetached([root.home + "/.config/scripts/set-wallpaper.sh", path])
     }
 }

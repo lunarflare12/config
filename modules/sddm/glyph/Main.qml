@@ -11,7 +11,7 @@ Rectangle {
     focus: true
 
     // State Management
-    property bool isUnlocked: true
+    property bool isUnlocked: false
     property color finalClockColor: "transparent"
     property bool readyToReveal: false
 
@@ -70,12 +70,42 @@ Rectangle {
         Behavior on opacity { NumberAnimation { duration: 400 } }
     }
 
-    MouseArea { anchors.fill: parent; onClicked: container.isUnlocked = true; enabled: !container.isUnlocked }
+    MouseArea { anchors.fill: parent; onClicked: container.revealInput(); enabled: !container.isUnlocked }
     Keys.onPressed: (event) => {
-        if (!container.isUnlocked) {
-            container.isUnlocked = true;
-            event.accepted = true;
+        if (container.isUnlocked)
+            return
+        if (event.key === Qt.Key_Escape) {
+            event.accepted = true
+            return
         }
+        var ch = event.text || ""
+        if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+            container.revealInput()
+            event.accepted = true
+            return
+        }
+        if (event.key === Qt.Key_Backspace) {
+            container.revealInput()
+            event.accepted = true
+            return
+        }
+        if (ch.length > 0 && ch.charCodeAt(0) >= 32) {
+            container.revealInput(ch)
+            event.accepted = true
+            return
+        }
+        container.revealInput()
+        event.accepted = true
+    }
+
+    function revealInput(ch) {
+        container.isUnlocked = true
+        Qt.callLater(function() {
+            if (ch)
+                loginPanel.prependPassword(ch)
+            else
+                loginPanel.focusPassword()
+        })
     }
 
     // THE CLOCK
@@ -103,19 +133,18 @@ Rectangle {
         id: loginPanel
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: 90
+        anchors.bottomMargin: container.isUnlocked ? 90 : -420
         width: 400
+        enabled: container.isUnlocked
         fontName: container.globalFont; textColor: "white"
         userIndex: container.userIdx; sessionIndex: container.sessionIdx
         onUserSelected: container.userIdx = index; onSessionSelected: container.sessionIdx = index
-        opacity: container.isUnlocked ? 1.0 : 0.0; visible: opacity > 0; scale: container.isUnlocked ? 1.0 : 0.95
-        Behavior on opacity { NumberAnimation { duration: 350 } }
-        Behavior on scale { NumberAnimation { duration: 450; easing.type: Easing.OutCubic } }
-        onVisibleChanged: if (visible) focusTimer.start(); else loginPanel.reset()
+        opacity: container.isUnlocked ? 1.0 : 0.0
+        Behavior on opacity { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
+        Behavior on anchors.bottomMargin { NumberAnimation { duration: 560; easing.type: Easing.OutCubic } }
     }
 
     Connections { target: sddm; function onLoginFailed() { loginPanel.triggerError() } }
-    Timer { id: focusTimer; interval: 100; onTriggered: loginPanel.focusPassword() }
 
     PowerMenu {
         id: powerMenu
@@ -133,5 +162,5 @@ Rectangle {
         Behavior on opacity { NumberAnimation { duration: 1000 } }
     }
 
-    Keys.onEscapePressed: { container.isUnlocked = false; container.focus = true; }
+    Keys.onEscapePressed: { container.isUnlocked = false; loginPanel.reset(); container.focus = true; }
 }

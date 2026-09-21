@@ -1,8 +1,7 @@
-global:
-
 {
   systemArch = "x86_64-linux";
   stateVersion = "26.05";
+  userName = "dd";
 
   users = {
     dd = {
@@ -10,50 +9,50 @@ global:
       extraGroups = [
         "wheel"
         "networkmanager"
+        "video"
       ];
     };
   };
 
-  terminal = global.terminals.kitty;
-  browser = global.browsers.firefox;
-  fileManager = global.fileManagers.thunar;
+  terminal = "kitty";
+  browser = "firefox";
+  fileManager = "thunar";
+  cursorSize = 24;
 
-  vms = with global.vms; [
-    libvirt
-    virt-manager
-  ];
-
-  packages = with global.packages; [
-    docker
-    steam
-    terraform
-    ansible
-    go
-    node
-    python
-    telegram
-    idea
-    vscode
-    cursor
-    keymapp
-    obsidian
-    google-chrome
-    kubectl
-    k9s
-    awscli2
-    btop
-    vagrant
-    vlc
-    discord
-    spotify
-    xournalpp
-    prismlauncher
-  ];
-
-  hardware = {
+  features = {
+    docker = true;
+    steam = true;
+    libvirt = true;
+    virt-manager = true;
     bluetooth = false;
     battery = false;
+    ollama = true;
   };
+
+  packages = [
+    "terraform"
+    "ansible"
+    "go"
+    "nodejs_latest"
+    "python3"
+    "ffmpeg"
+    "telegram-desktop"
+    "jetbrains.idea-oss"
+    "vscode"
+    "code-cursor"
+    "keymapp"
+    "obsidian"
+    "kubectl"
+    "k9s"
+    "awscli2"
+    "btop"
+    "vagrant"
+    "vlc"
+    "spotify"
+    "xournalpp"
+    "prismlauncher"
+    "libreoffice-stable"
+  ];
 
   monitors = [
     {
@@ -78,5 +77,8 @@ global:
     naturalScroll = false;
   };
 
-  cursorSize = 24;
+  git = {
+    userName = "lunarflare";
+    userEmail = "tes@gmail.com";
+  };
 }

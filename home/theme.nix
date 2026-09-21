@@ -3,6 +3,7 @@
   lib,
   pkgs,
   params,
+  desktopEnv,
   ...
 }:
 
@@ -10,7 +11,7 @@ let
   themeData = import ../lib/themes.nix;
   themeNames = builtins.attrNames themeData.themes;
   toLua = import ../lib/to-lua.nix { inherit lib; };
-  env = import ../lib/desktop-env.nix;
+  env = desktopEnv;
   defaultTheme = themeData.global.activeTheme;
   cursor = themeData.global.cursor;
 
@@ -37,9 +38,8 @@ let
     themeId:
     let
       theme = themeData.themes.${themeId};
-      colors = theme.colors;
-      fonts = themeData.global.fonts;
-      ui = themeData.global.ui;
+      inherit (theme) colors;
+      inherit (themeData.global) fonts ui;
     in
     ''
       font_family ${fonts.terminal.name}
@@ -87,14 +87,17 @@ let
 
   luaThemeFiles = lib.genAttrs themeNames (themeId: {
     text = themeToLua themeId;
+    force = true;
   });
 
   jsonThemeFiles = lib.genAttrs themeNames (themeId: {
     text = themeToJson themeId;
+    force = true;
   });
 
   kittyThemeFiles = lib.genAttrs themeNames (themeId: {
     text = themeToKitty themeId;
+    force = true;
   });
 
   themeList = builtins.concatStringsSep "\n" (
@@ -122,8 +125,14 @@ let
 in
 {
   xdg.configFile = {
-    "aurora/themes.json".text = builtins.toJSON themeData;
-    "aurora/themes.list".text = themeList + "\n";
+    "aurora/themes.json" = {
+      text = builtins.toJSON themeData;
+      force = true;
+    };
+    "aurora/themes.list" = {
+      text = themeList + "\n";
+      force = true;
+    };
 
     "environment.d/20-dark-theme.conf".text = lib.concatStrings (
       lib.mapAttrsToList (key: value: "${key}=${value}\n") env.gtkQt

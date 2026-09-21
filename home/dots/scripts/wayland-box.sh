@@ -124,11 +124,17 @@ if [[ -n "$PROXY" && -x "$PROXY" ]]; then
   done
 fi
 
+# Keep the host PID namespace. JVM DirectoryLock writes this PID into
+# ~/.config/JetBrains/*/.lock and then ProcessHandle.onExit(); a private
+# pid ns makes the IDE pid 2, so the next launch thinks it is still running
+# and Java throws "onExit for current process not allowed".
 args=(
-  --unshare-all
+  --unshare-user
+  --unshare-ipc
+  --unshare-uts
+  --unshare-cgroup-try
   --die-with-parent
   --new-session
-  --unshare-uts
   --hostname "box-$NAME"
   --proc /proc
   --dev /dev
@@ -177,8 +183,8 @@ args=(
   --unsetenv I3SOCK
 )
 
-if [[ $OFFLINE -eq 0 ]]; then
-  args+=(--share-net)
+if [[ $OFFLINE -eq 1 ]]; then
+  args+=(--unshare-net)
 fi
 
 if [[ -S "$SANDBOX_RT/bus" ]]; then

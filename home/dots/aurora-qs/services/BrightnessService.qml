@@ -9,7 +9,7 @@ import "../core" as Core
 Singleton {
     id: root
 
-    readonly property string bin: (Quickshell.env("HOME") || "") + "/.config/scripts/monitor-brightness"
+    readonly property string ctl: (Quickshell.env("HOME") || "") + "/.config/scripts/monitor-brightness"
     readonly property string statePath: (Quickshell.env("HOME") || "") + "/.local/state/aurora/brightness.json"
 
     property var displayList: []
@@ -24,7 +24,17 @@ Singleton {
     readonly property bool popupOpen: Core.PopupManager.isOpen("brightness")
     readonly property bool available: root.displayList.length > 0
 
-    readonly property var selected: root.displayOf(root.selectedName) || (root.displayList.length > 0 ? root.displayList[0] : null)
+    readonly property var ddcDisplays: {
+        const list = root.displayList;
+        const out = [];
+        for (let i = 0; i < list.length; i++) {
+            if (list[i].backend === "ddc")
+                out.push(list[i]);
+        }
+        return out;
+    }
+
+    readonly property var selected: root.displayOf(root.selectedName) || (root.ddcDisplays.length > 0 ? root.ddcDisplays[0] : null)
     readonly property string selectedLabel: root.selected ? (root.selected.label || root.selected.name) : "No display"
     readonly property int level: {
         const lv = root.levels;
@@ -33,6 +43,11 @@ Singleton {
         return typeof value === "number" && !isNaN(value) ? value : 100;
     }
     readonly property real fraction: root.level / 100
+
+    function dimOf(name) {
+        const percent = root.percentOf(name);
+        return Math.max(0, Math.min(0.72, 1 - percent / 100));
+    }
 
     function displayOf(name) {
         const list = root.displayList;
@@ -50,49 +65,45 @@ Singleton {
         return 100;
     }
 
-    function dimOf(name) {
+    function isDdc(name) {
         const row = root.displayOf(name);
-        if (!row || row.backend === "ddc")
-            return 0;
-        return Math.max(0, Math.min(0.8, (100 - root.percentOf(name)) / 100 * 0.8));
+        return !!(row && row.backend === "ddc");
     }
 
     function backendLabel(row) {
         if (!row)
             return "";
-        return row.backend === "ddc" ? "Hardware" : "Software";
+        return row.backend === "ddc" ? "Hardware DDC" : "Software";
+    }
+
+    function targetName(name) {
+        if (root.displayOf(name))
+            return name;
+        if (root.selected)
+            return root.selected.name;
+        return root.displayList.length ? root.displayList[0].name : "";
     }
 
     function patchLevel(name, percent) {
         const next = Object.assign({}, root.levels);
         next[name] = percent;
         root.levels = next;
-        if (name === root.selectedName || root.selectedName === "")
-            root.selectedName = name;
+        root.selectedName = name;
     }
 
     function setDisplayPercent(name, percent, commit) {
-        const row = root.displayOf(name) || root.selected;
-        const target = row ? row.name : name;
+        const target = root.targetName(name);
         if (!target)
             return;
-        const backend = row ? row.backend : "soft";
-        const lo = backend === "ddc" ? 0 : 10;
-        const clamped = Math.max(lo, Math.min(100, Math.round(percent)));
 
+        const clamped = Math.max(0, Math.min(100, Math.round(percent)));
         root.patchLevel(target, clamped);
         root.markInteraction();
         Core.OsdController.show("brightness", clamped / 100, false);
 
-        if (backend !== "ddc") {
-            persistDebounce.restart();
-            return;
-        }
-
         applyDebounce.targets = [{
             name: target,
-            percent: clamped,
-            bus: root.buses[target]
+            percent: clamped
         }];
         if (commit)
             root.flushDdc();
@@ -106,33 +117,22 @@ Singleton {
             return;
 
         const next = Object.assign({}, root.levels);
-        const ddcTargets = [];
-        let shown = 100;
+        const targets = [];
+        const clamped = Math.max(0, Math.min(100, Math.round(percent)));
 
         for (let i = 0; i < list.length; i++) {
-            const d = list[i];
-            const lo = d.backend === "ddc" ? 0 : 10;
-            const clamped = Math.max(lo, Math.min(100, Math.round(percent)));
-            next[d.name] = clamped;
-            shown = clamped;
-            if (d.backend === "ddc" && root.buses[d.name])
-                ddcTargets.push({
-                    name: d.name,
-                    percent: clamped,
-                    bus: root.buses[d.name]
-                });
+            next[list[i].name] = clamped;
+            targets.push({
+                name: list[i].name,
+                percent: clamped
+            });
         }
 
         root.levels = next;
         root.markInteraction();
-        Core.OsdController.show("brightness", shown / 100, false);
+        Core.OsdController.show("brightness", clamped / 100, false);
 
-        if (!ddcTargets.length) {
-            persistDebounce.restart();
-            return;
-        }
-
-        applyDebounce.targets = ddcTargets;
+        applyDebounce.targets = targets;
         if (commit)
             root.flushDdc();
         else
@@ -144,7 +144,10 @@ Singleton {
     }
 
     function step(up) {
-        root.stepDisplay(root.selectedName, up);
+        const name = root.targetName(root.selectedName);
+        if (!name)
+            return;
+        root.setDisplayPercent(name, root.percentOf(name) + (up ? root.stepSize : -root.stepSize), false);
     }
 
     function stepDisplay(name, up) {
@@ -159,7 +162,7 @@ Singleton {
     }
 
     function cycle() {
-        const list = root.displayList;
+        const list = root.ddcDisplays.length ? root.ddcDisplays : root.displayList;
         if (list.length < 2)
             return;
         let idx = 0;
@@ -178,18 +181,14 @@ Singleton {
         const targets = applyDebounce.targets || [];
         for (let i = 0; i < targets.length; i++) {
             const t = targets[i];
-            if (!t || !t.bus)
+            if (!t || !t.name)
                 continue;
             Quickshell.execDetached([
-                "ddcutil",
-                "--bus",
-                String(t.bus),
-                "--noverify",
-                "--sleep-multiplier",
-                ".15",
-                "setvcp",
-                "10",
-                String(t.percent)
+                root.ctl,
+                "-d",
+                t.name,
+                "set",
+                String(t.percent) + "%"
             ]);
         }
         persistDebounce.restart();
@@ -214,7 +213,7 @@ Singleton {
             const name = String(d.name || "");
             if (!name)
                 continue;
-            const backend = d.backend === "ddc" ? "ddc" : "soft";
+            const backend = d.backend === "ddc" ? "ddc" : "gamma";
             meta.push({
                 name: name,
                 label: String(d.label || name),
@@ -230,8 +229,18 @@ Singleton {
         root.displayList = meta;
         root.buses = nextBuses;
         root.levels = nextLevels;
-        if (!root.selectedName && meta.length)
+
+        const ddcNames = [];
+        for (let i = 0; i < meta.length; i++) {
+            if (meta[i].backend === "ddc")
+                ddcNames.push(meta[i].name);
+        }
+        if (ddcNames.length) {
+            if (ddcNames.indexOf(root.selectedName) === -1)
+                root.selectedName = ddcNames.indexOf(payload.selected) !== -1 ? payload.selected : ddcNames[0];
+        } else if (!root.selectedName && meta.length) {
             root.selectedName = payload.selected || meta[0].name;
+        }
         root.primed = true;
     }
 
@@ -253,7 +262,7 @@ Singleton {
             const d = list[i];
             displays[d.name] = {
                 percent: root.percentOf(d.name),
-                backend: d.backend === "ddc" ? "ddc" : "hypr"
+                backend: d.backend === "ddc" ? "ddc" : "gamma"
             };
             if (root.buses[d.name])
                 ddc[d.name] = {
@@ -276,7 +285,7 @@ Singleton {
     }
 
     property Process discoverProc: Process {
-        command: ["python3", root.bin, "--json", "--discover"]
+        command: [root.ctl, "--json", "--discover"]
         stdout: StdioCollector {
             onStreamFinished: root.parseStdout(text)
         }
@@ -284,7 +293,7 @@ Singleton {
 
     property Timer applyDebounce: Timer {
         property var targets: []
-        interval: 220
+        interval: 80
         repeat: false
         onTriggered: root.flushDdc()
     }

@@ -21,17 +21,35 @@
       ...
     }@inputs:
     let
-      params = import ./configurations-params/home-pc.nix (import ./configurations-params/global.nix);
+      inherit (nixpkgs) lib;
+      params = import ./configurations-params/home-pc.nix;
       inherit (params) systemArch;
-      pkgs = nixpkgs.legacyPackages.${systemArch};
+      host = import ./lib/host.nix { inherit lib params; };
+      desktopEnv = import ./lib/desktop-env.nix;
+      overlay = import ./pkgs;
+      pkgs = import nixpkgs {
+        system = systemArch;
+        overlays = [ overlay ];
+        config = {
+          allowUnfree = true;
+          permittedInsecurePackages = [ "idea-oss-2025.3.4" ];
+        };
+      };
     in
     {
-      nixosConfigurations.nixos = nixpkgs.lib.nixosSystem {
-        system = systemArch;
+      overlays.default = overlay;
+
+      nixosConfigurations.nixos = lib.nixosSystem {
         specialArgs = {
-          inherit params inputs;
+          inherit
+            params
+            inputs
+            host
+            desktopEnv
+            ;
         };
         modules = [
+          { nixpkgs.pkgs = pkgs; }
           ./configuration.nix
           ./hardware-configuration.nix
           ./modules
@@ -49,8 +67,8 @@
         ];
       };
 
-      checks.${systemArch}.eval = pkgs.writeText "nixos-eval" (
-        self.nixosConfigurations.nixos.config.system.stateVersion
-      );
+      checks.${systemArch}.eval = pkgs.runCommand "nixos-eval" {
+        inherit (self.nixosConfigurations.nixos.config.system.build.toplevel) drvPath;
+      } "echo \"$drvPath\" > \"$out\"";
     };
 }

@@ -73,6 +73,7 @@ Item {
 
     property int liveSelectDelay: 200
     property bool vimNavigation: false
+    property var handleEscape: null
 
     readonly property int fittableRows: Math.max(1, Math.floor((root.cardMaxHeight - root.headerHeight - root.separatorHeight - root.contentMargins) / root.rowExtent))
 
@@ -198,6 +199,10 @@ Item {
         acceptedButtons: Qt.NoButton
 
         onWheel: function (event) {
+            if (root.launchpad) {
+                event.accepted = false;
+                return;
+            }
             root.wheelSelect(event.angleDelta.y);
             event.accepted = true;
         }
@@ -362,6 +367,10 @@ Item {
                     }
 
                     if (event.key === Qt.Key_Escape) {
+                        if (root.launchpad && typeof root.handleEscape === "function" && root.handleEscape()) {
+                            event.accepted = true;
+                            return;
+                        }
                         if (Core.PopupManager.contextMenuOpen) {
                             Core.PopupManager.contextMenuOpen = false;
                             event.accepted = true;

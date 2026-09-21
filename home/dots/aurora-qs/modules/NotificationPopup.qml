@@ -254,27 +254,27 @@ Components.PopupSurface {
                             width: 40
                             height: 40
 
-                            Image {
-                                anchors.fill: parent
-                                source: "file://" + Quickshell.shellDir + "/assets/minecraft/slot.png"
-                                smooth: false
-                                antialiasing: false
-                                fillMode: Image.Stretch
-                            }
-
                             readonly property string resolvedIcon: Services.NotificationServer.iconFor(noteRow.modelData)
+
+                            Rectangle {
+                                anchors.fill: parent
+                                radius: 10
+                                color: Qt.rgba(1, 1, 1, 0.08)
+                                border.width: 1
+                                border.color: Qt.rgba(1, 1, 1, 0.10)
+                            }
 
                             Image {
                                 id: noteIcon
                                 anchors.centerIn: parent
-                                width: 32
-                                height: 32
+                                width: 28
+                                height: 28
                                 source: iconBox.resolvedIcon
                                 visible: iconBox.resolvedIcon !== "" && status === Image.Ready
                                 asynchronous: true
                                 cache: true
-                                smooth: false
-                                mipmap: false
+                                smooth: true
+                                mipmap: true
                                 fillMode: Image.PreserveAspectFit
                             }
 
@@ -283,9 +283,9 @@ Components.PopupSurface {
                                 visible: !noteIcon.visible
                                 text: Core.Icons.forApp(popup.appLabel(noteRow.modelData))
                                 font.family: Core.Theme.iconFont
-                                font.pixelSize: 22
-                                color: "#FFFF55"
-                                renderType: Text.NativeRendering
+                                font.pixelSize: 18
+                                color: Core.Theme.foreground
+                                renderType: Text.QtRendering
                             }
                         }
 
@@ -295,10 +295,10 @@ Components.PopupSurface {
                             anchors.left: iconBox.right
                             anchors.right: parent.right
                             anchors.verticalCenter: parent.verticalCenter
-                            anchors.leftMargin: 10
+                            anchors.leftMargin: 12
                             anchors.rightMargin: 34
 
-                            spacing: 2
+                            spacing: 3
 
                             Item {
                                 width: parent.width
@@ -311,11 +311,10 @@ Components.PopupSurface {
                                     anchors.rightMargin: 6
                                     text: popup.appLabel(noteRow.modelData)
                                     elide: Text.ElideRight
-                                    font.family: Core.Theme.fontPixel
-                                    font.pixelSize: 14
-                                    font.kerning: false
-                                    color: "#AAAAAA"
-                                    renderType: Text.NativeRendering
+                                    font.family: Core.Theme.fontFamily
+                                    font.pixelSize: 11
+                                    color: Qt.rgba(1, 1, 1, 0.45)
+                                    renderType: Text.QtRendering
                                 }
 
                                 Text {
@@ -326,11 +325,10 @@ Components.PopupSurface {
                                         const tick = Services.NotificationServer.ageTick;
                                         return Services.NotificationServer.ageText(noteRow.modelData);
                                     }
-                                    font.family: Core.Theme.fontPixel
-                                    font.pixelSize: 14
-                                    font.kerning: false
-                                    color: "#555555"
-                                    renderType: Text.NativeRendering
+                                    font.family: Core.Theme.fontFamily
+                                    font.pixelSize: 11
+                                    color: Qt.rgba(1, 1, 1, 0.32)
+                                    renderType: Text.QtRendering
                                 }
                             }
 
@@ -339,11 +337,11 @@ Components.PopupSurface {
                                 text: noteRow.modelData.summary ? noteRow.modelData.summary : ""
                                 visible: text !== ""
                                 elide: Text.ElideRight
-                                font.family: Core.Theme.fontPixel
-                                font.pixelSize: 16
-                                font.kerning: false
-                                color: popup.isCritical(noteRow.modelData) ? "#FF5555" : "#FFFF55"
-                                renderType: Text.NativeRendering
+                                font.family: Core.Theme.fontFamily
+                                font.pixelSize: 13
+                                font.weight: Font.DemiBold
+                                color: popup.isCritical(noteRow.modelData) ? Core.Theme.danger : Core.Theme.foreground
+                                renderType: Text.QtRendering
                             }
 
                             Text {
@@ -354,20 +352,19 @@ Components.PopupSurface {
                                 maximumLineCount: 3
                                 elide: Text.ElideRight
                                 textFormat: Text.StyledText
-                                linkColor: "#55FFFF"
+                                linkColor: Core.Theme.accent
                                 onLinkActivated: function (link) {
                                     Quickshell.execDetached(["xdg-open", link]);
                                 }
-                                font.family: Core.Theme.fontPixel
-                                font.pixelSize: 16
-                                font.kerning: false
-                                color: "#FFFFFF"
-                                renderType: Text.NativeRendering
+                                font.family: Core.Theme.fontFamily
+                                font.pixelSize: 12
+                                color: Qt.rgba(1, 1, 1, 0.72)
+                                renderType: Text.QtRendering
                             }
 
                             Components.NotificationActions {
                                 width: parent.width
-                                chipHeight: 22
+                                chipHeight: 24
                                 notification: noteRow.modelData
                             }
                         }

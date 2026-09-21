@@ -387,7 +387,12 @@ PanelWindow {
                     id: spaceCard
                     required property int index
                     required property int ws
-                    readonly property int localWs: spaceCard.ws
+                    readonly property int localWs: {
+                        const _ = Core.Session.spaceRev;
+                        const list = root.spaceLocals;
+                        const id = list[spaceCard.index];
+                        return Number(id || spaceCard.ws || 1);
+                    }
                     readonly property int workspace: root.base + spaceCard.localWs
                     readonly property bool focused: root.previewLocal === spaceCard.localWs
                     readonly property bool dropTarget: Core.Session.overviewDrag && Core.Session.overviewDropMonitor === root.monitorName && !Core.Session.overviewDropPlus && Core.Session.overviewDropLocal === spaceCard.localWs && !Core.Session.overviewDropSwap
@@ -860,6 +865,7 @@ PanelWindow {
                     Core.Session.reorderSpaceOnMonitor(root.monitorName, grab.pressLocal, 0, true);
                 else if (slot.localWs >= 1 && slot.localWs !== grab.pressLocal)
                     Core.Session.reorderSpaceOnMonitor(root.monitorName, grab.pressLocal, slot.localWs, false);
+                root.rebuildSpaces();
                 Core.Session.clearOverviewDrag();
             } else if (grab.didDrag || Core.Session.overviewDrag) {
                 if (mouse)

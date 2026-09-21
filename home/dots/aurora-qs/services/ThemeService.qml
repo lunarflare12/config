@@ -55,6 +55,12 @@ QtObject {
         return trimmed.length > 0 ? trimmed : root.defaultId
     }
 
+    readonly property var allowedIds: [
+        "catppuccin-mocha",
+        "macos-golden-gate",
+        "tokyo-night"
+    ]
+
     readonly property var catalogue: {
         const raw = root.catalogueFile.text()
         if (!raw)
@@ -67,16 +73,19 @@ QtObject {
         }
     }
 
-    // themes.list is the ordering authority.
+    // themes.list is the ordering authority. Extra ids from a stale HM
+    // catalogue never reach the picker.
     readonly property var themes: {
-        const raw = root.listFile.text()
-        if (!raw)
-            return []
-
+        const raw = root.listFile.text() || ""
         const catalogue = root.catalogue
         const entries = (catalogue && catalogue.themes) ? catalogue.themes : ({})
+        const allowed = ({})
+        for (let a = 0; a < root.allowedIds.length; a++)
+            allowed[root.allowedIds[a]] = true
+
         const lines = raw.split("\n")
         const out = []
+        const seen = ({})
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i]
@@ -85,18 +94,30 @@ QtObject {
 
             const parts = line.split("\t")
             const id = parts[0].trim()
-            if (id.length === 0)
+            if (id.length === 0 || seen[id] || !allowed[id])
                 continue
 
+            seen[id] = true
             const name = (parts.length > 1 && parts[1].trim().length > 0)
                 ? parts[1].trim()
                 : id
-
             const entry = entries[id]
 
             out.push({
                 "id": id,
                 "name": name,
+                "colors": (entry && entry.colors) ? entry.colors : ({})
+            })
+        }
+
+        for (let a = 0; a < root.allowedIds.length; a++) {
+            const id = root.allowedIds[a]
+            if (seen[id])
+                continue
+            const entry = entries[id]
+            out.push({
+                "id": id,
+                "name": (entry && entry.name) ? entry.name : id,
                 "colors": (entry && entry.colors) ? entry.colors : ({})
             })
         }

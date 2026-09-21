@@ -8,6 +8,22 @@
     '';
   };
 
+  # Local copy used to point at ~/.local/bin/obs, which activation deletes.
+  xdg.desktopEntries."com.obsproject.Studio" = {
+    name = "OBS Studio";
+    genericName = "Streaming/Recording Software";
+    comment = "Free and Open Source Streaming/Recording Software";
+    exec = "env LD_LIBRARY_PATH=/run/opengl-driver/lib obs";
+    icon = "com.obsproject.Studio";
+    terminal = false;
+    categories = [
+      "AudioVideo"
+      "Recorder"
+    ];
+    startupNotify = true;
+    settings.StartupWMClass = "obs";
+  };
+
   home.activation.seedObsStudio = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     dest="$HOME/.config/obs-studio"
     src="${./dots/obs-studio}"

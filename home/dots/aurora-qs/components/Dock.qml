@@ -3,59 +3,84 @@ import Quickshell
 import Quickshell.Wayland
 
 import "../core" as Core
+import "../services" as Services
 
-// Golden Gate dock: bottom-centered glass tray, hover lift, drag to reorder.
+// Left-edge dock on Xiaomi (DP-1). Hidden on Philips and in game fullscreen.
 PanelWindow {
     id: root
 
     property var modelData: null
     screen: root.modelData
 
-    anchors.bottom: true
     anchors.left: true
-    anchors.right: true
+    anchors.top: true
+    anchors.bottom: true
 
-    implicitHeight: 200
-    exclusiveZone: root.hidden ? 0 : 76
+    implicitWidth: 200
+    exclusiveZone: root.onMain && !root.hidden ? Core.Theme.dockReserve : 0
     color: "transparent"
 
+    readonly property string monitorName: Core.Session.monitorNameForScreen(root.screen)
+    readonly property bool onMain: Core.Session.isDesktopMonitor(root.monitorName)
     readonly property bool hidden: Core.Session.gameFullscreenOnScreen(root.screen)
-    readonly property bool launchpadCovering: Core.PopupManager.launchpadIntro > 0.01
-    visible: !root.hidden && !root.launchpadCovering
+    readonly property bool launchpadHere: Core.PopupManager.launchpadIntro > 0.01 && root.onMain && Core.Session.focusedMonitorName() === root.monitorName
+    visible: root.onMain && !root.hidden
+
+    property real rise: 1
 
     WlrLayershell.namespace: "aurora-dock"
-    WlrLayershell.keyboardFocus: dockBar.menuOpen ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
-    WlrLayershell.layer: WlrLayer.Top
+    WlrLayershell.keyboardFocus: (dockBar.menuOpen || dockBar.folderOpen) ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+    WlrLayershell.layer: WlrLayer.Overlay
 
-    mask: dockBar.menuOpen ? null : dockMask
+    mask: {
+        if (dockBar.menuOpen || dockBar.folderOpen)
+            return null;
+        return dockMask;
+    }
 
     property Region dockMask: Region {
         item: dockBar.hitbox
     }
 
+    Behavior on rise {
+        NumberAnimation {
+            duration: 220
+            easing.type: Easing.OutCubic
+        }
+    }
+
     MouseArea {
         anchors.fill: parent
-        enabled: dockBar.menuOpen
-        onClicked: dockBar.menuOpen = false
+        enabled: dockBar.menuOpen || dockBar.folderOpen
+        onClicked: {
+            dockBar.menuOpen = false;
+            Services.AppsService.closeFolder();
+        }
     }
 
     Item {
         id: escSink
         anchors.fill: parent
-        focus: dockBar.menuOpen
-        Keys.onEscapePressed: dockBar.menuOpen = false
+        focus: dockBar.menuOpen || dockBar.folderOpen
+        Keys.onEscapePressed: {
+            dockBar.menuOpen = false;
+            Services.AppsService.closeFolder();
+        }
     }
 
     DockBar {
         id: dockBar
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: 8
-        anchors.horizontalCenter: parent.horizontalCenter
-        intro: 1
-        interactive: true
+        anchors.left: parent.left
+        anchors.leftMargin: 8
+        anchors.verticalCenter: parent.verticalCenter
+        intro: root.rise
+        fadeWithIntro: false
+        interactive: !root.launchpadHere
+        opacity: root.launchpadHere ? 0 : 1
         onMenuOpenChanged: {
             if (dockBar.menuOpen)
                 escSink.forceActiveFocus();
         }
+        onLaunched: Core.PopupManager.close()
     }
 }

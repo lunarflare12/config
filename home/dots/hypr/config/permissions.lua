@@ -14,3 +14,11 @@ allow_screencopy("/nix/store/.*/bin/satty")
 allow_screencopy("/nix/store/.*/bin/hyprpicker")
 allow_screencopy("/nix/store/.*/bin/qs")
 allow_screencopy("/nix/store/.*/bin/quickshell")
+
+local function allow_plugin(binary)
+    hl.permission({ binary = binary, type = "plugin", mode = "allow" })
+end
+
+allow_plugin("/nix/store/.*/bin/hyprctl")
+allow_plugin("/run/current-system/sw/bin/hyprctl")
+allow_plugin("/etc/profiles/per-user/.*/bin/hyprctl")

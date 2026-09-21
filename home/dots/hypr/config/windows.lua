@@ -1,10 +1,11 @@
 local GAME_MONITOR = "DP-1"
 -- Local 4 on the ultrawide (HDMI owns 1-10, DP-1 owns 11-20).
 local GAME_WORKSPACE = "14"
-local GAME_CLASS = "^(steam_app_|[Mm]inecraft)"
+-- Native Dota 2 is class dota2, not steam_app_570.
+local GAME_CLASS = "^(steam_app_|dota2|[Mm]inecraft)"
 -- Nix wraps the binary as .gamescope-wrapped; class match is whole-string.
 local GAMESCOPE_CLASS = ".*gamescope.*"
-local ALL_GAME_CLASS = "^(steam_app_|.*gamescope.*|[Mm]inecraft)"
+local ALL_GAME_CLASS = "^(steam_app_|dota2|.*gamescope.*|[Mm]inecraft)"
 
 hl.window_rule({
     name = "suppress-maximize",
@@ -14,9 +15,11 @@ hl.window_rule({
 hl.window_rule({ name = "fix-xwayland-drags", match = { class = "^$", title = "^$", xwayland = true, float = true, fullscreen = false, pin = false }, no_focus = true })
 
 for _, rule in ipairs({
-    { name = "float-pip", match = { title = "^(Picture-in-Picture)$" }, float = true, size = "960 540", move = "25%- 0" },
+    { name = "opaque-discord", match = { class = "^([Dd]iscord)$" }, opaque = true, no_blur = true, render_unfocused = true },
+    { name = "opaque-steam", match = { class = "^(steam)$" }, opaque = true, no_blur = true },
     { name = "float-media", match = { title = "^(imv|mpv|danmufloat|termfloat|nemo|ncmpcpp)$" }, float = true, size = "960 540", move = "25%- 0" },
     { name = "float-waydroid", match = { class = "^(Waydroid)$" }, float = true, size = "1280 720", center = true },
+    { name = "float-insta360", match = { class = "^(insta360linkgui)$" }, float = true, size = "1760 1000", center = true },
     { name = "float-pavucontrol", match = { class = "^(org.pulseaudio.pavucontrol|pavucontrol-qt)$" }, float = true },
     { name = "float-satty", match = { class = "^(com.gabm.satty|satty)$" }, float = true, pin = true, no_anim = true },
     { name = "float-picture-in-picture", match = { class = "^()$", title = "^(Picture in picture)$" }, float = true },
@@ -37,6 +40,7 @@ for _, rule in ipairs({
     { name = "float-thunar-create", match = { class = "^(thunar)$", title = "^(Create.*)$" }, float = true },
     { name = "float-thunar-properties", match = { class = "^(thunar)$", title = "^(Properties)$" }, float = true, size = "600 500" },
     { name = "center-thunar-dialogs", match = { class = "^(thunar)$", title = "^(Rename.*|File Operation Progress|Confirm.*|Question|Create.*|Properties)$" }, center = true },
+    { name = "float-opencluely", match = { title = "^OpenCluely$" }, float = true, pin = true, size = "520 680", center = true, no_anim = true },
 }) do
     hl.window_rule(rule)
 end
@@ -81,6 +85,42 @@ game_rule("gamescope-class", { class = GAMESCOPE_CLASS }, { confine_pointer = fa
 game_rule("games-initial-class", { initial_class = GAME_CLASS }, { confine_pointer = true })
 game_rule("gamescope-initial-class", { initial_class = GAMESCOPE_CLASS }, { confine_pointer = false, no_vrr = true })
 
+-- Overwatch: compositor maximize, client stays windowed 1920. Client FS (2)
+-- makes DXGI match the 2560 output and Use219=0 pillarboxes. no_max_size
+-- stops ICCCM max=1920 from shrinking the Hyprland window.
+local OW_CLASS = "^(steam_app_2357570|[Oo]verwatch)"
+game_rule("overwatch-class", { class = OW_CLASS }, {
+    confine_pointer = true,
+    fullscreen_state = "1 0",
+    no_max_size = true,
+    -- Keep the compositor window at 2560. The game still renders 1920;
+    -- csgo-vulkan-fix stretches that buffer. Without this, Wine parks the
+    -- 1920 window on the right of the ultrawide (black bar on the left).
+    suppress_event = "x11configurerequest",
+})
+game_rule("overwatch-initial-class", { initial_class = OW_CLASS }, {
+    confine_pointer = true,
+    fullscreen_state = "1 0",
+    no_max_size = true,
+    suppress_event = "x11configurerequest",
+})
+
+local function setup_vkfix()
+    if not (hl.plugin and hl.plugin.csgo_vulkan_fix and hl.plugin.csgo_vulkan_fix.vkfix_app) then
+        return
+    end
+    hl.config({
+        plugin = {
+            csgo_vulkan_fix = { fix_mouse = false },
+        },
+        render = { expand_undersized_textures = true },
+    })
+    hl.plugin.csgo_vulkan_fix.vkfix_app({ app = "steam_app_2357570", w = 1920, h = 1080 })
+    hl.plugin.csgo_vulkan_fix.vkfix_app({ app = "overwatch.exe", w = 1920, h = 1080 })
+    hl.plugin.csgo_vulkan_fix.vkfix_app({ app = "Overwatch", w = 1920, h = 1080 })
+end
+setup_vkfix()
+
 -- Albion 2FA/login: Unity Input System drops text in exclusive FS.
 -- Confine also eats the click that focuses the code field.
 local ALBION_CLASS = "^(steam_app_761890|[Aa]lbion)"
@@ -107,6 +147,10 @@ local function pin_game(w, client_fs)
     pcall(function()
         hl.dispatch(hl.dsp.window.fullscreen_state({ window = w, internal = 1, client = client_fs }))
     end)
+    -- Native titles (Dota 2) never talk to gamemoded. Still drop blur/anim.
+    pcall(function()
+        hl.exec_cmd("/home/dd/.config/scripts/gamemode-start.sh")
+    end)
 end
 
 local function game_to_desk(win)
@@ -116,10 +160,14 @@ local function game_to_desk(win)
     local w = win.window or win
     local cls = string.lower(tostring(w.initial_class or "") .. " " .. tostring(w.class or ""))
     local title = string.lower(tostring(w.title or ""))
-    -- Nested gamescope first: client FS must stay 2.
+    -- Nested gamescope first: title is "Overwatch" but client FS must stay 2.
     -- Do not listen to window.fullscreen — re-dispatching there fights 1 2 vs 1 0.
     if cls:find("gamescope", 1, true) then
         pin_game(w, 2)
+        return
+    end
+    if cls:find("steam_app_2357570", 1, true) or cls:find("overwatch", 1, true) or title:find("overwatch", 1, true) then
+        pin_game(w, 0)
         return
     end
     if cls:find("steam_app_761890", 1, true) or cls:find("albion", 1, true) then
@@ -129,7 +177,7 @@ local function game_to_desk(win)
     if cls:find("prism", 1, true) then
         return
     end
-    if cls:find("steam_app_", 1, true) or cls:find("minecraft", 1, true) then
+    if cls:find("steam_app_", 1, true) or cls:find("dota2", 1, true) or cls:find("minecraft", 1, true) then
         pin_game(w, 2)
         return
     end

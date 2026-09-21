@@ -2,14 +2,27 @@
 set -euo pipefail
 
 wallpaper="${1:?Usage: set-wallpaper.sh /path/to/wallpaper}"
-wall_dir="$HOME/.wall"
-current_file="$wall_dir/.current"
+state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/aurora"
+state_file="$state_dir/wallpaper"
+cache_file="${XDG_CACHE_HOME:-$HOME/.cache}/aurora/current-wallpaper"
+current_file="$HOME/.wall/.current"
 
 if [ ! -f "$wallpaper" ]; then
   printf 'Wallpaper not found: %s\n' "$wallpaper" >&2
   exit 1
 fi
 
-awww img "$wallpaper" --transition-type grow --transition-duration 1.4 --transition-fps 60
-printf '%s\n' "$(basename "$wallpaper")" > "$current_file"
-notify-send -i "$wallpaper" "Wallpaper Changed" "$(basename "$wallpaper")" -t 3000
+wallpaper=$(readlink -f "$wallpaper")
+
+mkdir -p "$state_dir" "$(dirname "$cache_file")" "$HOME/Wallpapers" "$HOME/.wall"
+printf '%s\n' "$wallpaper" > "$state_file"
+printf '%s\n' "$wallpaper" > "$cache_file"
+chmod u+w "$state_file" "$cache_file" 2>/dev/null || true
+
+# HM may leave ~/.wall/.current mode 444. Persistence does not depend on it.
+if [ -e "$current_file" ]; then
+  chmod u+w "$current_file" 2>/dev/null || true
+fi
+printf '%s\n' "$(basename "$wallpaper")" > "$current_file" 2>/dev/null || true
+
+awww img "$wallpaper" --transition-type fade --transition-fps 60 --transition-step 30

@@ -22,7 +22,7 @@ PanelWindow {
 
     implicitHeight: Core.Theme.barHeight
     exclusiveZone: root.gameFullscreen ? 0 : Core.Theme.barHeight
-    color: "transparent"
+    color: "#000000"
 
     readonly property string monitorName: Core.Session.monitorNameForScreen(root.screen)
     readonly property bool gameFullscreen: Core.Session.gameFullscreenOnScreen(root.screen)
@@ -30,7 +30,7 @@ PanelWindow {
     visible: !root.gameFullscreen
 
     WlrLayershell.namespace: "aurora-bar"
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+    WlrLayershell.keyboardFocus: tray.menuOpen ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
 
     readonly property bool osd: Core.OsdController.active
 
@@ -38,15 +38,7 @@ PanelWindow {
         id: surface
 
         anchors.fill: parent
-        color: Qt.rgba(Core.Theme.background.r, Core.Theme.background.g, Core.Theme.background.b, 0.86)
-
-        Rectangle {
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.bottom: parent.bottom
-            height: 1
-            color: Qt.rgba(1, 1, 1, 0.10)
-        }
+        color: "#000000"
 
         Item {
             id: leftCluster

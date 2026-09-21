@@ -1,0 +1,258 @@
+--- a/umainform.pas
++++ b/umainform.pas
+@@ -30,7 +30,8 @@
+     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
+   private
+     FCam: TInsta360Link;
+-    FUpdating: Boolean;  // Prevent feedback loops on slider changes
++    FUpdating: Boolean; // Prevent feedback loops on slider changes
++    FActiveLook: Integer;
+ 
+     // --- Live preview ---
+     FCapture: TVideoCapture;
+@@ -114,6 +115,7 @@
+     tbWBTemp: TTrackBar;
+     lblWBTempV: TLabel;
+     chkBacklight: TCheckBox;
++    btnLook: array[0..3] of TButton;
+ 
+     grpExposure: TGroupBox;
+     chkAutoExposure: TCheckBox;
+@@ -186,6 +188,10 @@
+     function DefaultScene(Index: Integer): TPresetPosition;
+     procedure EnsureDefaultPresets;
+     procedure ApplyScene(Index: Integer);
++    function DefaultLook(Index: Integer): string;
++    procedure ApplyLook(Index: Integer);
++    procedure LookClick(Sender: TObject);
++    procedure HighlightLook(Index: Integer);
+ 
+     // Diagnostics
+     procedure ScanXUClick(Sender: TObject);
+@@ -216,6 +222,7 @@
+   FCam := TInsta360Link.Create;
+   FCam.OnLog := @CamLog;
+   FUpdating := False;
++  FActiveLook := 0;
+   FCapture := TVideoCapture.Create;
+   FPreviewBmp := TBitmap.Create;
+   BuildUI;
+@@ -490,7 +497,7 @@
+   grpImage := TGroupBox.Create(Self);
+   grpImage.Parent := pnlRight;
+   grpImage.Align := alTop;
+-  grpImage.Height := 360;
++  grpImage.Height := 430;
+   grpImage.BorderSpacing.Around := 8;
+   grpImage.Caption := ' Image Controls ';
+ 
+@@ -567,6 +574,17 @@
+   lblWBTempV := MakeLabel(grpImage, 308, Y + 4, '6400K');
+   lblWBTempV.Anchors := [akTop, akRight];
+ 
++  Inc(Y, 40);
++  btnLook[0] := MakeButton(grpImage, 12, Y, 82, 32, 'Natural', @LookClick);
++  btnLook[1] := MakeButton(grpImage, 100, Y, 82, 32, 'Stream', @LookClick);
++  btnLook[2] := MakeButton(grpImage, 188, Y, 82, 32, 'Soft', @LookClick);
++  btnLook[3] := MakeButton(grpImage, 276, Y, 82, 32, 'Desk', @LookClick);
++  for i := 0 to 3 do
++  begin
++    btnLook[i].Tag := i;
++    btnLook[i].Anchors := [akLeft, akTop];
++  end;
++
+   grpExposure := TGroupBox.Create(Self);
+   grpExposure.Parent := pnlRight;
+   grpExposure.Align := alTop;
+@@ -736,6 +754,7 @@
+     btnConnect.Enabled := False;
+     btnDisconnect.Enabled := True;
+     ReadCurrentValues;
++    ApplyLook(FActiveLook);
+     UpdateUIState;
+     tmrTrackingPoll.Enabled := False;
+     CamLog(Self, 'Connected to ' + devpath);
+@@ -1101,22 +1120,27 @@
+   case Index of
+     0: begin
+          Result.Name := 'Stream Face';
+-         Result.Zoom := 160;
++         Result.Zoom := 170;
++         Result.Tilt := -36000;
+          Result.Frame := tfHead;
+        end;
+     1: begin
+          Result.Name := 'Stream Wide';
+-         Result.Zoom := 100;
++         Result.Zoom := 110;
++         Result.Tilt := -18000;
+          Result.Frame := tfFullBody;
+        end;
+     2: begin
+          Result.Name := 'Call';
+          Result.Zoom := 200;
++         Result.Tilt := -28800;
+          Result.Frame := tfHead;
+        end;
+     3: begin
+          Result.Name := 'Desk';
+          Result.Zoom := 100;
++         Result.Pan := -57600;
++         Result.Tilt := -172800;
+          Result.Tracking := False;
+          Result.Mode := cmDeskView;
+        end;
+@@ -1137,7 +1161,12 @@
+     if not p.Valid then
+       p := DefaultScene(i)
+     else
++    begin
+       p.Name := DefaultScene(i).Name;
++      // Keep saved PTZ, but guarantee scene metadata is present.
++      if (p.Zoom < 100) then
++        p.Zoom := DefaultScene(i).Zoom;
++    end;
+     FCam.SetPreset(i, p);
+     if Assigned(btnScene[i]) then
+       btnScene[i].Caption := p.Name;
+@@ -1209,6 +1238,120 @@
+   end;
+ end;
+ 
++function TfrmMain.DefaultLook(Index: Integer): string;
++begin
++  case Index of
++    0: Result := 'Natural';
++    1: Result := 'Stream';
++    2: Result := 'Soft';
++    3: Result := 'Desk';
++  else
++    Result := 'Look';
++  end;
++end;
++
++procedure TfrmMain.HighlightLook(Index: Integer);
++var
++  i: Integer;
++begin
++  for i := 0 to 3 do
++    if Assigned(btnLook[i]) then
++      if i = Index then
++        btnLook[i].Font.Style := [fsBold]
++      else
++        btnLook[i].Font.Style := [];
++end;
++
++procedure TfrmMain.ApplyLook(Index: Integer);
++var
++  b, c, s, sh, g, wb: LongInt;
++  autoWB, backlight: Boolean;
++begin
++  if not FCam.Connected then Exit;
++
++  autoWB := True;
++  backlight := False;
++  wb := 5600;
++  g := 0;
++  case Index of
++    0: begin // Natural — clean skin, no edge crunch
++         b := 52; c := 54; s := 48; sh := 42;
++       end;
++    1: begin // Stream — a bit more punch for face cam
++         b := 55; c := 58; s := 50; sh := 48;
++         backlight := True;
++       end;
++    2: begin // Soft — warmer, flatter, kinder to skin
++         b := 56; c := 46; s := 44; sh := 32;
++         autoWB := False; wb := 4800;
++       end;
++    3: begin // Desk — readable text / documents
++         b := 50; c := 62; s := 38; sh := 58;
++       end;
++  else
++    Exit;
++  end;
++
++  FUpdating := True;
++  try
++    if FCam.BrightnessRange.Available then
++    begin
++      tbBrightness.Position := b;
++      lblBrightnessV.Caption := IntToStr(b);
++    end;
++    if FCam.ContrastRange.Available then
++    begin
++      tbContrast.Position := c;
++      lblContrastV.Caption := IntToStr(c);
++    end;
++    if FCam.SaturationRange.Available then
++    begin
++      tbSaturation.Position := s;
++      lblSaturationV.Caption := IntToStr(s);
++    end;
++    if FCam.SharpnessRange.Available then
++    begin
++      tbSharpness.Position := sh;
++      lblSharpnessV.Caption := IntToStr(sh);
++    end;
++    if FCam.GainRange.Available then
++    begin
++      tbGain.Position := g;
++      lblGainV.Caption := IntToStr(g);
++    end;
++    chkAutoWB.Checked := autoWB;
++    tbWBTemp.Enabled := not autoWB;
++    if not autoWB then
++    begin
++      tbWBTemp.Position := wb;
++      lblWBTempV.Caption := IntToStr(wb) + 'K';
++    end;
++    chkBacklight.Checked := backlight;
++    HighlightLook(Index);
++  finally
++    FUpdating := False;
++  end;
++
++  FCam.SetBrightness(b);
++  FCam.SetContrast(c);
++  FCam.SetSaturation(s);
++  FCam.SetSharpness(sh);
++  if FCam.GainRange.Available then
++    FCam.SetGain(g);
++  FCam.SetAutoWhiteBalance(autoWB);
++  if not autoWB then
++    FCam.SetWhiteBalanceTemp(wb);
++  FCam.SetBacklightCompensation(backlight);
++  FCam.SetAutoFocus(True);
++  FActiveLook := Index;
++  CamLog(Self, 'Look: ' + DefaultLook(Index));
++end;
++
++procedure TfrmMain.LookClick(Sender: TObject);
++begin
++  ApplyLook((Sender as TButton).Tag);
++end;
++
+ procedure TfrmMain.PresetRecallClick(Sender: TObject);
+ begin
+   ApplyScene((Sender as TButton).Tag);
+@@ -1380,6 +1523,8 @@
+     ini.WriteInteger('PTZ', 'PanStep', sePanStep.Value);
+     ini.WriteInteger('PTZ', 'TiltStep', seTiltStep.Value);
+     for i := 0 to 3 do
++    ini.WriteInteger('Looks', 'Active', FActiveLook);
++    for i := 0 to 3 do
+     begin
+       p := FCam.GetPreset(i);
+       ini.WriteString('Presets', 'Name' + IntToStr(i), DefaultScene(i).Name);
+@@ -1410,6 +1555,10 @@
+   try
+     sePanStep.Value := ini.ReadInteger('PTZ', 'PanStep', 8);
+     seTiltStep.Value := ini.ReadInteger('PTZ', 'TiltStep', 8);
++    FActiveLook := ini.ReadInteger('Looks', 'Active', 0);
++    if (FActiveLook < 0) or (FActiveLook > 3) then
++      FActiveLook := 0;
++    HighlightLook(FActiveLook);
+ 
+     // Re-select the last-used device if it's still present in the list.
+     // Combo items are formatted as '<path>  [card - driver]', so match on prefix.

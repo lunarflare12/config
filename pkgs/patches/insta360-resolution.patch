@@ -1,0 +1,205 @@
+--- a/umainform.pas
++++ b/umainform.pas
+@@ -32,6 +32,8 @@
+     FCam: TInsta360Link;
+     FUpdating: Boolean; // Prevent feedback loops on slider changes
+     FActiveLook: Integer;
++    FPrefW: Integer;
++    FPrefH: Integer;
+ 
+     // --- Live preview ---
+     FCapture: TVideoCapture;
+@@ -42,6 +44,8 @@
+     pbPreview: TPaintBox;
+     btnPreview: TButton;
+     lblPreviewInfo: TLabel;
++    lblResolution: TLabel;
++    cboResolution: TComboBox;
+     tmrPreview: TTimer;
+ 
+     // --- Press-and-hold PTZ ---
+@@ -163,6 +167,10 @@
+     procedure PreviewPaint(Sender: TObject);
+     procedure StartPreview;
+     procedure StopPreview;
++    procedure FillResolutions;
++    procedure ResolutionChange(Sender: TObject);
++    function SelectedWidth: Integer;
++    function SelectedHeight: Integer;
+ 
+     // Mode handlers
+     procedure TrackingOnClick(Sender: TObject);
+@@ -223,6 +231,8 @@
+   FCam.OnLog := @CamLog;
+   FUpdating := False;
+   FActiveLook := 0;
++  FPrefW := 1920;
++  FPrefH := 1080;
+   FCapture := TVideoCapture.Create;
+   FPreviewBmp := TBitmap.Create;
+   BuildUI;
+@@ -637,9 +647,20 @@
+   pnlPreviewBar.Color := clBlack;
+   pnlPreviewBar.ParentBackground := False;
+ 
+-  btnPreview := MakeButton(pnlPreviewBar, 12, 8, 200, 36,
++  btnPreview := MakeButton(pnlPreviewBar, 12, 8, 140, 36,
+     'Start Preview', @PreviewToggleClick);
+-  lblPreviewInfo := MakeLabel(pnlPreviewBar, 228, 16, 'Live camera');
++
++  lblResolution := MakeLabel(pnlPreviewBar, 164, 16, 'Resolution');
++  lblResolution.Font.Color := clWhite;
++
++  cboResolution := TComboBox.Create(Self);
++  cboResolution.Parent := pnlPreviewBar;
++  cboResolution.SetBounds(248, 10, 160, 28);
++  cboResolution.Style := csDropDownList;
++  cboResolution.OnChange := @ResolutionChange;
++  FillResolutions;
++
++  lblPreviewInfo := MakeLabel(pnlPreviewBar, 424, 16, 'Live camera');
+   lblPreviewInfo.Font.Color := clWhite;
+   lblPreviewInfo.AutoSize := True;
+ 
+@@ -669,23 +690,15 @@
+   grpPresets.BorderSpacing.Around := 8;
+   grpPresets.Caption := ' Scenes ';
+ 
+-  btnScene[0] := MakeButton(grpPresets, 0, 0, 150, 40, 'Stream Face', @PresetRecallClick);
+-  btnScene[1] := MakeButton(grpPresets, 0, 0, 150, 40, 'Stream Wide', @PresetRecallClick);
+-  btnScene[2] := MakeButton(grpPresets, 0, 0, 120, 40, 'Call', @PresetRecallClick);
+-  btnScene[3] := MakeButton(grpPresets, 0, 0, 120, 40, 'Desk', @PresetRecallClick);
++  btnScene[0] := MakeButton(grpPresets, 12, 24, 150, 40, 'Stream Face', @PresetRecallClick);
++  btnScene[1] := MakeButton(grpPresets, 228, 24, 150, 40, 'Stream Wide', @PresetRecallClick);
++  btnScene[2] := MakeButton(grpPresets, 444, 24, 120, 40, 'Call', @PresetRecallClick);
++  btnScene[3] := MakeButton(grpPresets, 630, 24, 120, 40, 'Desk', @PresetRecallClick);
+   for i := 0 to 3 do
+   begin
+     btnScene[i].Tag := i;
+-    btnScene[i].Align := alLeft;
+-    btnScene[i].BorderSpacing.Left := 10;
+-    btnScene[i].BorderSpacing.Top := 8;
+-    btnScene[i].BorderSpacing.Bottom := 8;
+-    btnPresetSave[i] := MakeButton(grpPresets, 0, 0, 56, 40, 'Save', @PresetSaveClick);
++    btnPresetSave[i] := MakeButton(grpPresets, btnScene[i].Left + btnScene[i].Width + 4, 24, 56, 40, 'Save', @PresetSaveClick);
+     btnPresetSave[i].Tag := i;
+-    btnPresetSave[i].Align := alLeft;
+-    btnPresetSave[i].BorderSpacing.Left := 4;
+-    btnPresetSave[i].BorderSpacing.Top := 8;
+-    btnPresetSave[i].BorderSpacing.Bottom := 8;
+   end;
+ 
+   grpLog := TGroupBox.Create(Self);
+@@ -849,15 +862,91 @@
+ 
+ { ===== Live Preview ===== }
+ 
++procedure TfrmMain.FillResolutions;
++var
++  want: string;
++begin
++  if not Assigned(cboResolution) then Exit;
++  want := Format('%dx%d', [FPrefW, FPrefH]);
++  cboResolution.Items.BeginUpdate;
++  try
++    cboResolution.Items.Clear;
++    cboResolution.Items.Add('3840x2160');
++    cboResolution.Items.Add('1920x1440');
++    cboResolution.Items.Add('1920x1080');
++    cboResolution.Items.Add('1280x960');
++    cboResolution.Items.Add('1280x720');
++    cboResolution.Items.Add('960x540');
++    cboResolution.Items.Add('640x360');
++  finally
++    cboResolution.Items.EndUpdate;
++  end;
++  cboResolution.ItemIndex := cboResolution.Items.IndexOf(want);
++  if cboResolution.ItemIndex < 0 then
++    cboResolution.ItemIndex := cboResolution.Items.IndexOf('1920x1080');
++  if cboResolution.ItemIndex < 0 then
++    cboResolution.ItemIndex := 2;
++end;
++
++function TfrmMain.SelectedWidth: Integer;
++var
++  s: string;
++  x: Integer;
++begin
++  Result := FPrefW;
++  if not Assigned(cboResolution) or (cboResolution.ItemIndex < 0) then Exit;
++  s := cboResolution.Items[cboResolution.ItemIndex];
++  x := Pos('x', s);
++  if x > 1 then
++    Result := StrToIntDef(Copy(s, 1, x - 1), FPrefW);
++end;
++
++function TfrmMain.SelectedHeight: Integer;
++var
++  s: string;
++  x: Integer;
++begin
++  Result := FPrefH;
++  if not Assigned(cboResolution) or (cboResolution.ItemIndex < 0) then Exit;
++  s := cboResolution.Items[cboResolution.ItemIndex];
++  x := Pos('x', s);
++  if x > 0 then
++    Result := StrToIntDef(Copy(s, x + 1, MaxInt), FPrefH);
++end;
++
++procedure TfrmMain.ResolutionChange(Sender: TObject);
++var
++  was: Boolean;
++begin
++  if FUpdating then Exit;
++  FPrefW := SelectedWidth;
++  FPrefH := SelectedHeight;
++  was := Assigned(FCapture) and FCapture.Streaming;
++  if was then
++  begin
++    StopPreview;
++    StartPreview;
++  end;
++  SaveSettings;
++end;
++
+ procedure TfrmMain.StartPreview;
++var
++  w, h: Integer;
+ begin
+   if FCapture.Streaming then Exit;
+   if not FCam.Connected then Exit;
+ 
+-  if FCapture.StartOnDevice(FCam.DevicePath, 960, 540)
+-     or FCapture.StartOnDevice(FCam.DevicePath, 640, 360)
++  w := SelectedWidth;
++  h := SelectedHeight;
++  FPrefW := w;
++  FPrefH := h;
++
++  if FCapture.StartOnDevice(FCam.DevicePath, w, h)
++     or FCapture.StartOnDevice(FCam.DevicePath, 1920, 1080)
+      or FCapture.StartOnDevice(FCam.DevicePath, 1280, 720)
+-     or FCapture.Start(FCam.FD, 640, 360) then
++     or FCapture.StartOnDevice(FCam.DevicePath, 640, 360)
++     or FCapture.Start(FCam.FD, w, h) then
+   begin
+     tmrPreview.Enabled := True;
+     btnPreview.Caption := 'Stop Preview';
+@@ -1524,6 +1613,8 @@
+     ini.WriteInteger('PTZ', 'TiltStep', seTiltStep.Value);
+     for i := 0 to 3 do
+     ini.WriteInteger('Looks', 'Active', FActiveLook);
++    ini.WriteInteger('Preview', 'Width', FPrefW);
++    ini.WriteInteger('Preview', 'Height', FPrefH);
+     for i := 0 to 3 do
+     begin
+       p := FCam.GetPreset(i);
+@@ -1558,6 +1649,8 @@
+     FActiveLook := ini.ReadInteger('Looks', 'Active', 0);
+     if (FActiveLook < 0) or (FActiveLook > 3) then
+       FActiveLook := 0;
++  FPrefW := 1920;
++  FPrefH := 1080;
+     HighlightLook(FActiveLook);
+ 
+     // Re-select the last-used device if it's still present in the list.

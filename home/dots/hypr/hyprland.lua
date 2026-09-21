@@ -20,3 +20,6 @@ load("config/keybinds.lua")
 load("config/windows.lua")
 load("config/layerules.lua")
 load("config/permissions.lua")
+
+-- Load after permissions so hyprctl can inject csgo-vulkan-fix.
+hl.exec_cmd((os.getenv("HOME") or "/home/dd") .. "/.config/scripts/ow-stretch-plugin.sh")

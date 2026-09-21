@@ -1,0 +1,1171 @@
+diff --git a/umainform.lfm b/umainform.lfm
+index 00984ec..a8d81de 100644
+--- a/umainform.lfm
++++ b/umainform.lfm
+@@ -1,8 +1,8 @@
+ object frmMain: TfrmMain
+   Left = 200
+-  Height = 720
++  Height = 1000
+   Top = 100
+-  Width = 960
++  Width = 1760
+   Caption = 'Insta360 Link Controller for Linux'
+   OnClose = FormClose
+   OnCreate = FormCreate
+diff --git a/umainform.pas b/umainform.pas
+index 5a18635..65ac2e2 100644
+--- a/umainform.pas
++++ b/umainform.pas
+@@ -18,8 +18,8 @@ unit umainform;
+ interface
+ 
+ uses
+-  Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls,
+-  ExtCtrls, ComCtrls, Spin, Buttons, IniFiles, uv4l2, uinsta360link,
++  Classes, SysUtils, Types, Forms, Controls, Graphics, Dialogs, StdCtrls,
++  ExtCtrls, ComCtrls, Spin, IniFiles, uv4l2, uinsta360link,
+   uvideocap;
+ 
+ type
+@@ -35,9 +35,10 @@ type
+     // --- Live preview ---
+     FCapture: TVideoCapture;
+     FPreviewBmp: TBitmap;
+-    grpPreview: TGroupBox;
++    pnlPreviewHost: TPanel;
+     pnlPreviewBar: TPanel;
+-    imgPreview: TImage;
++    pnlVideo: TPanel;
++    pbPreview: TPaintBox;
+     btnPreview: TButton;
+     lblPreviewInfo: TLabel;
+     tmrPreview: TTimer;
+@@ -60,15 +61,15 @@ type
+     pnlLeft: TPanel;
+ 
+     grpPTZ: TGroupBox;
+-    btnUp: TSpeedButton;
+-    btnDown: TSpeedButton;
+-    btnLeft: TSpeedButton;
+-    btnRight: TSpeedButton;
+-    btnUpLeft: TSpeedButton;
+-    btnUpRight: TSpeedButton;
+-    btnDownLeft: TSpeedButton;
+-    btnDownRight: TSpeedButton;
+-    btnHome: TSpeedButton;
++    btnUp: TButton;
++    btnDown: TButton;
++    btnLeft: TButton;
++    btnRight: TButton;
++    btnUpLeft: TButton;
++    btnUpRight: TButton;
++    btnDownLeft: TButton;
++    btnDownRight: TButton;
++    btnHome: TButton;
+     lblPanStep: TLabel;
+     sePanStep: TSpinEdit;
+     lblTiltStep: TLabel;
+@@ -89,8 +90,8 @@ type
+     btnNormal: TButton;
+     btnGimbalReset: TButton;
+ 
+-    // --- Center column: Image + Exposure + Focus ---
+-    pnlCenter: TPanel;
++    // --- Bottom: log ---
++    pnlBottom: TPanel;
+ 
+     grpImage: TGroupBox;
+     lblBrightness: TLabel;
+@@ -130,9 +131,8 @@ type
+     pnlRight: TPanel;
+ 
+     grpPresets: TGroupBox;
+-    btnPresetRecall: array[0..5] of TButton;
+-    btnPresetSave: array[0..5] of TButton;
+-    edtPresetName: array[0..5] of TEdit;
++    btnScene: array[0..3] of TButton;
++    btnPresetSave: array[0..3] of TButton;
+ 
+     grpLog: TGroupBox;
+     memoLog: TMemo;
+@@ -150,6 +150,7 @@ type
+       Shift: TShiftState; X, Y: Integer);
+     procedure PTZMouseUp(Sender: TObject; Button: TMouseButton;
+       Shift: TShiftState; X, Y: Integer);
++    procedure PTZMouseLeave(Sender: TObject);
+     procedure PTZRepeatTimer(Sender: TObject);
+     procedure HomeClick(Sender: TObject);
+     procedure ZoomChange(Sender: TObject);
+@@ -157,6 +158,7 @@ type
+     // Preview handlers
+     procedure PreviewToggleClick(Sender: TObject);
+     procedure PreviewTimer(Sender: TObject);
++    procedure PreviewPaint(Sender: TObject);
+     procedure StartPreview;
+     procedure StopPreview;
+ 
+@@ -181,6 +183,9 @@ type
+     // Preset handlers
+     procedure PresetRecallClick(Sender: TObject);
+     procedure PresetSaveClick(Sender: TObject);
++    function DefaultScene(Index: Integer): TPresetPosition;
++    procedure EnsureDefaultPresets;
++    procedure ApplyScene(Index: Integer);
+ 
+     // Diagnostics
+     procedure ScanXUClick(Sender: TObject);
+@@ -215,23 +220,33 @@ begin
+   FPreviewBmp := TBitmap.Create;
+   BuildUI;
+   RefreshDeviceList;
++  EnsureDefaultPresets;
+   LoadSettings;
++  EnsureDefaultPresets;
+   UpdateUIState;
+ end;
+ 
+ procedure TfrmMain.FormDestroy(Sender: TObject);
+ begin
+-  SaveSettings;
++  if Assigned(tmrPreview) then tmrPreview.Enabled := False;
++  if Assigned(tmrPTZ) then tmrPTZ.Enabled := False;
++  if Assigned(tmrTrackingPoll) then tmrTrackingPoll.Enabled := False;
++  if Assigned(pbPreview) then pbPreview.OnPaint := nil;
+   StopPreview;
++  SaveSettings;
+   FCapture.Free;
++  FCapture := nil;
+   FPreviewBmp.Free;
++  FPreviewBmp := nil;
+   FCam.Free;
++  FCam := nil;
+ end;
+ 
+ procedure TfrmMain.FormClose(Sender: TObject; var CloseAction: TCloseAction);
+ begin
++  if Assigned(tmrPreview) then tmrPreview.Enabled := False;
+   StopPreview;
+-  FCam.Close;
++  if Assigned(FCam) then FCam.Close;
+ end;
+ 
+ { ===== UI Construction ===== }
+@@ -255,7 +270,7 @@ procedure TfrmMain.BuildUI;
+     Result.Left := X;
+     Result.Top := Y;
+     Result.Width := W;
+-    Result.Height := 25;
++    Result.Height := 28;
+     Result.Min := AMin;
+     Result.Max := AMax;
+     Result.OnChange := AOnChange;
+@@ -272,10 +287,10 @@ procedure TfrmMain.BuildUI;
+     Result.OnClick := AOnClick;
+   end;
+ 
+-  function MakeSpeedButton(AParent: TWinControl; X, Y, W, H: Integer;
+-    const ACaption: string; ATag: Integer; AOnClick: TNotifyEvent): TSpeedButton;
++  function MakePadButton(AParent: TWinControl; X, Y, W, H: Integer;
++    const ACaption: string; ATag: Integer; AOnClick: TNotifyEvent): TButton;
+   begin
+-    Result := TSpeedButton.Create(Self);
++    Result := TButton.Create(Self);
+     Result.Parent := AParent;
+     Result.SetBounds(X, Y, W, H);
+     Result.Caption := ACaption;
+@@ -285,62 +300,107 @@ procedure TfrmMain.BuildUI;
+ 
+ var
+   i, Y: Integer;
++  pnlLogBtns: TPanel;
+ begin
+-  // === Form setup ===
+   Caption := 'Insta360 Link Controller for Linux';
+-  Width := 1420;
+-  Height := 760;
++  Width := 1760;
++  Height := 1000;
++  Constraints.MinWidth := 900;
++  Constraints.MinHeight := 640;
+   Position := poScreenCenter;
+ 
+-  // === TOP: Device bar ===
+   pnlTop := TPanel.Create(Self);
+   pnlTop.Parent := Self;
+   pnlTop.Align := alTop;
+-  pnlTop.Height := 40;
++  pnlTop.Height := 44;
+   pnlTop.BevelOuter := bvNone;
+ 
+-  lblDevice := MakeLabel(pnlTop, 8, 10, 'Device:');
+-  cboDevice := TComboBox.Create(Self);
+-  cboDevice.Parent := pnlTop;
+-  cboDevice.SetBounds(60, 7, 340, 25);
+-  cboDevice.Style := csDropDownList;
++  lblStatus := MakeLabel(pnlTop, 0, 0, 'Not connected');
++  lblStatus.Align := alRight;
++  lblStatus.Layout := tlCenter;
++  lblStatus.BorderSpacing.Around := 8;
++  lblStatus.Font.Color := clRed;
++  lblStatus.AutoSize := True;
+ 
+-  btnRefresh := MakeButton(pnlTop, 406, 6, 70, 28, 'Refresh', @RefreshClick);
+-  btnConnect := MakeButton(pnlTop, 482, 6, 80, 28, 'Connect', @ConnectClick);
+-  btnDisconnect := MakeButton(pnlTop, 568, 6, 90, 28, 'Disconnect', @DisconnectClick);
++  btnDisconnect := MakeButton(pnlTop, 0, 0, 110, 32, 'Disconnect', @DisconnectClick);
++  btnDisconnect.Align := alRight;
++  btnDisconnect.BorderSpacing.Around := 4;
+   btnDisconnect.Enabled := False;
+ 
+-  lblStatus := MakeLabel(pnlTop, 670, 10, 'Not connected');
+-  lblStatus.Font.Color := clRed;
++  btnConnect := MakeButton(pnlTop, 0, 0, 96, 32, 'Connect', @ConnectClick);
++  btnConnect.Align := alRight;
++  btnConnect.BorderSpacing.Around := 4;
++
++  btnRefresh := MakeButton(pnlTop, 0, 0, 88, 32, 'Refresh', @RefreshClick);
++  btnRefresh.Align := alRight;
++  btnRefresh.BorderSpacing.Around := 4;
++
++  lblDevice := MakeLabel(pnlTop, 0, 0, 'Device:');
++  lblDevice.Align := alLeft;
++  lblDevice.Layout := tlCenter;
++  lblDevice.BorderSpacing.Left := 10;
++  lblDevice.BorderSpacing.Right := 8;
++
++  cboDevice := TComboBox.Create(Self);
++  cboDevice.Parent := pnlTop;
++  cboDevice.Align := alClient;
++  cboDevice.BorderSpacing.Around := 6;
++  cboDevice.Style := csDropDownList;
++
++  pnlBottom := TPanel.Create(Self);
++  pnlBottom.Parent := Self;
++  pnlBottom.Align := alBottom;
++  pnlBottom.Height := 200;
++  pnlBottom.BevelOuter := bvNone;
+ 
+-  // === LEFT: PTZ + Modes ===
+   pnlLeft := TPanel.Create(Self);
+   pnlLeft.Parent := Self;
+   pnlLeft.Align := alLeft;
+-  pnlLeft.Width := 260;
++  pnlLeft.Width := 292;
+   pnlLeft.BevelOuter := bvNone;
+ 
+-  // PTZ group
++  pnlRight := TPanel.Create(Self);
++  pnlRight.Parent := Self;
++  pnlRight.Align := alRight;
++  pnlRight.Width := 380;
++  pnlRight.BevelOuter := bvNone;
++
++  pnlPreviewHost := TPanel.Create(Self);
++  pnlPreviewHost.Parent := Self;
++  pnlPreviewHost.Align := alClient;
++  pnlPreviewHost.BevelOuter := bvNone;
++  pnlPreviewHost.Color := clBlack;
++  pnlPreviewHost.ParentColor := False;
++  pnlPreviewHost.ParentBackground := False;
++
+   grpPTZ := TGroupBox.Create(Self);
+   grpPTZ.Parent := pnlLeft;
+-  grpPTZ.SetBounds(4, 4, 252, 220);
++  grpPTZ.Align := alTop;
++  grpPTZ.Height := 268;
++  grpPTZ.BorderSpacing.Around := 8;
+   grpPTZ.Caption := ' PTZ Controls ';
+ 
+-  // D-pad: 3x3 grid of speed buttons
+-  // Tag encodes direction: bits [7:4]=panDir, [3:0]=tiltDir
+-  //   panDir: 0=none, 1=left, 2=right
+-  //   tiltDir: 0=none, 1=up, 2=down
+-  // Directional buttons use press-and-hold (mouse down/up) for continuous
+-  // motion; the Home button stays a plain click.
+-  btnUpLeft  := MakeSpeedButton(grpPTZ,  20, 20, 44, 44, '↖', $11, nil);
+-  btnUp      := MakeSpeedButton(grpPTZ,  70, 20, 44, 44, '↑', $01, nil);
+-  btnUpRight := MakeSpeedButton(grpPTZ, 120, 20, 44, 44, '↗', $21, nil);
+-  btnLeft    := MakeSpeedButton(grpPTZ,  20, 70, 44, 44, '←', $10, nil);
+-  btnHome    := MakeSpeedButton(grpPTZ,  70, 70, 44, 44, '⌂',   0, @HomeClick);
+-  btnRight   := MakeSpeedButton(grpPTZ, 120, 70, 44, 44, '→', $20, nil);
+-  btnDownLeft  := MakeSpeedButton(grpPTZ,  20, 120, 44, 44, '↙', $12, nil);
+-  btnDown      := MakeSpeedButton(grpPTZ,  70, 120, 44, 44, '↓', $02, nil);
+-  btnDownRight := MakeSpeedButton(grpPTZ, 120, 120, 44, 44, '↘', $22, nil);
++  btnUpLeft  := MakePadButton(grpPTZ,  16,  28, 48, 48, '↖', $11, nil);
++  btnUp      := MakePadButton(grpPTZ,  72,  28, 48, 48, '↑', $01, nil);
++  btnUpRight := MakePadButton(grpPTZ, 128,  28, 48, 48, '↗', $21, nil);
++  btnLeft    := MakePadButton(grpPTZ,  16,  84, 48, 48, '←', $10, nil);
++  btnHome    := MakePadButton(grpPTZ,  72,  84, 48, 48, '⌂',   0, @HomeClick);
++  btnRight   := MakePadButton(grpPTZ, 128,  84, 48, 48, '→', $20, nil);
++  btnDownLeft  := MakePadButton(grpPTZ,  16, 140, 48, 48, '↙', $12, nil);
++  btnDown      := MakePadButton(grpPTZ,  72, 140, 48, 48, '↓', $02, nil);
++  btnDownRight := MakePadButton(grpPTZ, 128, 140, 48, 48, '↘', $22, nil);
++
++  lblPanStep := MakeLabel(grpPTZ, 188, 36, 'Pan');
++  sePanStep := TSpinEdit.Create(Self);
++  sePanStep.Parent := grpPTZ;
++  sePanStep.SetBounds(188, 56, 80, 28);
++  sePanStep.MinValue := 1; sePanStep.MaxValue := 30; sePanStep.Value := 8;
++
++  lblTiltStep := MakeLabel(grpPTZ, 188, 92, 'Tilt');
++  seTiltStep := TSpinEdit.Create(Self);
++  seTiltStep.Parent := grpPTZ;
++  seTiltStep.SetBounds(188, 112, 80, 28);
++  seTiltStep.MinValue := 1; seTiltStep.MaxValue := 30; seTiltStep.Value := 8;
+ 
+   for i := 0 to 7 do
+   begin
+@@ -363,52 +423,47 @@ begin
+   btnUpRight.OnMouseUp := @PTZMouseUp;
+   btnDownLeft.OnMouseUp := @PTZMouseUp;
+   btnDownRight.OnMouseUp := @PTZMouseUp;
++  btnUp.OnMouseLeave := @PTZMouseLeave;
++  btnDown.OnMouseLeave := @PTZMouseLeave;
++  btnLeft.OnMouseLeave := @PTZMouseLeave;
++  btnRight.OnMouseLeave := @PTZMouseLeave;
++  btnUpLeft.OnMouseLeave := @PTZMouseLeave;
++  btnUpRight.OnMouseLeave := @PTZMouseLeave;
++  btnDownLeft.OnMouseLeave := @PTZMouseLeave;
++  btnDownRight.OnMouseLeave := @PTZMouseLeave;
+ 
+-  // Repeat timer drives continuous motion while a button is held down
+   tmrPTZ := TTimer.Create(Self);
+   tmrPTZ.Interval := 150;
+   tmrPTZ.Enabled := False;
+   tmrPTZ.OnTimer := @PTZRepeatTimer;
+ 
+-  lblPanStep := MakeLabel(grpPTZ, 174, 30, 'Pan:');
+-  sePanStep := TSpinEdit.Create(Self);
+-  sePanStep.Parent := grpPTZ;
+-  sePanStep.SetBounds(200, 27, 46, 24);
+-  sePanStep.MinValue := 1; sePanStep.MaxValue := 30; sePanStep.Value := 8;
+-
+-  lblTiltStep := MakeLabel(grpPTZ, 174, 60, 'Tilt:');
+-  seTiltStep := TSpinEdit.Create(Self);
+-  seTiltStep.Parent := grpPTZ;
+-  seTiltStep.SetBounds(200, 57, 46, 24);
+-  seTiltStep.MinValue := 1; seTiltStep.MaxValue := 30; seTiltStep.Value := 8;
+-
+-  lblZoom := MakeLabel(grpPTZ, 8, 172, 'Zoom:');
+-  tbZoom := MakeTrackBar(grpPTZ, 50, 170, 150, 100, 400, @ZoomChange);
++  lblZoom := MakeLabel(grpPTZ, 16, 200, 'Zoom');
++  tbZoom := MakeTrackBar(grpPTZ, 64, 196, 160, 100, 400, @ZoomChange);
+   tbZoom.Position := 100;
+-  lblZoomVal := MakeLabel(grpPTZ, 206, 172, '1.0x');
++  tbZoom.Height := 32;
++  lblZoomVal := MakeLabel(grpPTZ, 232, 204, '1.0x');
+ 
+-  // Modes group
+   grpModes := TGroupBox.Create(Self);
+   grpModes.Parent := pnlLeft;
+-  grpModes.SetBounds(4, 228, 252, 300);
++  grpModes.Align := alClient;
++  grpModes.BorderSpacing.Around := 8;
+   grpModes.Caption := ' Camera Modes ';
+ 
+-  Y := 20;
+-  MakeLabel(grpModes, 8, Y, 'AI Tracking:');
+-  btnTrackingOn := MakeButton(grpModes, 100, Y - 3, 60, 26, 'ON', @TrackingOnClick);
+-  btnTrackingOff := MakeButton(grpModes, 166, Y - 3, 60, 26, 'OFF', @TrackingOffClick);
++  Y := 28;
++  MakeLabel(grpModes, 12, Y + 6, 'AI Tracking');
++  btnTrackingOn := MakeButton(grpModes, 112, Y, 72, 32, 'ON', @TrackingOnClick);
++  btnTrackingOff := MakeButton(grpModes, 192, Y, 72, 32, 'OFF', @TrackingOffClick);
+ 
+-  // Polling timer for tracking status
+   tmrTrackingPoll := TTimer.Create(Self);
+   tmrTrackingPoll.Interval := 1000;
+   tmrTrackingPoll.Enabled := False;
+   tmrTrackingPoll.OnTimer := @TrackingPollTimer;
+ 
+-  Inc(Y, 32);
+-  lblTrackFrame := MakeLabel(grpModes, 8, Y, 'Framing:');
++  Inc(Y, 44);
++  lblTrackFrame := MakeLabel(grpModes, 12, Y + 6, 'Framing');
+   cboTrackFrame := TComboBox.Create(Self);
+   cboTrackFrame.Parent := grpModes;
+-  cboTrackFrame.SetBounds(100, Y - 3, 126, 25);
++  cboTrackFrame.SetBounds(112, Y, 152, 28);
+   cboTrackFrame.Style := csDropDownList;
+   cboTrackFrame.Items.Add('Head');
+   cboTrackFrame.Items.Add('Half Body');
+@@ -416,209 +471,229 @@ begin
+   cboTrackFrame.ItemIndex := 1;
+   cboTrackFrame.OnChange := @TrackFrameChange;
+ 
+-  Inc(Y, 40);
+-  MakeLabel(grpModes, 8, Y, 'Operating Mode:');
+-  Inc(Y, 20);
+-  btnNormal := MakeButton(grpModes, 8, Y, 110, 30, 'Normal', @ModeButtonClick);
++  Inc(Y, 48);
++  MakeLabel(grpModes, 12, Y, 'Operating Mode');
++  Inc(Y, 26);
++  btnNormal := MakeButton(grpModes, 12, Y, 128, 36, 'Normal', @ModeButtonClick);
+   btnNormal.Tag := 0;
+-  btnDeskView := MakeButton(grpModes, 124, Y, 110, 30, 'DeskView', @ModeButtonClick);
++  btnDeskView := MakeButton(grpModes, 148, Y, 128, 36, 'DeskView', @ModeButtonClick);
+   btnDeskView.Tag := 1;
+-  Inc(Y, 36);
+-  btnWhiteboard := MakeButton(grpModes, 8, Y, 110, 30, 'Whiteboard', @ModeButtonClick);
++  Inc(Y, 44);
++  btnWhiteboard := MakeButton(grpModes, 12, Y, 128, 36, 'Whiteboard', @ModeButtonClick);
+   btnWhiteboard.Tag := 2;
+-  btnOverhead := MakeButton(grpModes, 124, Y, 110, 30, 'Overhead', @ModeButtonClick);
++  btnOverhead := MakeButton(grpModes, 148, Y, 128, 36, 'Overhead', @ModeButtonClick);
+   btnOverhead.Tag := 3;
+ 
+-  Inc(Y, 44);
+-  btnGimbalReset := MakeButton(grpModes, 8, Y, 226, 30, 'Gimbal Reset', @GimbalResetClick);
+-
+-  // === CENTER: Image controls ===
+-  pnlCenter := TPanel.Create(Self);
+-  pnlCenter.Parent := Self;
+-  pnlCenter.Align := alClient;
+-  pnlCenter.BevelOuter := bvNone;
++  Inc(Y, 52);
++  btnGimbalReset := MakeButton(grpModes, 12, Y, 264, 36, 'Gimbal Reset', @GimbalResetClick);
+ 
+   grpImage := TGroupBox.Create(Self);
+-  grpImage.Parent := pnlCenter;
+-  grpImage.SetBounds(4, 4, 370, 320);
++  grpImage.Parent := pnlRight;
++  grpImage.Align := alTop;
++  grpImage.Height := 360;
++  grpImage.BorderSpacing.Around := 8;
+   grpImage.Caption := ' Image Controls ';
+ 
+-  Y := 20;
+-  lblBrightness := MakeLabel(grpImage, 8, Y, 'Brightness:');
+-  tbBrightness := MakeTrackBar(grpImage, 90, Y - 2, 220, 0, 100, @ImageSliderChange);
++  Y := 28;
++  lblBrightness := MakeLabel(grpImage, 12, Y + 4, 'Brightness');
++  tbBrightness := MakeTrackBar(grpImage, 108, Y, 190, 0, 100, @ImageSliderChange);
+   tbBrightness.Tag := 1;
+   tbBrightness.Position := 50;
+-  lblBrightnessV := MakeLabel(grpImage, 320, Y, '128');
++  tbBrightness.Height := 28;
++  tbBrightness.Anchors := [akLeft, akTop, akRight];
++  lblBrightnessV := MakeLabel(grpImage, 308, Y + 4, '50');
++  lblBrightnessV.Anchors := [akTop, akRight];
+ 
+-  Inc(Y, 34);
+-  lblContrast := MakeLabel(grpImage, 8, Y, 'Contrast:');
+-  tbContrast := MakeTrackBar(grpImage, 90, Y - 2, 220, 0, 100, @ImageSliderChange);
++  Inc(Y, 38);
++  lblContrast := MakeLabel(grpImage, 12, Y + 4, 'Contrast');
++  tbContrast := MakeTrackBar(grpImage, 108, Y, 190, 0, 100, @ImageSliderChange);
+   tbContrast.Tag := 2;
+   tbContrast.Position := 50;
+-  lblContrastV := MakeLabel(grpImage, 320, Y, '128');
++  tbContrast.Height := 28;
++  tbContrast.Anchors := [akLeft, akTop, akRight];
++  lblContrastV := MakeLabel(grpImage, 308, Y + 4, '50');
++  lblContrastV.Anchors := [akTop, akRight];
+ 
+-  Inc(Y, 34);
+-  lblSaturation := MakeLabel(grpImage, 8, Y, 'Saturation:');
+-  tbSaturation := MakeTrackBar(grpImage, 90, Y - 2, 220, 0, 100, @ImageSliderChange);
++  Inc(Y, 38);
++  lblSaturation := MakeLabel(grpImage, 12, Y + 4, 'Saturation');
++  tbSaturation := MakeTrackBar(grpImage, 108, Y, 190, 0, 100, @ImageSliderChange);
+   tbSaturation.Tag := 3;
+   tbSaturation.Position := 50;
+-  lblSaturationV := MakeLabel(grpImage, 320, Y, '128');
++  tbSaturation.Height := 28;
++  tbSaturation.Anchors := [akLeft, akTop, akRight];
++  lblSaturationV := MakeLabel(grpImage, 308, Y + 4, '50');
++  lblSaturationV.Anchors := [akTop, akRight];
+ 
+-  Inc(Y, 34);
+-  lblSharpness := MakeLabel(grpImage, 8, Y, 'Sharpness:');
+-  tbSharpness := MakeTrackBar(grpImage, 90, Y - 2, 220, 0, 100, @ImageSliderChange);
++  Inc(Y, 38);
++  lblSharpness := MakeLabel(grpImage, 12, Y + 4, 'Sharpness');
++  tbSharpness := MakeTrackBar(grpImage, 108, Y, 190, 0, 100, @ImageSliderChange);
+   tbSharpness.Tag := 4;
+   tbSharpness.Position := 50;
+-  lblSharpnessV := MakeLabel(grpImage, 320, Y, '128');
++  tbSharpness.Height := 28;
++  tbSharpness.Anchors := [akLeft, akTop, akRight];
++  lblSharpnessV := MakeLabel(grpImage, 308, Y + 4, '50');
++  lblSharpnessV.Anchors := [akTop, akRight];
+ 
+-  Inc(Y, 34);
+-  lblGain := MakeLabel(grpImage, 8, Y, 'Gain:');
+-  tbGain := MakeTrackBar(grpImage, 90, Y - 2, 220, 0, 100, @ImageSliderChange);
++  Inc(Y, 38);
++  lblGain := MakeLabel(grpImage, 12, Y + 4, 'Gain');
++  tbGain := MakeTrackBar(grpImage, 108, Y, 190, 0, 100, @ImageSliderChange);
+   tbGain.Tag := 5;
+   tbGain.Position := 0;
+-  lblGainV := MakeLabel(grpImage, 320, Y, '0');
++  tbGain.Height := 28;
++  tbGain.Anchors := [akLeft, akTop, akRight];
++  lblGainV := MakeLabel(grpImage, 308, Y + 4, '0');
++  lblGainV.Anchors := [akTop, akRight];
+ 
+-  Inc(Y, 36);
++  Inc(Y, 40);
+   chkAutoWB := TCheckBox.Create(Self);
+   chkAutoWB.Parent := grpImage;
+-  chkAutoWB.SetBounds(8, Y, 150, 22);
++  chkAutoWB.SetBounds(12, Y, 180, 24);
+   chkAutoWB.Caption := 'Auto White Balance';
+   chkAutoWB.Checked := True;
+   chkAutoWB.OnChange := @AutoWBChange;
+ 
+   chkBacklight := TCheckBox.Create(Self);
+   chkBacklight.Parent := grpImage;
+-  chkBacklight.SetBounds(180, Y, 170, 22);
++  chkBacklight.SetBounds(200, Y, 160, 24);
+   chkBacklight.Caption := 'Backlight Comp.';
+   chkBacklight.OnChange := @BacklightChange;
+ 
+-  Inc(Y, 28);
+-  lblWBTemp := MakeLabel(grpImage, 8, Y, 'WB Temp:');
+-  tbWBTemp := MakeTrackBar(grpImage, 90, Y - 2, 220, 2000, 10000, @WBTempChange);
++  Inc(Y, 34);
++  lblWBTemp := MakeLabel(grpImage, 12, Y + 4, 'WB Temp');
++  tbWBTemp := MakeTrackBar(grpImage, 108, Y, 190, 2000, 10000, @WBTempChange);
+   tbWBTemp.Position := 6400;
+-  lblWBTempV := MakeLabel(grpImage, 320, Y, '6400K');
++  tbWBTemp.Height := 28;
++  tbWBTemp.Anchors := [akLeft, akTop, akRight];
++  lblWBTempV := MakeLabel(grpImage, 308, Y + 4, '6400K');
++  lblWBTempV.Anchors := [akTop, akRight];
+ 
+-  // Exposure
+   grpExposure := TGroupBox.Create(Self);
+-  grpExposure.Parent := pnlCenter;
+-  grpExposure.SetBounds(4, 328, 370, 90);
++  grpExposure.Parent := pnlRight;
++  grpExposure.Align := alTop;
++  grpExposure.Height := 128;
++  grpExposure.BorderSpacing.Around := 8;
+   grpExposure.Caption := ' Exposure ';
+ 
+   chkAutoExposure := TCheckBox.Create(Self);
+   chkAutoExposure.Parent := grpExposure;
+-  chkAutoExposure.SetBounds(8, 20, 130, 22);
++  chkAutoExposure.SetBounds(12, 32, 160, 24);
+   chkAutoExposure.Caption := 'Auto Exposure';
+   chkAutoExposure.Checked := True;
+   chkAutoExposure.OnChange := @AutoExposureChange;
+ 
+-  lblExposure := MakeLabel(grpExposure, 8, 52, 'Value:');
+-  tbExposure := MakeTrackBar(grpExposure, 90, 50, 220, 3, 2047, @ExposureChange);
++  lblExposure := MakeLabel(grpExposure, 12, 76, 'Value');
++  tbExposure := MakeTrackBar(grpExposure, 108, 72, 190, 3, 2047, @ExposureChange);
+   tbExposure.Position := 250;
+-  lblExposureV := MakeLabel(grpExposure, 320, 52, '250');
++  tbExposure.Height := 28;
++  tbExposure.Anchors := [akLeft, akTop, akRight];
++  lblExposureV := MakeLabel(grpExposure, 308, 76, '250');
++  lblExposureV.Anchors := [akTop, akRight];
+ 
+-  // Focus
+   grpFocus := TGroupBox.Create(Self);
+-  grpFocus.Parent := pnlCenter;
+-  grpFocus.SetBounds(4, 422, 370, 90);
++  grpFocus.Parent := pnlRight;
++  grpFocus.Align := alTop;
++  grpFocus.Height := 128;
++  grpFocus.BorderSpacing.Around := 8;
+   grpFocus.Caption := ' Focus ';
+ 
+   chkAutoFocus := TCheckBox.Create(Self);
+   chkAutoFocus.Parent := grpFocus;
+-  chkAutoFocus.SetBounds(8, 20, 130, 22);
++  chkAutoFocus.SetBounds(12, 32, 160, 24);
+   chkAutoFocus.Caption := 'Auto Focus';
+   chkAutoFocus.Checked := True;
+   chkAutoFocus.OnChange := @AutoFocusChange;
+ 
+-  lblFocus := MakeLabel(grpFocus, 8, 52, 'Value:');
+-  tbFocus := MakeTrackBar(grpFocus, 90, 50, 220, 0, 100, @FocusChange);
++  lblFocus := MakeLabel(grpFocus, 12, 76, 'Value');
++  tbFocus := MakeTrackBar(grpFocus, 108, 72, 190, 0, 100, @FocusChange);
+   tbFocus.Position := 50;
+-  lblFocusV := MakeLabel(grpFocus, 320, 52, '0');
++  tbFocus.Height := 28;
++  tbFocus.Anchors := [akLeft, akTop, akRight];
++  lblFocusV := MakeLabel(grpFocus, 308, 76, '0');
++  lblFocusV.Anchors := [akTop, akRight];
+ 
+-  // Live preview (center, right of the image controls).
+-  // Anchored to the panel edges so it grows with the window; inside, a
+-  // bottom bar holds the controls and the image fills the remaining space,
+-  // so nothing is clipped regardless of font size / DPI.
+-  // Fixed-size landscape box (not anchored to right/bottom) so the image area
+-  // stays wider-than-tall and matched to the 16:9 frame. A wider-than-frame
+-  // area would leave empty space beside the centered image; a tall/portrait
+-  // area would make a 16:9 frame appear cropped.
+-  grpPreview := TGroupBox.Create(Self);
+-  grpPreview.Parent := pnlCenter;
+-  grpPreview.SetBounds(382, 4, 496, 360);
+-  grpPreview.Anchors := [akLeft, akTop];
+-  grpPreview.Caption := ' Live Preview ';
+-
+-  // Bottom control bar (created before the image so alClient gets the rest)
+   pnlPreviewBar := TPanel.Create(Self);
+-  pnlPreviewBar.Parent := grpPreview;
+-  pnlPreviewBar.Align := alBottom;
+-  pnlPreviewBar.Height := 44;
++  pnlPreviewBar.Parent := pnlPreviewHost;
++  pnlPreviewBar.Align := alTop;
++  pnlPreviewBar.Height := 52;
+   pnlPreviewBar.BevelOuter := bvNone;
++  pnlPreviewBar.Color := clBlack;
++  pnlPreviewBar.ParentBackground := False;
+ 
+-  btnPreview := MakeButton(pnlPreviewBar, 8, 6, 150, 32,
++  btnPreview := MakeButton(pnlPreviewBar, 12, 8, 200, 36,
+     'Start Preview', @PreviewToggleClick);
+-  lblPreviewInfo := MakeLabel(pnlPreviewBar, 170, 14, '');
++  lblPreviewInfo := MakeLabel(pnlPreviewBar, 228, 16, 'Live camera');
++  lblPreviewInfo.Font.Color := clWhite;
+   lblPreviewInfo.AutoSize := True;
+-  lblPreviewInfo.Anchors := [akLeft, akTop];
+ 
+-  // Image fills the landscape area above the bar, scaled to fit (whole frame),
+-  // left/top-justified (Center := False).
+-  imgPreview := TImage.Create(Self);
+-  imgPreview.Parent := grpPreview;
+-  imgPreview.Align := alClient;
+-  imgPreview.BorderSpacing.Around := 6;
+-  imgPreview.Stretch := True;
+-  imgPreview.Proportional := True;
+-  imgPreview.Center := False;
++  pnlVideo := TPanel.Create(Self);
++  pnlVideo.Parent := pnlPreviewHost;
++  pnlVideo.Align := alClient;
++  pnlVideo.BevelOuter := bvNone;
++  pnlVideo.Color := clBlack;
++  pnlVideo.ParentColor := False;
++  pnlVideo.ParentBackground := False;
++  pnlVideo.BorderSpacing.Around := 4;
++
++  pbPreview := TPaintBox.Create(Self);
++  pbPreview.Parent := pnlVideo;
++  pbPreview.Align := alClient;
++  pbPreview.OnPaint := @PreviewPaint;
+ 
+   tmrPreview := TTimer.Create(Self);
+-  tmrPreview.Interval := 40; // ~25 fps poll
++  tmrPreview.Interval := 50;
+   tmrPreview.Enabled := False;
+   tmrPreview.OnTimer := @PreviewTimer;
+ 
+-  // === RIGHT: Presets + Log ===
+-  pnlRight := TPanel.Create(Self);
+-  pnlRight.Parent := Self;
+-  pnlRight.Align := alRight;
+-  pnlRight.Width := 280;
+-  pnlRight.BevelOuter := bvNone;
+-
+   grpPresets := TGroupBox.Create(Self);
+-  grpPresets.Parent := pnlRight;
+-  grpPresets.SetBounds(4, 4, 272, 240);
+-  grpPresets.Caption := ' Preset Positions ';
++  grpPresets.Parent := pnlBottom;
++  grpPresets.Align := alTop;
++  grpPresets.Height := 72;
++  grpPresets.BorderSpacing.Around := 8;
++  grpPresets.Caption := ' Scenes ';
+ 
+-  for i := 0 to 5 do
++  btnScene[0] := MakeButton(grpPresets, 0, 0, 150, 40, 'Stream Face', @PresetRecallClick);
++  btnScene[1] := MakeButton(grpPresets, 0, 0, 150, 40, 'Stream Wide', @PresetRecallClick);
++  btnScene[2] := MakeButton(grpPresets, 0, 0, 120, 40, 'Call', @PresetRecallClick);
++  btnScene[3] := MakeButton(grpPresets, 0, 0, 120, 40, 'Desk', @PresetRecallClick);
++  for i := 0 to 3 do
+   begin
+-    edtPresetName[i] := TEdit.Create(Self);
+-    edtPresetName[i].Parent := grpPresets;
+-    edtPresetName[i].SetBounds(8, 22 + i * 34, 100, 24);
+-    edtPresetName[i].Text := Format('Preset %d', [i]);
+-
+-    btnPresetRecall[i] := MakeButton(grpPresets, 114, 20 + i * 34, 70, 28,
+-      'Recall', @PresetRecallClick);
+-    btnPresetRecall[i].Tag := i;
+-
+-    btnPresetSave[i] := MakeButton(grpPresets, 190, 20 + i * 34, 70, 28,
+-      'Save', @PresetSaveClick);
++    btnScene[i].Tag := i;
++    btnScene[i].Align := alLeft;
++    btnScene[i].BorderSpacing.Left := 10;
++    btnScene[i].BorderSpacing.Top := 8;
++    btnScene[i].BorderSpacing.Bottom := 8;
++    btnPresetSave[i] := MakeButton(grpPresets, 0, 0, 56, 40, 'Save', @PresetSaveClick);
+     btnPresetSave[i].Tag := i;
++    btnPresetSave[i].Align := alLeft;
++    btnPresetSave[i].BorderSpacing.Left := 4;
++    btnPresetSave[i].BorderSpacing.Top := 8;
++    btnPresetSave[i].BorderSpacing.Bottom := 8;
+   end;
+ 
+   grpLog := TGroupBox.Create(Self);
+-  grpLog.Parent := pnlRight;
+-  grpLog.SetBounds(4, 248, 272, 440);
++  grpLog.Parent := pnlBottom;
++  grpLog.Align := alClient;
++  grpLog.BorderSpacing.Around := 8;
+   grpLog.Caption := ' Activity Log ';
+ 
++  pnlLogBtns := TPanel.Create(Self);
++  pnlLogBtns.Parent := grpLog;
++  pnlLogBtns.Align := alBottom;
++  pnlLogBtns.Height := 44;
++  pnlLogBtns.BevelOuter := bvNone;
++
++  btnClearLog := MakeButton(pnlLogBtns, 8, 6, 100, 32, 'Clear Log', @ClearLogClick);
++  btnScanXU := MakeButton(pnlLogBtns, 116, 6, 100, 32, 'Read XU', @ScanXUClick);
++
+   memoLog := TMemo.Create(Self);
+   memoLog.Parent := grpLog;
+-  memoLog.SetBounds(4, 18, 264, 370);
++  memoLog.Align := alClient;
++  memoLog.BorderSpacing.Around := 8;
+   memoLog.ReadOnly := True;
+   memoLog.ScrollBars := ssVertical;
+   memoLog.Font.Name := 'Monospace';
+-  memoLog.Font.Size := 8;
+-
+-  btnClearLog := MakeButton(grpLog, 4, 396, 80, 28, 'Clear Log', @ClearLogClick);
+-  btnScanXU := MakeButton(grpLog, 90, 396, 80, 28, 'Read XU', @ScanXUClick);
++  memoLog.Font.Size := 9;
++  memoLog.WordWrap := False;
+ end;
+ 
+ { ===== Device Management ===== }
+@@ -662,7 +737,7 @@ begin
+     btnDisconnect.Enabled := True;
+     ReadCurrentValues;
+     UpdateUIState;
+-    tmrTrackingPoll.Enabled := True;
++    tmrTrackingPoll.Enabled := False;
+     CamLog(Self, 'Connected to ' + devpath);
+     StartPreview; // auto-start live preview (logs and continues if it fails)
+   end
+@@ -695,7 +770,7 @@ var
+   dirTag, panDir, tiltDir: Integer;
+ begin
+   if not FCam.Connected then Exit;
+-  dirTag := (Sender as TSpeedButton).Tag;
++  dirTag := (Sender as TButton).Tag;
+   panDir := (dirTag shr 4) and $F;
+   tiltDir := dirTag and $F;
+ 
+@@ -723,6 +798,13 @@ begin
+   FPTZTiltStep := 0;
+ end;
+ 
++procedure TfrmMain.PTZMouseLeave(Sender: TObject);
++begin
++  tmrPTZ.Enabled := False;
++  FPTZPanStep := 0;
++  FPTZTiltStep := 0;
++end;
++
+ procedure TfrmMain.PTZRepeatTimer(Sender: TObject);
+ begin
+   if not FCam.Connected then
+@@ -753,19 +835,27 @@ begin
+   if FCapture.Streaming then Exit;
+   if not FCam.Connected then Exit;
+ 
+-  // Stream on the camera's existing (non-blocking) fd. 1280x720 is requested;
+-  // the driver negotiates the nearest supported size/format.
+-  if FCapture.Start(FCam.FD, 1280, 720) then
++  if FCapture.StartOnDevice(FCam.DevicePath, 960, 540)
++     or FCapture.StartOnDevice(FCam.DevicePath, 640, 360)
++     or FCapture.StartOnDevice(FCam.DevicePath, 1280, 720)
++     or FCapture.Start(FCam.FD, 640, 360) then
+   begin
+     tmrPreview.Enabled := True;
+     btnPreview.Caption := 'Stop Preview';
+     lblPreviewInfo.Caption := Format('%dx%d %s',
+       [FCapture.Width, FCapture.Height, FourCCToStr(FCapture.PixFmt)]);
++    lblPreviewInfo.Font.Color := clWhite;
+     CamLog(Self, Format('Preview started: %dx%d %s',
+       [FCapture.Width, FCapture.Height, FourCCToStr(FCapture.PixFmt)]));
++    pbPreview.Invalidate;
+   end
+   else
++  begin
++    lblPreviewInfo.Caption := 'Preview failed (device busy?)';
++    lblPreviewInfo.Font.Color := clRed;
+     CamLog(Self, 'Preview FAILED to start (camera may be in use by another app)');
++    pbPreview.Invalidate;
++  end;
+ end;
+ 
+ procedure TfrmMain.StopPreview;
+@@ -779,7 +869,9 @@ begin
+   if Assigned(btnPreview) then
+     btnPreview.Caption := 'Start Preview';
+   if Assigned(lblPreviewInfo) then
+-    lblPreviewInfo.Caption := '';
++    lblPreviewInfo.Caption := 'Live camera';
++  if Assigned(pbPreview) then
++    pbPreview.Invalidate;
+ end;
+ 
+ procedure TfrmMain.PreviewToggleClick(Sender: TObject);
+@@ -792,11 +884,65 @@ end;
+ 
+ procedure TfrmMain.PreviewTimer(Sender: TObject);
+ begin
++  if not Assigned(FCapture) or not Assigned(FPreviewBmp) or not Assigned(pbPreview) then Exit;
+   if not FCapture.Streaming then Exit;
+-  if FCapture.GrabFrame(FPreviewBmp) then
+-  begin
+-    imgPreview.Picture.Bitmap.Assign(FPreviewBmp);
+-    imgPreview.Invalidate;
++  try
++    if FCapture.GrabFrame(FPreviewBmp) then
++      pbPreview.Invalidate;
++  except
++  end;
++end;
++
++procedure TfrmMain.PreviewPaint(Sender: TObject);
++var
++  r, d: TRect;
++  bw, bh, dw, dh, cw, ch: Integer;
++  sx, sy: Double;
++  msg: string;
++begin
++  if not Assigned(pbPreview) then Exit;
++  r := pbPreview.ClientRect;
++  cw := r.Right - r.Left;
++  ch := r.Bottom - r.Top;
++  if (cw < 2) or (ch < 2) then Exit;
++  try
++    pbPreview.Canvas.Brush.Color := clBlack;
++    pbPreview.Canvas.FillRect(r);
++
++    if Assigned(FPreviewBmp) and (FPreviewBmp.Width > 1) and (FPreviewBmp.Height > 1) then
++    begin
++      bw := FPreviewBmp.Width;
++      bh := FPreviewBmp.Height;
++      sx := cw / bw;
++      sy := ch / bh;
++      if sx < sy then
++      begin
++        dw := cw;
++        dh := Round(bh * sx);
++      end
++      else
++      begin
++        dh := ch;
++        dw := Round(bw * sy);
++      end;
++      if dw < 1 then dw := 1;
++      if dh < 1 then dh := 1;
++      d.Left := r.Left + (cw - dw) div 2;
++      d.Top := r.Top + (ch - dh) div 2;
++      d.Right := d.Left + dw;
++      d.Bottom := d.Top + dh;
++      pbPreview.Canvas.StretchDraw(d, FPreviewBmp);
++      Exit;
++    end;
++
++    pbPreview.Canvas.Font.Color := clSilver;
++    pbPreview.Canvas.Font.Size := 16;
++    if Assigned(FCapture) and FCapture.Streaming then
++      msg := 'Waiting for frames...'
++    else
++      msg := 'Connect the camera, then Start Preview';
++    pbPreview.Canvas.TextOut(r.Left + 24, r.Top + 24, msg);
++  except
+   end;
+ end;
+ 
+@@ -806,7 +952,10 @@ procedure TfrmMain.TrackingOnClick(Sender: TObject);
+ begin
+   if not FCam.Connected then Exit;
+   FCam.SetAITracking(True);
+-  // Sync framing combo with camera's current state
++  btnTrackingOn.Font.Style := [fsBold];
++  btnTrackingOn.Caption := '● ON';
++  btnTrackingOff.Font.Style := [];
++  btnTrackingOff.Caption := 'OFF';
+   case FCam.GetTrackingFrame of
+     tfHead:     cboTrackFrame.ItemIndex := 0;
+     tfHalfBody: cboTrackFrame.ItemIndex := 1;
+@@ -816,12 +965,17 @@ end;
+ 
+ procedure TfrmMain.TrackingOffClick(Sender: TObject);
+ begin
+-  if FCam.Connected then FCam.SetAITracking(False);
++  if not FCam.Connected then Exit;
++  FCam.SetAITracking(False);
++  btnTrackingOn.Font.Style := [];
++  btnTrackingOn.Caption := 'ON';
++  btnTrackingOff.Font.Style := [];
++  btnTrackingOff.Caption := 'OFF';
+ end;
+ 
+ procedure TfrmMain.TrackFrameChange(Sender: TObject);
+ begin
+-  if not FCam.Connected then Exit;
++  if FUpdating or not FCam.Connected then Exit;
+   case cboTrackFrame.ItemIndex of
+     0: FCam.SetTrackingFrame(tfHead);
+     1: FCam.SetTrackingFrame(tfHalfBody);
+@@ -835,7 +989,7 @@ var
+ begin
+   if not FCam.Connected then Exit;
+ 
+-  isTracking := FCam.GetAITracking;
++  isTracking := FCam.AITrackingEnabled;
+   if isTracking then
+   begin
+     btnTrackingOn.Font.Style := [fsBold];
+@@ -935,33 +1089,146 @@ end;
+ 
+ { ===== Presets ===== }
+ 
+-procedure TfrmMain.PresetRecallClick(Sender: TObject);
+-var
+-  p: TPresetPosition;
+-  wasUpdating: Boolean;
++function TfrmMain.DefaultScene(Index: Integer): TPresetPosition;
+ begin
+-  if not FCam.Connected then Exit;
+-
+-  p := FCam.GetPreset((Sender as TButton).Tag);
+-  if not FCam.RecallPreset((Sender as TButton).Tag) then Exit;
+-
+-  // Recall changes the camera directly, so mirror the recalled zoom in the UI
+-  // without firing ZoomChange and sending the same command a second time.
+-  wasUpdating := FUpdating;
+-  FUpdating := True;
+-  try
+-    tbZoom.Position := p.Zoom;
+-    lblZoomVal.Caption := Format('%.1fx', [tbZoom.Position / 100.0]);
+-  finally
+-    FUpdating := wasUpdating;
++  Result.Pan := 0;
++  Result.Tilt := 0;
++  Result.Zoom := 100;
++  Result.Valid := True;
++  Result.Tracking := True;
++  Result.Frame := tfHalfBody;
++  Result.Mode := cmNormal;
++  case Index of
++    0: begin
++         Result.Name := 'Stream Face';
++         Result.Zoom := 160;
++         Result.Frame := tfHead;
++       end;
++    1: begin
++         Result.Name := 'Stream Wide';
++         Result.Zoom := 100;
++         Result.Frame := tfFullBody;
++       end;
++    2: begin
++         Result.Name := 'Call';
++         Result.Zoom := 200;
++         Result.Frame := tfHead;
++       end;
++    3: begin
++         Result.Name := 'Desk';
++         Result.Zoom := 100;
++         Result.Tracking := False;
++         Result.Mode := cmDeskView;
++       end;
++  else
++    Result.Name := 'Scene';
++    Result.Valid := False;
+   end;
+ end;
+ 
+-procedure TfrmMain.PresetSaveClick(Sender: TObject);
++procedure TfrmMain.EnsureDefaultPresets;
++var
++  i: Integer;
++  p: TPresetPosition;
+ begin
+-  if FCam.Connected and FCam.SavePreset((Sender as TButton).Tag) then
+-    // Persist immediately so a saved preset survives a crash or forced exit.
++  for i := 0 to 3 do
++  begin
++    p := FCam.GetPreset(i);
++    if not p.Valid then
++      p := DefaultScene(i)
++    else
++      p.Name := DefaultScene(i).Name;
++    FCam.SetPreset(i, p);
++    if Assigned(btnScene[i]) then
++      btnScene[i].Caption := p.Name;
++  end;
++end;
++
++procedure TfrmMain.ApplyScene(Index: Integer);
++var
++  p: TPresetPosition;
++  i: Integer;
++begin
++  if not FCam.Connected then Exit;
++  p := FCam.GetPreset(Index);
++  if not p.Valid then
++    p := DefaultScene(Index);
++
++  FCam.SetCameraMode(p.Mode);
++  if p.Mode = cmNormal then
++  begin
++    FCam.SetAITracking(p.Tracking);
++    if p.Tracking then
++      FCam.SetTrackingFrame(p.Frame);
++  end;
++
++  if p.Valid then
++    FCam.RecallPreset(Index)
++  else
++  begin
++    FCam.SetPreset(Index, p);
++    FCam.RecallPreset(Index);
++  end;
++
++  FUpdating := True;
++  try
++    if FCam.ZoomRange.Available then
++    begin
++      tbZoom.Min := FCam.ZoomRange.Min;
++      tbZoom.Max := FCam.ZoomRange.Max;
++    end;
++    tbZoom.Position := p.Zoom;
++    lblZoomVal.Caption := Format('%.1fx', [tbZoom.Position / 100.0]);
++    if p.Tracking then
++    begin
++      btnTrackingOn.Font.Style := [fsBold];
++      btnTrackingOn.Caption := '● ON';
++      btnTrackingOff.Font.Style := [];
++      btnTrackingOff.Caption := 'OFF';
++    end
++    else
++    begin
++      btnTrackingOn.Font.Style := [];
++      btnTrackingOn.Caption := 'ON';
++      btnTrackingOff.Font.Style := [];
++      btnTrackingOff.Caption := 'OFF';
++    end;
++    case p.Frame of
++      tfHead:     cboTrackFrame.ItemIndex := 0;
++      tfHalfBody: cboTrackFrame.ItemIndex := 1;
++      tfFullBody: cboTrackFrame.ItemIndex := 2;
++    end;
++    for i := 0 to 3 do
++      if Assigned(btnScene[i]) then
++        if i = Index then
++          btnScene[i].Font.Style := [fsBold]
++        else
++          btnScene[i].Font.Style := [];
++  finally
++    FUpdating := False;
++  end;
++end;
++
++procedure TfrmMain.PresetRecallClick(Sender: TObject);
++begin
++  ApplyScene((Sender as TButton).Tag);
++end;
++
++procedure TfrmMain.PresetSaveClick(Sender: TObject);
++var
++  idx: Integer;
++  p: TPresetPosition;
++begin
++  if not FCam.Connected then Exit;
++  idx := (Sender as TButton).Tag;
++  if FCam.SavePreset(idx) then
++  begin
++    p := FCam.GetPreset(idx);
++    p.Name := DefaultScene(idx).Name;
++    FCam.SetPreset(idx, p);
+     SaveSettings;
++    CamLog(Self, p.Name + ' saved');
++  end;
+ end;
+ 
+ { ===== Log ===== }
+@@ -984,9 +1251,22 @@ end;
+ 
+ procedure TfrmMain.CamLog(Sender: TObject; const Msg: string);
+ begin
+-  memoLog.Lines.Add(FormatDateTime('hh:nn:ss', Now) + '  ' + Msg);
+-  // Auto-scroll to bottom
+-  memoLog.SelStart := Length(memoLog.Text);
++  if not Assigned(memoLog) then Exit;
++  try
++    if memoLog.Lines.Count > 250 then
++    begin
++      memoLog.Lines.BeginUpdate;
++      try
++        while memoLog.Lines.Count > 180 do
++          memoLog.Lines.Delete(0);
++      finally
++        memoLog.Lines.EndUpdate;
++      end;
++    end;
++    memoLog.Lines.Add(FormatDateTime('hh:nn:ss', Now) + '  ' + Msg);
++    memoLog.SelStart := Length(memoLog.Text);
++  except
++  end;
+ end;
+ 
+ { ===== UI Helpers ===== }
+@@ -1099,14 +1379,17 @@ begin
+     ini.WriteString('Device', 'LastDevice', FCam.DevicePath);
+     ini.WriteInteger('PTZ', 'PanStep', sePanStep.Value);
+     ini.WriteInteger('PTZ', 'TiltStep', seTiltStep.Value);
+-    for i := 0 to 5 do
++    for i := 0 to 3 do
+     begin
+-      ini.WriteString('Presets', 'Name' + IntToStr(i), edtPresetName[i].Text);
+       p := FCam.GetPreset(i);
++      ini.WriteString('Presets', 'Name' + IntToStr(i), DefaultScene(i).Name);
+       ini.WriteBool('Presets', 'Valid' + IntToStr(i), p.Valid);
+       ini.WriteInteger('Presets', 'Pan' + IntToStr(i), p.Pan);
+       ini.WriteInteger('Presets', 'Tilt' + IntToStr(i), p.Tilt);
+       ini.WriteInteger('Presets', 'Zoom' + IntToStr(i), p.Zoom);
++      ini.WriteBool('Presets', 'Tracking' + IntToStr(i), p.Tracking);
++      ini.WriteInteger('Presets', 'Frame' + IntToStr(i), Ord(p.Frame));
++      ini.WriteInteger('Presets', 'Mode' + IntToStr(i), Ord(p.Mode));
+     end;
+   finally
+     ini.Free;
+@@ -1138,16 +1421,22 @@ begin
+           cboDevice.ItemIndex := i;
+           Break;
+         end;
+-    for i := 0 to 5 do
++    for i := 0 to 3 do
+     begin
+-      edtPresetName[i].Text := ini.ReadString('Presets', 'Name' + IntToStr(i),
+-        'Preset ' + IntToStr(i));
+-      p.Name := edtPresetName[i].Text;
+-      p.Valid := ini.ReadBool('Presets', 'Valid' + IntToStr(i), False);
+-      p.Pan := ini.ReadInteger('Presets', 'Pan' + IntToStr(i), 0);
+-      p.Tilt := ini.ReadInteger('Presets', 'Tilt' + IntToStr(i), 0);
+-      p.Zoom := ini.ReadInteger('Presets', 'Zoom' + IntToStr(i), 100);
++      p := DefaultScene(i);
++      if ini.ReadBool('Presets', 'Valid' + IntToStr(i), False) then
++      begin
++        p.Valid := True;
++        p.Pan := ini.ReadInteger('Presets', 'Pan' + IntToStr(i), p.Pan);
++        p.Tilt := ini.ReadInteger('Presets', 'Tilt' + IntToStr(i), p.Tilt);
++        p.Zoom := ini.ReadInteger('Presets', 'Zoom' + IntToStr(i), p.Zoom);
++        p.Tracking := ini.ReadBool('Presets', 'Tracking' + IntToStr(i), p.Tracking);
++        p.Frame := TTrackingFrame(ini.ReadInteger('Presets', 'Frame' + IntToStr(i), Ord(p.Frame)));
++        p.Mode := TCameraMode(ini.ReadInteger('Presets', 'Mode' + IntToStr(i), Ord(p.Mode)));
++      end;
+       FCam.SetPreset(i, p);
++      if Assigned(btnScene[i]) then
++        btnScene[i].Caption := p.Name;
+     end;
+   finally
+     ini.Free;

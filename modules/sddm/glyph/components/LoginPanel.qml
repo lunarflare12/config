@@ -51,6 +51,12 @@ Item {
     }
 
     function focusPassword() { passwordField.forceActiveFocus() }
+    function prependPassword(ch) {
+        if (ch)
+            passwordField.text += ch
+        passwordField.forceActiveFocus()
+        passwordField.cursorPosition = passwordField.text.length
+    }
     function reset() {
         passwordField.text = ""
         isLoggingIn = false

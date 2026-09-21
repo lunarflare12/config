@@ -6,15 +6,15 @@ end
 
 hl.config({
     general = {
-        gaps_in = in_game and 0 or 8,
+        gaps_in = in_game and 0 or 4,
         gaps_out = in_game and { top = 0, right = 0, bottom = 0, left = 0 } or { top = 4, right = 10, bottom = 10, left = 10 },
-        border_size = in_game and 0 or 2,
+        border_size = in_game and 0 or 4,
         resize_on_border = false,
         allow_tearing = true,
         layout = "dwindle",
     },
     decoration = {
-        rounding = in_game and 0 or 16,
+        rounding = 0,
         rounding_power = 2,
         active_opacity = 1,
         fullscreen_opacity = 1,

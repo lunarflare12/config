@@ -26,7 +26,8 @@ hl.layer_rule({
     name = "aurora-dim",
     match = { namespace = "^aurora-dim$" },
     blur = false,
-    order = 3,
+    xray = true,
+    order = 8,
 })
 
 hl.layer_rule({
@@ -40,7 +41,7 @@ hl.layer_rule({
     name = "aurora-dock",
     match = { namespace = "^aurora-dock$" },
     blur = false,
-    order = 11,
+    order = 13,
 })
 
 hl.layer_rule({

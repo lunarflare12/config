@@ -173,7 +173,7 @@ Item {
                 continue;
             const size = ipc.size || [0, 0];
             let score = Number(size[0]) * Number(size[1]);
-            if (cls.indexOf("gamescope") !== -1 || cls.indexOf("steam_app_") !== -1)
+            if (cls.indexOf("gamescope") !== -1 || cls.indexOf("steam_app_") !== -1 || cls.indexOf("dota2") !== -1)
                 score += 1000000000;
             if (cls.indexOf("minecraft") !== -1)
                 score += 1000000000;
@@ -271,8 +271,6 @@ Item {
                     hovered: cellMouse.containsMouse
                     pressed: cellMouse.pressed
                     active: cell.focused
-                    hoverScale: 1.14
-                    pressScale: 0.84
                     activeFill: "transparent"
                 }
 

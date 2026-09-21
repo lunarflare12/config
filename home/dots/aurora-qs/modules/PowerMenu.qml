@@ -53,7 +53,7 @@ Components.LauncherView {
             "title": "Lock",
             "icon": Core.Icons.lock,
             "danger": false,
-            "command": ["loginctl", "lock-session"]
+            "command": ["qs", "ipc", "call", "lock", "lock"]
         },
         {
             "id": "sleep",

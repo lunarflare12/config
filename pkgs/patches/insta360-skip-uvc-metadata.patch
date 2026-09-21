@@ -1,0 +1,31 @@
+--- a/uv4l2.pas
++++ b/uv4l2.pas
+@@ -420,6 +420,7 @@
+   cap: Tv4l2_capability;
+   fd: cint;
+   devpath: string;
++  caps: LongWord;
+ begin
+   Count := 0;
+   FillChar(cap, SizeOf(cap), 0);
+@@ -434,9 +435,17 @@
+         begin
+           if Count <= High(Devices) then
+           begin
+-            Devices[Count] := Format('%s  [%s - %s]',
+-              [devpath, PAnsiChar(@cap.card[0]), PAnsiChar(@cap.driver[0])]);
+-            Inc(Count);
++            { Metadata-only UVC nodes share the camera name but reject PTZ/XU
++              with ENOTTY (errno 25). Keep capture nodes only. }
++            caps := cap.capabilities;
++            if (caps and $80000000) <> 0 then
++              caps := cap.device_caps;
++            if (caps and $00000001) <> 0 then
++            begin
++              Devices[Count] := Format('%s  %s',
++                [devpath, PAnsiChar(@cap.card[0])]);
++              Inc(Count);
++            end;
+           end;
+         end;
+         V4L2_Close(fd);

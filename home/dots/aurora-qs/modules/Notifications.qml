@@ -301,7 +301,7 @@ PanelWindow {
                     anchors.leftMargin: root.toastGutter
                     anchors.rightMargin: root.toastGutter
                     anchors.topMargin: root.toastGutter
-                    implicitHeight: Math.max(64, contentRow.implicitHeight + 16)
+                    implicitHeight: Math.max(64, contentRow.implicitHeight + 24)
                     height: implicitHeight
 
                     transform: Translate {
@@ -345,37 +345,37 @@ PanelWindow {
                         anchors.left: parent.left
                         anchors.right: parent.right
                         anchors.top: parent.top
-                        anchors.leftMargin: 10
-                        anchors.rightMargin: 10
-                        anchors.topMargin: 8
-                        spacing: 10
+                        anchors.leftMargin: 12
+                        anchors.rightMargin: 12
+                        anchors.topMargin: 12
+                        spacing: 12
 
                         Item {
-                            Layout.alignment: Qt.AlignVCenter
+                            Layout.alignment: Qt.AlignTop
                             Layout.preferredWidth: 40
                             Layout.preferredHeight: 40
 
-                            Image {
-                                anchors.fill: parent
-                                source: "file://" + Quickshell.shellDir + "/assets/minecraft/slot.png"
-                                smooth: false
-                                antialiasing: false
-                                fillMode: Image.Stretch
-                            }
-
                             readonly property string resolvedIcon: Services.NotificationServer.iconFor(wrapper.modelData)
+
+                            Rectangle {
+                                anchors.fill: parent
+                                radius: 10
+                                color: Qt.rgba(1, 1, 1, 0.08)
+                                border.width: 1
+                                border.color: Qt.rgba(1, 1, 1, 0.10)
+                            }
 
                             Image {
                                 id: notificationIcon
                                 anchors.centerIn: parent
-                                width: 32
-                                height: 32
+                                width: 28
+                                height: 28
                                 source: parent.resolvedIcon
                                 visible: status === Image.Ready && source !== ""
                                 asynchronous: true
                                 cache: true
-                                smooth: false
-                                mipmap: false
+                                smooth: true
+                                mipmap: true
                                 fillMode: Image.PreserveAspectFit
                             }
 
@@ -384,15 +384,15 @@ PanelWindow {
                                 visible: !notificationIcon.visible
                                 text: Core.Icons.forApp(Services.NotificationServer.appLabel(wrapper.modelData))
                                 font.family: Core.Theme.iconFont
-                                font.pixelSize: 22
-                                color: "#FFFF55"
-                                renderType: Text.NativeRendering
+                                font.pixelSize: 18
+                                color: Core.Theme.foreground
+                                renderType: Text.QtRendering
                             }
                         }
 
                         ColumnLayout {
                             Layout.fillWidth: true
-                            spacing: 2
+                            spacing: 3
 
                             Text {
                                 Layout.fillWidth: true
@@ -405,12 +405,12 @@ PanelWindow {
                                     }
                                     return Services.NotificationServer.appLabel(wrapper.modelData);
                                 }
-                                font.family: Core.Theme.fontPixel
-                                font.pixelSize: 16
-                                font.kerning: false
-                                color: wrapper.critical ? "#FF5555" : "#FFFF55"
+                                font.family: Core.Theme.fontFamily
+                                font.pixelSize: 13
+                                font.weight: Font.DemiBold
+                                color: wrapper.critical ? Core.Theme.danger : Core.Theme.foreground
                                 elide: Text.ElideRight
-                                renderType: Text.NativeRendering
+                                renderType: Text.QtRendering
                             }
 
                             Text {
@@ -435,16 +435,15 @@ PanelWindow {
                                         return Services.NotificationServer.appLabel(wrapper.modelData);
                                     return "";
                                 }
-                                font.family: Core.Theme.fontPixel
-                                font.pixelSize: 16
-                                font.kerning: false
-                                color: "#FFFFFF"
+                                font.family: Core.Theme.fontFamily
+                                font.pixelSize: 12
+                                color: Qt.rgba(1, 1, 1, 0.72)
                                 wrapMode: Text.Wrap
                                 maximumLineCount: 3
                                 elide: Text.ElideRight
                                 textFormat: Text.StyledText
-                                linkColor: "#55FFFF"
-                                renderType: Text.NativeRendering
+                                linkColor: Core.Theme.accent
+                                renderType: Text.QtRendering
                                 onLinkActivated: function (link) {
                                     Quickshell.execDetached(["xdg-open", link]);
                                 }
@@ -452,7 +451,7 @@ PanelWindow {
 
                             Components.NotificationActions {
                                 Layout.fillWidth: true
-                                Layout.topMargin: visible ? 4 : 0
+                                Layout.topMargin: visible ? 6 : 0
                                 notification: wrapper.modelData
                             }
                         }

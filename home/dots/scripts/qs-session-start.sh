@@ -6,7 +6,7 @@ set +e
 
 HOME="${HOME:-/home/dd}"
 export HOME
-export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/1000}"
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 
 mkdir -p "$XDG_RUNTIME_DIR"
 exec 9>"$XDG_RUNTIME_DIR/aurora-qs.start.lock"
@@ -15,11 +15,6 @@ flock -n 9 || exit 0
 fix="${HOME}/.config/scripts/hypr-fix-safe-mode.sh"
 if [ -x "$fix" ]; then
   "$fix" >/dev/null 2>&1 || true
-fi
-
-ensure="${HOME}/.config/scripts/qs-ensure-config.sh"
-if [ -x "$ensure" ]; then
-  "$ensure"
 fi
 
 if pgrep -x quickshell >/dev/null 2>&1; then

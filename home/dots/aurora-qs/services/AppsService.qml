@@ -22,6 +22,7 @@ QtObject {
     property var dockOrder: []
     property bool dockConfigured: false
     property bool layoutReady: false
+    property string openFolderId: ""
 
     readonly property var defaultDockNeedles: [
         "firefox", "zen", "google-chrome", "kitty", "thunar", "nemo",
@@ -41,10 +42,9 @@ QtObject {
         path: root.layoutPath
         blockLoading: true
         printErrors: false
-        onLoaded: {
-            if (!root.layoutReady)
-                root.loadLayout()
-        }
+        watchChanges: true
+        onFileChanged: this.reload()
+        onLoaded: root.loadLayout()
     }
 
     property FileView layoutLegacyFile: FileView {
@@ -99,8 +99,8 @@ QtObject {
 
         try {
             const parsed = JSON.parse(raw)
-            root.launchpadOrder = Array.isArray(parsed && parsed.launchpad) ? parsed.launchpad : []
-            root.dockOrder = Array.isArray(parsed && parsed.dock) ? parsed.dock : []
+            root.launchpadOrder = root.normalizeLaunchpad(parsed && parsed.launchpad)
+            root.dockOrder = Array.isArray(parsed && parsed.dock) ? parsed.dock.map(String) : []
             root.dockConfigured = parsed && Object.prototype.hasOwnProperty.call(parsed, "dock")
         } catch (e) {
             root.launchpadOrder = []
@@ -110,10 +110,111 @@ QtObject {
         root.layoutReady = true
     }
 
+    function isFolderTile(item) {
+        return !!(item && typeof item === "object" && Array.isArray(item.apps))
+    }
+
+    function tileId(item) {
+        if (typeof item === "string")
+            return item
+        if (root.isFolderTile(item) && item.id)
+            return String(item.id)
+        return ""
+    }
+
+    function cloneTile(item) {
+        if (typeof item === "string")
+            return item
+        if (!root.isFolderTile(item))
+            return item
+        return {
+            "id": String(item.id || ""),
+            "name": String(item.name || "Folder"),
+            "apps": (item.apps || []).map(String)
+        }
+    }
+
+    function normalizeLaunchpad(raw) {
+        const src = Array.isArray(raw) ? raw : []
+        const out = []
+        const seen = ({})
+        for (let i = 0; i < src.length; i++) {
+            const item = src[i]
+            if (typeof item === "string") {
+                const id = String(item)
+                if (!id || seen["app:" + id])
+                    continue
+                seen["app:" + id] = true
+                out.push(id)
+                continue
+            }
+            if (!root.isFolderTile(item))
+                continue
+            const fid = String(item.id || "")
+            if (!fid || seen["folder:" + fid])
+                continue
+            const apps = []
+            const appSeen = ({})
+            const list = item.apps || []
+            for (let a = 0; a < list.length; a++) {
+                const id = String(list[a] || "")
+                if (!id || appSeen[id] || seen["app:" + id])
+                    continue
+                appSeen[id] = true
+                seen["app:" + id] = true
+                apps.push(id)
+            }
+            if (apps.length === 1) {
+                out.push(apps[0])
+                continue
+            }
+            if (apps.length === 0)
+                continue
+            seen["folder:" + fid] = true
+            out.push({
+                "id": fid,
+                "name": String(item.name || "Folder"),
+                "apps": apps
+            })
+        }
+        return out
+    }
+
+    function serializeLaunchpad() {
+        const out = []
+        const src = root.launchpadOrder || []
+        for (let i = 0; i < src.length; i++) {
+            const item = src[i]
+            if (typeof item === "string")
+                out.push(item)
+            else if (root.isFolderTile(item))
+                out.push({
+                    "id": String(item.id),
+                    "name": String(item.name || "Folder"),
+                    "apps": (item.apps || []).map(String)
+                })
+        }
+        return out
+    }
+
+    function newFolderId() {
+        return "folder-" + Date.now() + "-" + Math.floor(Math.random() * 100000)
+    }
+
+    function findFolder(id) {
+        const needle = String(id || "")
+        const src = root.launchpadOrder || []
+        for (let i = 0; i < src.length; i++) {
+            if (root.isFolderTile(src[i]) && String(src[i].id) === needle)
+                return src[i]
+        }
+        return null
+    }
+
     function saveLayout() {
         root.dockConfigured = true
         root.layoutFile.setText(JSON.stringify({
-            "launchpad": root.launchpadOrder,
+            "launchpad": root.serializeLaunchpad(),
             "dock": root.dockOrder
         }))
     }
@@ -162,39 +263,110 @@ QtObject {
         if (!root.layoutReady)
             root.loadLayout()
 
+        const have = ({})
+        for (let i = 0; i < list.length; i++) {
+            const id = list[i] && list[i].id ? String(list[i].id) : ""
+            if (id)
+                have[id] = true
+        }
+
         const lp = []
         const seenLp = {}
         const prevLp = root.launchpadOrder
         for (let i = 0; i < prevLp.length; i++) {
-            const id = String(prevLp[i] || "")
-            if (!id || seenLp[id])
+            const item = root.cloneTile(prevLp[i])
+            if (typeof item === "string") {
+                const id = item
+                if (!id || !have[id] || seenLp["app:" + id])
+                    continue
+                seenLp["app:" + id] = true
+                lp.push(id)
                 continue
-            seenLp[id] = true
-            lp.push(id)
+            }
+            if (!root.isFolderTile(item))
+                continue
+            const apps = []
+            for (let a = 0; a < item.apps.length; a++) {
+                const id = String(item.apps[a] || "")
+                if (!id || !have[id] || seenLp["app:" + id])
+                    continue
+                seenLp["app:" + id] = true
+                apps.push(id)
+            }
+            if (apps.length === 1) {
+                lp.push(apps[0])
+                continue
+            }
+            if (apps.length === 0)
+                continue
+            item.apps = apps
+            seenLp["folder:" + item.id] = true
+            lp.push(item)
         }
         for (let i = 0; i < list.length; i++) {
             const id = list[i] && list[i].id ? String(list[i].id) : ""
-            if (!id || seenLp[id])
+            if (!id || seenLp["app:" + id])
                 continue
-            seenLp[id] = true
+            seenLp["app:" + id] = true
             lp.push(id)
         }
 
+        const dock = []
+        const seenDock = {}
+        const prevDock = root.dockOrder || []
+        for (let i = 0; i < prevDock.length; i++) {
+            const id = String(prevDock[i] || "")
+            if (!id || seenDock[id])
+                continue
+            if (id.indexOf("folder-") === 0) {
+                if (!seenLp["folder:" + id])
+                    continue
+            } else if (!seenLp["app:" + id]) {
+                continue
+            }
+            seenDock[id] = true
+            dock.push(id)
+        }
+
         let dockChanged = false
-        if (!root.dockConfigured && (!root.dockOrder || root.dockOrder.length === 0)) {
+        if (!root.dockConfigured && dock.length === 0) {
             const defaults = root.defaultDockIds(list)
             if (defaults.length) {
                 root.dockOrder = defaults
                 root.dockConfigured = true
                 dockChanged = true
             }
+        } else if (!root.sameIds(root.dockOrder, dock)) {
+            root.dockOrder = dock
+            dockChanged = true
         }
 
-        const lpChanged = !root.sameIds(root.launchpadOrder, lp)
+        const lpChanged = !root.sameLaunchpad(root.launchpadOrder, lp)
         if (lpChanged)
             root.launchpadOrder = lp
         if (lpChanged || dockChanged)
             root.saveLayout()
+    }
+
+    function sameLaunchpad(a, b) {
+        if (!a || !b || a.length !== b.length)
+            return false
+        for (let i = 0; i < a.length; i++) {
+            const left = a[i]
+            const right = b[i]
+            if (typeof left === "string" || typeof right === "string") {
+                if (left !== right)
+                    return false
+                continue
+            }
+            if (!root.isFolderTile(left) || !root.isFolderTile(right))
+                return false
+            if (String(left.id) !== String(right.id) || String(left.name) !== String(right.name))
+                return false
+            if (!root.sameIds(left.apps || [], right.apps || []))
+                return false
+        }
+        return true
     }
 
     function byIdMap() {
@@ -208,32 +380,99 @@ QtObject {
         return map
     }
 
-    readonly property var launchpadEntries: {
+    readonly property var launchpadTiles: {
         const order = root.launchpadOrder
         const _n = order ? order.length : 0
         const _e = root.entries.length
         const map = root.byIdMap()
         const out = []
         for (let i = 0; i < _n; i++) {
-            const e = map[String(order[i])]
+            const item = order[i]
+            if (typeof item === "string") {
+                const e = map[item]
+                if (e)
+                    out.push({ "type": "app", "id": item, "name": root.displayName(e), "entry": e, "apps": [] })
+                continue
+            }
+            if (!root.isFolderTile(item))
+                continue
+            const apps = []
+            const ids = item.apps || []
+            for (let a = 0; a < ids.length; a++) {
+                const e = map[String(ids[a])]
+                if (e)
+                    apps.push(e)
+            }
+            if (apps.length < 2)
+                continue
+            out.push({
+                "type": "folder",
+                "id": String(item.id),
+                "name": String(item.name || "Folder"),
+                "entry": null,
+                "apps": apps
+            })
+        }
+        return out
+    }
+
+    readonly property var launchpadEntries: {
+        const tiles = root.launchpadTiles
+        const out = []
+        for (let i = 0; i < tiles.length; i++) {
+            if (tiles[i].type === "app" && tiles[i].entry)
+                out.push(tiles[i].entry)
+        }
+        return out
+    }
+
+    readonly property var dockTiles: {
+        const order = root.dockOrder
+        const _n = order ? order.length : 0
+        const _e = root.entries.length
+        const map = root.byIdMap()
+        const folders = ({})
+        const lp = root.launchpadTiles
+        for (let i = 0; i < lp.length; i++) {
+            if (lp[i].type === "folder")
+                folders[lp[i].id] = lp[i]
+        }
+        const out = []
+        for (let i = 0; i < _n; i++) {
+            const id = String(order[i] || "")
+            if (!id)
+                continue
+            if (folders[id]) {
+                out.push(folders[id])
+                continue
+            }
+            const e = map[id]
             if (e)
-                out.push(e)
+                out.push({ "type": "app", "id": id, "name": root.displayName(e), "entry": e, "apps": [] })
         }
         return out
     }
 
     readonly property var dockEntries: {
-        const order = root.dockOrder
-        const _n = order ? order.length : 0
-        const _e = root.entries.length
-        const map = root.byIdMap()
+        const tiles = root.dockTiles
         const out = []
-        for (let i = 0; i < _n; i++) {
-            const e = map[String(order[i])]
-            if (e)
-                out.push(e)
+        for (let i = 0; i < tiles.length; i++) {
+            if (tiles[i].type === "app" && tiles[i].entry)
+                out.push(tiles[i].entry)
         }
         return out
+    }
+
+    readonly property var openFolder: {
+        const id = String(root.openFolderId || "")
+        if (!id)
+            return null
+        const tiles = root.launchpadTiles
+        for (let i = 0; i < tiles.length; i++) {
+            if (tiles[i].type === "folder" && tiles[i].id === id)
+                return tiles[i]
+        }
+        return null
     }
 
     function moveIds(ids, from, to) {
@@ -248,16 +487,143 @@ QtObject {
         return next
     }
 
+    function moveVisibleIds(visible, from, to, stored) {
+        const ids = []
+        for (let i = 0; i < visible.length; i++) {
+            const id = visible[i] && visible[i].id ? String(visible[i].id) : ""
+            if (id)
+                ids.push(id)
+        }
+        const nextVisible = root.moveIds(ids, from, to)
+        const seen = ({})
+        for (let i = 0; i < nextVisible.length; i++)
+            seen[String(nextVisible[i])] = true
+        const rest = []
+        const prev = stored || []
+        for (let i = 0; i < prev.length; i++) {
+            const id = String(prev[i] || "")
+            if (id && !seen[id])
+                rest.push(id)
+        }
+        return nextVisible.concat(rest)
+    }
+
     function moveLaunchpad(from, to) {
-        const next = root.moveIds(root.launchpadOrder, from, to)
-        if (root.sameIds(next, root.launchpadOrder))
+        const next = root.launchpadOrder.slice()
+        if (from < 0 || from >= next.length)
+            return
+        const dest = Math.max(0, Math.min(next.length - 1, to))
+        if (from === dest)
+            return
+        const item = next.splice(from, 1)[0]
+        next.splice(dest, 0, item)
+        if (root.sameLaunchpad(next, root.launchpadOrder))
             return
         root.launchpadOrder = next
         root.saveLayout()
     }
 
+    function mergeLaunchpad(from, to) {
+        if (from < 0 || to < 0 || from === to)
+            return
+        const src = root.launchpadOrder.slice()
+        if (from >= src.length || to >= src.length)
+            return
+        const moving = root.cloneTile(src[from])
+        const target = root.cloneTile(src[to])
+        if (root.isFolderTile(moving)) {
+            root.moveLaunchpad(from, to)
+            return
+        }
+        const appId = root.tileId(moving)
+        if (!appId)
+            return
+        if (root.isFolderTile(target)) {
+            const apps = (target.apps || []).map(String)
+            if (apps.indexOf(appId) < 0)
+                apps.push(appId)
+            target.apps = apps
+            src[to] = target
+            src.splice(from, 1)
+            root.launchpadOrder = root.normalizeLaunchpad(src)
+            root.saveLayout()
+            return
+        }
+        const otherId = root.tileId(target)
+        if (!otherId || otherId === appId)
+            return
+        const folder = {
+            "id": root.newFolderId(),
+            "name": "Folder",
+            "apps": [otherId, appId]
+        }
+        const insertAt = from < to ? to - 1 : to
+        const next = []
+        for (let i = 0; i < src.length; i++) {
+            if (i === from || i === to)
+                continue
+            next.push(src[i])
+        }
+        next.splice(Math.max(0, Math.min(next.length, insertAt)), 0, folder)
+        root.launchpadOrder = root.normalizeLaunchpad(next)
+        root.openFolderId = folder.id
+        root.saveLayout()
+    }
+
+    function renameFolder(id, name) {
+        const needle = String(id || "")
+        const label = String(name || "").trim() || "Folder"
+        const src = root.launchpadOrder.slice()
+        let changed = false
+        for (let i = 0; i < src.length; i++) {
+            if (root.isFolderTile(src[i]) && String(src[i].id) === needle) {
+                const tile = root.cloneTile(src[i])
+                tile.name = label
+                src[i] = tile
+                changed = true
+                break
+            }
+        }
+        if (!changed)
+            return
+        root.launchpadOrder = src
+        root.saveLayout()
+    }
+
+    function removeFromFolder(folderId, appId) {
+        const fid = String(folderId || "")
+        const aid = String(appId || "")
+        const src = root.launchpadOrder.slice()
+        let folderIndex = -1
+        for (let i = 0; i < src.length; i++) {
+            if (!root.isFolderTile(src[i]) || String(src[i].id) !== fid)
+                continue
+            folderIndex = i
+            const tile = root.cloneTile(src[i])
+            tile.apps = (tile.apps || []).filter(function (id) {
+                return String(id) !== aid
+            })
+            src[i] = tile
+            break
+        }
+        if (folderIndex < 0)
+            return
+        src.splice(folderIndex + 1, 0, aid)
+        root.launchpadOrder = root.normalizeLaunchpad(src)
+        root.saveLayout()
+    }
+
+    function closeFolder() {
+        root.openFolderId = ""
+    }
+
+    function toggleFolder(id) {
+        const needle = String(id || "")
+        root.openFolderId = root.openFolderId === needle ? "" : needle
+    }
+
     function moveDock(from, to) {
-        const next = root.moveIds(root.dockOrder, from, to)
+        const next = root.moveVisibleIds(root.dockEntries, from, to, root.dockOrder)
         if (root.sameIds(next, root.dockOrder))
             return
         root.dockOrder = next
@@ -292,10 +658,12 @@ QtObject {
 
     property bool dockDropActive: false
     property int dockHoverSlot: -1
+    property bool launchpadDragging: false
 
     function clearDockDrop() {
         root.dockDropActive = false
         root.dockHoverSlot = -1
+        root.launchpadDragging = false
     }
 
     function pinDock(id, at) {
@@ -339,13 +707,17 @@ QtObject {
     readonly property string finderIcon: "file://" + Quickshell.shellDir + "/assets/finder-icon.png"
     readonly property string keymappIcon: "file://" + Quickshell.shellDir + "/assets/keymapp.png"
     readonly property string sattyIcon: "file://" + Quickshell.shellDir + "/assets/satty.png"
+    readonly property string kittyIcon: "file://" + Quickshell.shellDir + "/assets/kitty.png"
 
     function haystack(entry) {
         return [
             entry.id,
             entry.name,
             entry.execString,
-            entry.startupClass
+            entry.exec,
+            entry.startupClass,
+            entry.startupWmClass,
+            entry.icon
         ].join(" ").toLowerCase()
     }
 
@@ -417,6 +789,14 @@ QtObject {
         return root.haystack(entry).indexOf("satty") !== -1
     }
 
+    function isKitty(entry) {
+        if (!entry)
+            return false
+        const blob = root.haystack(entry)
+        const icon = String(entry.icon || "").toLowerCase()
+        return blob.indexOf("kitty") !== -1 || icon.indexOf("kitty") !== -1
+    }
+
     function iconSource(entry) {
         if (!entry)
             return Quickshell.iconPath("application-x-executable")
@@ -426,6 +806,8 @@ QtObject {
             return root.keymappIcon
         if (root.isSatty(entry))
             return root.sattyIcon
+        if (root.isKitty(entry))
+            return root.kittyIcon
         return Quickshell.iconPath(entry.icon, "application-x-executable")
     }
 
@@ -642,9 +1024,16 @@ QtObject {
     function launch(entry) {
         if (!entry)
             return
-
-        root.bump(entry.id)
-        entry.execute()
+        if (entry.type === "folder") {
+            root.toggleFolder(entry.id)
+            return
+        }
+        const app = entry.entry || entry
+        if (!app || typeof app.execute !== "function")
+            return
+        root.bump(app.id)
+        app.execute()
+        root.closeFolder()
     }
 
     function steamIdFromClass(cls) {
@@ -750,6 +1139,8 @@ QtObject {
             return root.keymappIcon;
         if (root.isSatty(entry))
             return root.sattyIcon;
+        if (root.isKitty(entry))
+            return root.kittyIcon;
         if (entry.icon)
             return Quickshell.iconPath(entry.icon, "application-x-executable");
         return "";
@@ -759,6 +1150,9 @@ QtObject {
         const clsStr = String(cls || "");
         const titleStr = String(title || "");
         const needle = clsStr.toLowerCase();
+        if (needle.indexOf("kitty") !== -1 || titleStr.toLowerCase().indexOf("kitty") !== -1)
+            return root.kittyIcon;
+
         const asset = root.gameAssetIcon(clsStr + " " + titleStr);
         if (asset)
             return asset;
@@ -786,6 +1180,8 @@ QtObject {
             return root.keymappIcon;
         if (needle.indexOf("satty") !== -1)
             return root.sattyIcon;
+        if (needle.indexOf("kitty") !== -1)
+            return root.kittyIcon;
         if (needle)
             return Quickshell.iconPath(needle, "application-x-executable");
         return Quickshell.iconPath("application-x-executable");

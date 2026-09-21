@@ -292,13 +292,13 @@ QtObject {
     // Same `!== undefined` idiom as the glass knobs above: `0 || 10` is 10, so
     // `||` would make radius = 0 (square corners) or borderWidth = 0 impossible.
 
-    readonly property int borderWidth: ui.borderWidth !== undefined ? ui.borderWidth : 0
+    readonly property int borderWidth: ui.borderWidth !== undefined ? ui.borderWidth : 3
 
-    readonly property int radius: ui.radius !== undefined ? ui.radius : 10
+    readonly property int radius: ui.radius !== undefined ? ui.radius : 0
 
-    readonly property int radiusSmall: ui.radiusSmall !== undefined ? ui.radiusSmall : 6
+    readonly property int radiusSmall: ui.radiusSmall !== undefined ? ui.radiusSmall : 0
 
-    readonly property int radiusLarge: ui.radiusLarge !== undefined ? ui.radiusLarge : 18
+    readonly property int radiusLarge: ui.radiusLarge !== undefined ? ui.radiusLarge : 0
 
     readonly property int iconSize: Math.max(8, ui.iconSize !== undefined ? ui.iconSize : 16)
 
@@ -327,6 +327,8 @@ QtObject {
     readonly property int pillHeight: 24
 
     readonly property int barHeight: 24
+
+    readonly property int dockReserve: 84
 
     readonly property int moduleHeight: 22
 
@@ -398,14 +400,14 @@ QtObject {
 
     readonly property int durClose: 150
 
-    readonly property real hoverScale: 1.06
-    readonly property real pressScale: 0.92
+    readonly property real hoverScale: 1
+    readonly property real pressScale: 1
 
     function feelScale(hovered, pressed) {
         if (pressed)
-            return 0.92;
+            return 1;
         if (hovered)
-            return 1.06;
+            return 1;
         return 1;
     }
 

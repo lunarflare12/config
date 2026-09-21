@@ -2,19 +2,48 @@
 set -euo pipefail
 
 WALL_DIR="$HOME/.wall"
+STATE_FILE="${XDG_STATE_HOME:-$HOME/.local/state}/aurora/wallpaper"
+CACHE_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/aurora/current-wallpaper"
 CURRENT_FILE="$WALL_DIR/.current"
 DEFAULT_FILE="$WALL_DIR/.current.default"
 
-if [ ! -s "$CURRENT_FILE" ]; then
-  if [ -s "$DEFAULT_FILE" ]; then
-    cp "$DEFAULT_FILE" "$CURRENT_FILE"
-  else
-    first=$(find -L "$WALL_DIR" -maxdepth 1 -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" \) ! -name ".*" | head -n 1)
-    if [ -n "$first" ]; then
-      basename "$first" > "$CURRENT_FILE"
+resolve_wallpaper() {
+  local candidate
+  for candidate in "$STATE_FILE" "$CACHE_FILE"; do
+    if [ -s "$candidate" ]; then
+      local path
+      path=$(tr -d '\n' < "$candidate")
+      if [ -f "$path" ]; then
+        printf '%s\n' "$path"
+        return 0
+      fi
+    fi
+  done
+
+  if [ -s "$CURRENT_FILE" ]; then
+    local name
+    name=$(tr -d '[:space:]' < "$CURRENT_FILE")
+    if [ -f "$WALL_DIR/$name" ]; then
+      printf '%s\n' "$WALL_DIR/$name"
+      return 0
+    fi
+    if [ -f "$HOME/Wallpapers/$name" ]; then
+      printf '%s\n' "$HOME/Wallpapers/$name"
+      return 0
     fi
   fi
-fi
+
+  if [ -s "$DEFAULT_FILE" ]; then
+    local name
+    name=$(tr -d '[:space:]' < "$DEFAULT_FILE")
+    if [ -f "$WALL_DIR/$name" ]; then
+      printf '%s\n' "$WALL_DIR/$name"
+      return 0
+    fi
+  fi
+
+  find -L "$WALL_DIR" "$HOME/Wallpapers" -maxdepth 1 -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.webp" \) ! -name ".*" 2>/dev/null | head -n 1
+}
 
 wait_for_awww() {
   local attempt=0
@@ -29,22 +58,12 @@ wait_for_awww() {
   exit 0
 }
 
-load_wallpaper() {
-  local saved_name
-  saved_name=$(tr -d '[:space:]' < "$CURRENT_FILE")
-  local wallpaper="$WALL_DIR/$saved_name"
-
-  if [ ! -f "$wallpaper" ]; then
-    wallpaper=$(find -L "$WALL_DIR" -maxdepth 1 -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" \) ! -name ".*" | head -n 1)
-  fi
-
-  if [ -z "$wallpaper" ] || [ ! -f "$wallpaper" ]; then
-    echo "No wallpaper found in $WALL_DIR" >&2
-    exit 1
-  fi
-
-  awww img "$wallpaper" --transition-type none
-}
-
 wait_for_awww
-load_wallpaper
+
+wallpaper=$(resolve_wallpaper || true)
+if [ -z "${wallpaper:-}" ] || [ ! -f "$wallpaper" ]; then
+  echo "No wallpaper found" >&2
+  exit 1
+fi
+
+awww img "$wallpaper" --transition-type none

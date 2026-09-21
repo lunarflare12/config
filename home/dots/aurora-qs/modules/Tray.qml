@@ -11,6 +11,7 @@ Item {
     id: root
 
     property var barWindow: null
+    property bool menuOpen: false
 
     implicitWidth: trayRow.implicitWidth
     implicitHeight: Core.Theme.moduleHeight
@@ -67,6 +68,18 @@ Item {
                     mipmap: true
                 }
 
+                QsMenuAnchor {
+                    id: trayMenu
+                    menu: trayItem.modelData.menu
+                    anchor.window: root.barWindow
+                    anchor.item: trayItem
+                    anchor.edges: Edges.Bottom | Edges.Left
+                    anchor.gravity: Edges.Bottom | Edges.Right
+                    onOpened: root.menuOpen = true
+                    onClosed: root.menuOpen = false
+                    onVisibleChanged: root.menuOpen = trayMenu.visible
+                }
+
                 MouseArea {
                     id: mouse
 
@@ -79,30 +92,28 @@ Item {
                     acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
 
                     onClicked: function (event) {
-                        if (event.button === Qt.LeftButton) {
-                            if (modelData.onlyMenu || modelData.hasMenu) {
-                                const p = trayItem.mapToItem(root.barWindow.contentItem, 0, trayItem.height);
-
-                                modelData.display(root.barWindow, Math.round(p.x), Math.round(p.y));
-                            } else {
-                                modelData.activate();
+                        if (event.button === Qt.RightButton) {
+                            if (trayItem.modelData.hasMenu) {
+                                Qt.callLater(function () {
+                                    trayMenu.open();
+                                });
                             }
-
                             return;
                         }
 
-                        if (event.button === Qt.RightButton) {
-                            if (modelData.hasMenu) {
-                                const p = trayItem.mapToItem(root.barWindow.contentItem, 0, trayItem.height);
-
-                                modelData.display(root.barWindow, Math.round(p.x), Math.round(p.y));
+                        if (event.button === Qt.LeftButton) {
+                            if (trayItem.modelData.onlyMenu && trayItem.modelData.hasMenu) {
+                                Qt.callLater(function () {
+                                    trayMenu.open();
+                                });
+                                return;
                             }
-
+                            trayItem.modelData.activate();
                             return;
                         }
 
                         if (event.button === Qt.MiddleButton) {
-                            modelData.secondaryActivate();
+                            trayItem.modelData.secondaryActivate();
                         }
                     }
                 }

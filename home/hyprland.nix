@@ -3,11 +3,12 @@
   lib,
   pkgs,
   params,
+  desktopEnv,
   ...
 }:
 
 let
-  env = import ../lib/desktop-env.nix;
+  env = desktopEnv;
   hyprDots = "${config.home.homeDirectory}/config/home/dots/hypr";
   linkHypr = rel: {
     source = config.lib.file.mkOutOfStoreSymlink "${hyprDots}/${rel}";
@@ -48,6 +49,7 @@ let
     '';
 
   polkitAgent = "${pkgs.hyprpolkitagent}/libexec/hyprpolkitagent";
+  owStretchPluginDir = "${pkgs.hyprlandPlugins.csgo-vulkan-fix}";
   scripts = "${config.home.homeDirectory}/.config/scripts";
   luaEnv =
     lib.concatStrings (
@@ -79,6 +81,8 @@ in
       }) hyprLinks
     ))
     {
+      "hypr/ow-vkfix-dir".text = owStretchPluginDir;
+
       "hypr/config/programs.lua" = {
         force = true;
         text = ''
@@ -141,6 +145,7 @@ in
               hl.exec_cmd("env QT_QUICK_CONTROLS_STYLE=Fusion ${polkitAgent}")
               hl.exec_cmd("hypridle")
               hl.exec_cmd("${scripts}/steam-lock-shaders.sh")
+              hl.exec_cmd("${scripts}/ow-stretch-plugin.sh")
               hl.exec_cmd("${scripts}/qs-session-start.sh")
           end)
 
@@ -151,29 +156,4 @@ in
       };
     }
   ];
-
-  home.activation.clearKeybindsBak = lib.hm.dag.entryBefore [ "checkLinkTargets" ] ''
-    bak="${config.xdg.configHome}/hypr/config/keybinds.lua.hm.bak"
-    if [ -e "$bak" ]; then
-      mv "$bak" "$bak.prev"
-    fi
-  '';
-
-  systemd.user.services.hypr-fix-safe-mode = {
-    Unit = {
-      Description = "Load real Hyprland config after watchdog safe-mode";
-      After = [ "graphical-session.target" ];
-      PartOf = [ "graphical-session.target" ];
-    };
-    Service = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-      ExecStart = "${scripts}/hypr-fix-safe-mode.sh";
-      Environment = [
-        "WAYLAND_DISPLAY=wayland-1"
-        "XDG_RUNTIME_DIR=/run/user/1000"
-      ];
-    };
-    Install.WantedBy = [ "graphical-session.target" ];
-  };
 }

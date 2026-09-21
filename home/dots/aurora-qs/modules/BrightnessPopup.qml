@@ -94,7 +94,7 @@ Components.PopupSurface {
                         }
 
                         Text {
-                            text: card.monName + " · " + (card.monDdc ? "Hardware" : "Software")
+                            text: card.monName + " · " + (card.monDdc ? "Hardware DDC" : "Software")
                             font.family: Core.Theme.fontFamily
                             font.pixelSize: Core.Theme.fontSizeSmall
                             color: Core.Theme.foregroundMuted
@@ -103,6 +103,8 @@ Components.PopupSurface {
                         Components.VolumeSlider {
                             width: parent.width
                             value: card.monPercent / 100
+                            enabled: true
+                            opacity: 1
                             fillColor: Core.Theme.accent
                             onMoved: function (v) {
                                 popup.svc.dragging = true;

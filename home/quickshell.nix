@@ -2,7 +2,6 @@
   config,
   lib,
   pkgs,
-  params,
   ...
 }:
 
@@ -13,7 +12,6 @@ let
       pkgs.coreutils
       pkgs.python3
       pkgs.hyprland
-      pkgs.hyprsunset
       pkgs.ddcutil
     ];
     text = ''
@@ -83,24 +81,6 @@ in
 
   xdg.configFile."fastfetch".source = ./dots/fastfetch;
   xdg.configFile."fastfetch".recursive = true;
-
-  xdg.configFile."fuzzel/themes".source = ./dots/fuzzel/themes;
-  xdg.configFile."fuzzel/fuzzel_theme.ini".source = ./dots/fuzzel/fuzzel_theme.ini;
-  xdg.configFile."fuzzel/fuzzel.ini".text = ''
-    include="${config.xdg.configHome}/fuzzel/fuzzel_theme.ini"
-    include="${config.xdg.configHome}/fuzzel/theme.ini"
-    font=JetBrainsMono Nerd Font
-    terminal=${params.terminal}
-    prompt="->  "
-    layer=overlay
-
-    [border]
-    radius=17
-    width=1
-
-    [dmenu]
-    exit-immediately-if-empty=yes
-  '';
 
   xdg.configFile."scripts" = {
     source = config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/config/home/dots/scripts";
@@ -172,6 +152,9 @@ in
       # Hyprland also kicks this unit. Without --no-duplicate a second
       # process starts and draws a second bar on the same monitor.
       ExecStart = "${lib.getExe pkgs.quickshell} --no-duplicate";
+      # Dock-launched apps inherit this cgroup. control-group would kill
+      # Chrome/Cursor/games when the bar dies or reloads.
+      KillMode = "process";
       Restart = "on-failure";
       RestartSec = 2;
       Slice = "session.slice";
@@ -225,25 +208,28 @@ in
   };
 
   home.activation.auroraState = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    mkdir -p "${config.xdg.configHome}/fuzzel"
     mkdir -p "${auroraQsDir}/assets"
     ln -sfn ${emojiDatabase} "${auroraQsDir}/assets/emoji.json"
-    mkdir -p "$HOME/.wall" "$HOME/Pictures/Screenshots" "$HOME/.cache/aurora" "$HOME/.local/state"
+    mkdir -p "$HOME/.local/state/aurora" "$HOME/.cache/aurora" "$HOME/.wall" "$HOME/Pictures/Screenshots" "$HOME/.local/state"
 
     if [ ! -f "$HOME/.local/state/monitor-brightness" ]; then
       echo 100 > "$HOME/.local/state/monitor-brightness"
     fi
 
-    if [ ! -e "${config.xdg.configHome}/fuzzel/theme.ini" ]; then
-      ln -sfn "${config.xdg.configHome}/fuzzel/themes/dark.ini" "${config.xdg.configHome}/fuzzel/theme.ini"
+    if [ ! -s "$HOME/.local/state/aurora/wallpaper" ] && [ -s "$HOME/.cache/aurora/current-wallpaper" ]; then
+      cp -f "$HOME/.cache/aurora/current-wallpaper" "$HOME/.local/state/aurora/wallpaper"
     fi
-    if [ ! -s "$HOME/.wall/.current" ] && [ -s "$HOME/.wall/.current.default" ]; then
-      cp -L "$HOME/.wall/.current.default" "$HOME/.wall/.current"
+    if [ ! -s "$HOME/.local/state/aurora/wallpaper" ] && [ -s "$HOME/.wall/.current.default" ]; then
+      name="$(tr -d '[:space:]' < "$HOME/.wall/.current.default")"
+      if [ -f "$HOME/.wall/$name" ]; then
+        printf '%s\n' "$HOME/.wall/$name" > "$HOME/.local/state/aurora/wallpaper"
+      fi
     fi
   '';
 
   home.packages = [
     brightnessctl
+    pkgs.ddcutil
   ]
   ++ (with pkgs; [
     quickshell
@@ -251,7 +237,6 @@ in
     wtype
     satty
     awww
-    fuzzel
     hyprsunset
     hyprpicker
     hyprpolkitagent

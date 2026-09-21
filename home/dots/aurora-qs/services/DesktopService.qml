@@ -99,6 +99,8 @@ QtObject {
         const name = String(item.name || "").toLowerCase();
         if (name.endsWith(".desktop")) {
             const iconName = String(item.desktopIcon || name.slice(0, -8));
+            if ((iconName + " " + name).toLowerCase().indexOf("kitty") !== -1)
+                return "file://" + Quickshell.shellDir + "/assets/kitty.png";
             return Quickshell.iconPath(iconName, "application-x-executable");
         }
 

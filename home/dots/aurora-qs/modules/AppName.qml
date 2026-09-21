@@ -4,11 +4,12 @@ import Quickshell.Hyprland
 
 import "../core" as Core
 import "../services" as Services
+import "../components" as Components
 
 Item {
     id: root
 
-    implicitWidth: Math.min(row.implicitWidth, 280)
+    implicitWidth: Math.min(row.implicitWidth + 16, 296)
     implicitHeight: Core.Theme.moduleHeight
     clip: true
 
@@ -40,9 +41,17 @@ Item {
         return "Finder";
     }
 
+    Components.Tactile {
+        anchors.fill: parent
+        hovered: mouse.containsMouse
+        pressed: mouse.pressed
+    }
+
     Row {
         id: row
         anchors.verticalCenter: parent.verticalCenter
+        anchors.left: parent.left
+        anchors.leftMargin: 8
         spacing: 8
 
         Image {
@@ -68,5 +77,12 @@ Item {
             font.weight: Font.DemiBold
             renderType: Text.QtRendering
         }
+    }
+
+    MouseArea {
+        id: mouse
+        anchors.fill: parent
+        hoverEnabled: true
+        acceptedButtons: Qt.NoButton
     }
 }
