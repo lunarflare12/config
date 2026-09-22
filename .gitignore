@@ -3,3 +3,12 @@ home/dots/aurora-qs/assets/emoji.json
 **/__pycache__/
 *.pyc
 /result
+
+# Tunnel files live on the machine under /etc — never the flake.
+/etc/amnesia/
+/etc/amnezia/
+/etc/wireguard/
+*.awg
+**/amnesia/**/*.conf
+**/amnezia/**/*.conf
+**/wireguard/**/*.conf

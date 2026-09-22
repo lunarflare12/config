@@ -17,6 +17,17 @@ if [ -x "$fix" ]; then
   "$fix" >/dev/null 2>&1 || true
 fi
 
+# XWayland otherwise lists HDMI as screen 0 (1920). Albion/Unity then
+# start in 16:9 on the ultrawide.
+DISPLAY="${DISPLAY:-:0}" xrandr \
+  --output DP-1 --primary --mode 2560x1080 --pos 0x0 \
+  --output HDMI-A-1 --mode 1920x1080 --pos 2560x0 >/dev/null 2>&1 || true
+
+cursor="${HOME}/.config/scripts/load-cursor.sh"
+if [ -x "$cursor" ]; then
+  "$cursor" >/dev/null 2>&1 || true
+fi
+
 if pgrep -x quickshell >/dev/null 2>&1; then
   exit 0
 fi

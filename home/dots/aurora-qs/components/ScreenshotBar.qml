@@ -33,7 +33,7 @@ PanelWindow {
 
     Timer {
         id: delayed
-        interval: 90
+        interval: 40
         repeat: false
         property string mode: "region"
         onTriggered: Core.Session.runScreenshot(delayed.mode)

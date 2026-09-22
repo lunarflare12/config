@@ -1,0 +1,120 @@
+--- a/uinsta360link.pas
++++ b/uinsta360link.pas
+@@ -407,48 +407,15 @@
+ function TInsta360Link.DetectXU_UnitID: Byte;
+ var
+   buf: array[0..31] of Byte;
+-  ids: array[0..5] of Byte = (9, 10, 11, 4, 3, 6);
+-  i: Integer;
+-  err: cint;
+ begin
+-  // Insta360 Link has Extension Units at bUnitID 9, 10, 11
+-  // Unit 9: GUID faf1672d-... has selectors 1-30 (main proprietary controls)
+-  // Unit 10: GUID e307e649-... has selectors 1-6
+-  // Unit 11: GUID a8bd5df2-... has selectors 1-5
+-
+-  Log('XU query struct size: %d (expected 16 on 64-bit)', [SizeOf(Tuvc_xu_control_query)]);
+-  Log('UVCIOC_CTRL_QUERY = $%s', [IntToHex(UVCIOC_CTRL_QUERY, 8)]);
+-
+-  Result := 9; // default
+-  for i := 0 to High(ids) do
+-  begin
+-    FillChar(buf, SizeOf(buf), 0);
+-    // Try UVC_GET_INFO on selector 1 - always returns exactly 1 byte
+-    if UVC_XU_Query(FFD, ids[i], 1, UVC_GET_INFO, @buf[0], 1) then
+-    begin
+-      Result := ids[i];
+-      Log('XU Unit ID detected: %d (via GET_INFO, flags=$%s)',
+-          [ids[i], IntToHex(buf[0], 2)]);
+-      Exit;
+-    end;
+-    err := fpGetErrno;
+-    Log('  XU probe unit %d failed, errno=%d (%s)',
+-        [ids[i], err, SysErrorMessage(err)]);
+-  end;
+-
+-  // Second pass: try UVC_GET_LEN which returns 2 bytes
+-  for i := 0 to High(ids) do
+-  begin
+-    FillChar(buf, SizeOf(buf), 0);
+-    if UVC_XU_Query(FFD, ids[i], 1, UVC_GET_LEN, @buf[0], 2) then
+-    begin
+-      Result := ids[i];
+-      Log('XU Unit ID detected: %d (via GET_LEN)', [ids[i]]);
+-      Exit;
+-    end;
+-  end;
+-
+-  Log('WARNING: Could not detect XU Unit ID, defaulting to 9');
++  { Unit 9 is the Insta360 proprietary XU. Probing 6 unit IDs with GET_INFO
++    and GET_LEN hits USB control timeouts after autosuspend. }
++  Result := 9;
++  FillChar(buf, SizeOf(buf), 0);
++  if UVC_XU_Query(FFD, 9, 1, UVC_GET_INFO, @buf[0], 1) then
++    Log('XU unit 9 ready (GET_INFO flags=$%s)', [IntToHex(buf[0], 2)])
++  else
++    Log('XU unit 9 GET_INFO missed, still using unit 9');
+ end;
+ 
+ { ===== XU Selector Scan ===== }
+@@ -785,8 +752,15 @@
+   else
+     Log('Using requested XU unit ID: %d', [FXU_UnitID]);
+ 
+-  // Scan all selectors on detected unit to find data sizes
+-  ScanXU_Selectors;
++  { Known Insta360 XU payload sizes. A full selector scan is 3 units x 20
++    GET_LEN/GET_INFO/GET_CUR calls; failed URBs wait for the UVC timeout. }
++  FXU_Lens[XU_MODE_CONTROL] := 52;
++  FXU_Lens[11] := 5;
++  FXU_Lens[12] := 32;
++  FXU_Lens[XU_PANTILT_RELATIVE_CONTROL] := 129;
++  FXU_Lens[XU_GIMBAL_RESET_CONTROL] := 1;
++  FXU_Lens[XU_TRACKING_FRAME_CONTROL] := 1;
++  FXU_Lens[20] := 240;
+ 
+   // Cache all control ranges
+   CacheControlRanges;
+--- a/uvideocap.pas
++++ b/uvideocap.pas
+@@ -201,9 +201,9 @@
+ 
+ function TVideoCapture.SetFormat(W, H: Integer): Boolean;
+ begin
+-  // Prefer MJPEG (compressed, better fps / USB bandwidth), fall back to YUYV.
+-  Result := TrySetFormat(V4L2_PIX_FMT_MJPEG, W, H)
+-            or TrySetFormat(V4L2_PIX_FMT_YUYV, W, H);
++  { MJPEG only. YUYV VIDIOC_S_FMT on this UVC camera re-enumerates the USB
++    altsetting and can stall for several seconds when MJPEG already works. }
++  Result := TrySetFormat(V4L2_PIX_FMT_MJPEG, W, H);
+ end;
+ 
+ function TVideoCapture.InitBuffers(Count: Integer): Boolean;
+--- a/umainform.pas
++++ b/umainform.pas
+@@ -767,11 +767,11 @@
+     btnConnect.Enabled := False;
+     btnDisconnect.Enabled := True;
+     ReadCurrentValues;
+-    ApplyLook(FActiveLook);
+     UpdateUIState;
+     tmrTrackingPoll.Enabled := False;
+     CamLog(Self, 'Connected to ' + devpath);
+     StartPreview; // auto-start live preview (logs and continues if it fails)
++    ApplyLook(FActiveLook);
+   end
+   else
+   begin
+@@ -942,11 +942,7 @@
+   FPrefW := w;
+   FPrefH := h;
+ 
+-  if FCapture.StartOnDevice(FCam.DevicePath, w, h)
+-     or FCapture.StartOnDevice(FCam.DevicePath, 1280, 720)
+-     or FCapture.StartOnDevice(FCam.DevicePath, 960, 540)
+-     or FCapture.StartOnDevice(FCam.DevicePath, 640, 360)
+-     or FCapture.Start(FCam.FD, w, h) then
++  if FCapture.StartOnDevice(FCam.DevicePath, w, h) then
+   begin
+     tmrPreview.Enabled := True;
+     btnPreview.Caption := 'Stop Preview';

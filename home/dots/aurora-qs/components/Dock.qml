@@ -5,7 +5,7 @@ import Quickshell.Wayland
 import "../core" as Core
 import "../services" as Services
 
-// Left-edge dock on Xiaomi (DP-1). Hidden on Philips and in game fullscreen.
+// Left-edge dock on Xiaomi (DP-1). Hidden on Philips and in fullscreen.
 PanelWindow {
     id: root
 
@@ -15,22 +15,42 @@ PanelWindow {
     anchors.left: true
     anchors.top: true
     anchors.bottom: true
+    margins.top: Core.Theme.barHeight
 
     implicitWidth: 200
-    exclusiveZone: root.onMain && !root.hidden ? Core.Theme.dockReserve : 0
+    exclusiveZone: root.onMain && !root.hidden && !root.hideHold ? Core.Theme.dockReserve : 0
     color: "transparent"
 
     readonly property string monitorName: Core.Session.monitorNameForScreen(root.screen)
     readonly property bool onMain: Core.Session.isDesktopMonitor(root.monitorName)
     readonly property bool hidden: Core.Session.gameFullscreenOnScreen(root.screen)
     readonly property bool launchpadHere: Core.PopupManager.launchpadIntro > 0.01 && root.onMain && Core.Session.focusedMonitorName() === root.monitorName
-    visible: root.onMain && !root.hidden
+    property bool hideHold: false
+
+    onHiddenChanged: {
+        if (root.hidden) {
+            dockShowDelay.stop();
+            root.hideHold = true;
+        } else {
+            root.hideHold = true;
+            dockShowDelay.restart();
+        }
+    }
+
+    Timer {
+        id: dockShowDelay
+        interval: 480
+        repeat: false
+        onTriggered: root.hideHold = false
+    }
+
+    visible: root.onMain && !root.hidden && !root.hideHold
 
     property real rise: 1
 
     WlrLayershell.namespace: "aurora-dock"
     WlrLayershell.keyboardFocus: (dockBar.menuOpen || dockBar.folderOpen) ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
-    WlrLayershell.layer: WlrLayer.Overlay
+    WlrLayershell.layer: WlrLayer.Top
 
     mask: {
         if (dockBar.menuOpen || dockBar.folderOpen)

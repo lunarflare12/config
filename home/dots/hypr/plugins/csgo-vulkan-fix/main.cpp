@@ -62,6 +62,9 @@ static const SAppConfig* getAppConfig(const std::string& appClass) {
         return nullptr;
 
     const auto lower = lowerCopy(appClass);
+    // Steam CEF is class "steam". Never remap its pointer or force 1920x1080.
+    if (lower == "steam" || lower.find("steamwebhelper") != std::string::npos)
+        return nullptr;
     for (const auto& ac : g_appConfigs) {
         const auto acLower = lowerCopy(ac.szClass);
         if (acLower == lower)
@@ -118,12 +121,18 @@ void hkNotifyMotion(CSeatManager* thisptr, uint32_t time_msec, const Vector2D& l
     Vector2D   newCoords  = local;
     auto       focusState = Desktop::focusState();
     auto       window     = focusState->window();
-    auto       monitor    = focusState->monitor();
-    const auto CONFIG     = window && monitor ? configFor(window, nullptr) : nullptr;
+    const auto CONFIG     = window ? configFor(window, nullptr) : nullptr;
 
-    if (configValues.fixMouse->value() && CONFIG) {
-        newCoords.x *= (CONFIG->res.x / monitor->m_size.x) / window->m_X11SurfaceScaledBy;
-        newCoords.y *= (CONFIG->res.y / monitor->m_size.y) / window->m_X11SurfaceScaledBy;
+    if (configValues.fixMouse->value() && CONFIG && window) {
+        // Window pixels → fake 1920×1080. Do not also divide by
+        // m_X11SurfaceScaledBy: force_zero_scaling already keeps that at 1,
+        // and when it is the stretch factor the extra divide walks the
+        // cursor left as x grows (left edge OK, right misses left).
+        const CBox box = window->getWindowMainSurfaceBox();
+        if (box.w > CONFIG->res.x + 2.0 && box.h > 1.0) {
+            newCoords.x *= CONFIG->res.x / box.w;
+            newCoords.y *= CONFIG->res.y / box.h;
+        }
     }
 
     (*(origMotion)g_pMouseMotionHook->m_original)(thisptr, time_msec, newCoords);

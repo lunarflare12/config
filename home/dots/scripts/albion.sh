@@ -10,8 +10,19 @@ set -euo pipefail
 
 game_strip_overlay
 game_low_latency
+game_xwayland_ultrawide
 
 export SDL_VIDEODRIVER=x11
+export SDL_VIDEO_FULLSCREEN_DISPLAY="${SDL_VIDEO_FULLSCREEN_DISPLAY:-0}"
+
+prefs="${HOME}/.config/unity3d/Sandbox Interactive GmbH/Albion Online Client/prefs"
+if [ -f "$prefs" ]; then
+  sed -i \
+    -e 's/\(Screenmanager Resolution Width" type="int">\)[0-9]*/\12560/' \
+    -e 's/\(Screenmanager Resolution Height" type="int">\)[0-9]*/\11080/' \
+    -e 's/\(UnitySelectMonitor" type="int">\)[0-9]*/\11/' \
+    "$prefs" || true
+fi
 unset GTK_IM_MODULE QT_IM_MODULE SDL_IM_MODULE XMODIFIERS || true
 
 # Codes are latin. Hyprland us,ru + F24 leaves Moonlander on Russian, and
@@ -51,6 +62,6 @@ for a in "$@"; do
 done
 
 if command -v gamemoderun >/dev/null 2>&1; then
-  exec gamemoderun "${args[@]}" -screen-fullscreen 0
+  exec gamemoderun "${args[@]}" -screen-fullscreen 0 -screen-width 2560 -screen-height 1080 -monitor 1
 fi
-exec "${args[@]}" -screen-fullscreen 0
+exec "${args[@]}" -screen-fullscreen 0 -screen-width 2560 -screen-height 1080 -monitor 1

@@ -231,7 +231,11 @@ Singleton {
     }
 
     function openEditor() {
-        Quickshell.execDetached(["nm-connection-editor"]);
+        Quickshell.execDetached([
+            "sh",
+            "-c",
+            "command -v nm-connection-editor >/dev/null && exec nm-connection-editor; exec kitty --class termfloat -e nmtui"
+        ]);
     }
 
     function refresh() {

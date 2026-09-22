@@ -17,14 +17,23 @@ let
   steamWrap = wrap "steam" ''
     exec ${scripts}/steam.sh "$@"
   '';
-  discordWrap = wrap "discord" ''
-    export NIXOS_OZONE_WL=0
-    export ELECTRON_OZONE_PLATFORM_HINT=x11
-    exec ${lib.getExe pkgs.discord} --ozone-platform=x11 --disable-gpu --disable-gpu-compositing "$@"
-  '';
+  # NIXOS_OZONE_WL=0 is still set; the nixpkgs Electron wrapper then
+  # injects --ozone-platform-hint / --enable-wayland-ime / etc. Newer
+  # Electron prints those as unknown options. Unset, pass ozone ourselves.
+  electronWrap =
+    name: pkg: flags:
+    wrap name ''
+      unset NIXOS_OZONE_WL
+      unset ELECTRON_OZONE_PLATFORM_HINT
+      exec ${lib.getExe pkg} ${flags} "$@"
+    '';
+  discordWrap = electronWrap "discord" pkgs.discord "--ozone-platform=x11 --disable-gpu --disable-gpu-compositing";
+  cursorWrap = electronWrap "cursor" pkgs.code-cursor "--ozone-platform=wayland --force-dark-mode";
+  codeWrap = electronWrap "code" pkgs.vscode "--ozone-platform=wayland --force-dark-mode";
+  obsidianWrap = electronWrap "obsidian" pkgs.obsidian "--ozone-platform=wayland --force-dark-mode";
   ideaWrap = wrap "idea-ultimate" ''
     export IDEA_ULTIMATE_BIN=${lib.escapeShellArg ideaBin}
-    exec ${./dots/scripts/idea-ultimate.sh} "$@"
+    exec ${scripts}/idea-ultimate.sh "$@"
   '';
   chromeMime = [
     "application/pdf"
@@ -59,7 +68,7 @@ let
     };
 in
 {
-  programs.firefox = lib.mkIf (params.browser == "firefox") {
+  programs.firefox = {
     enable = true;
     profiles.default.settings = {
       "browser.theme.content-theme" = 0;
@@ -101,6 +110,9 @@ in
     chromeWrap
     steamWrap
     discordWrap
+    cursorWrap
+    codeWrap
+    obsidianWrap
     ideaWrap
     (pkgs.runCommand "google-chrome-stable-bin" { } ''
       mkdir -p $out/bin
@@ -126,9 +138,33 @@ in
       ];
       terminal = false;
     };
+    overwatch = {
+      name = "Overwatch";
+      exec = "${scripts}/steam.sh steam://rungameid/2357570";
+      icon = "steam_icon_2357570";
+      categories = [ "Game" ];
+      terminal = false;
+      settings.StartupWMClass = "steam_app_2357570";
+    };
+    "albion-online" = {
+      name = "Albion Online";
+      exec = "${scripts}/steam.sh steam://rungameid/761890";
+      icon = "steam_icon_761890";
+      categories = [ "Game" ];
+      terminal = false;
+      settings.StartupWMClass = "steam_app_761890";
+    };
+    terraria = {
+      name = "Terraria";
+      exec = "${scripts}/steam.sh steam://rungameid/105600";
+      icon = "steam_icon_105600";
+      categories = [ "Game" ];
+      terminal = false;
+      settings.StartupWMClass = "steam_app_105600";
+    };
     discord = {
       name = "Discord";
-      exec = "${lib.getExe discordWrap}";
+      exec = "${scripts}/discord.sh";
       icon = "discord";
       categories = [
         "Network"
@@ -142,7 +178,8 @@ in
     cursor = {
       name = "Cursor";
       genericName = "Text Editor";
-      exec = "${pkgs.code-cursor}/bin/cursor --force-dark-mode %F";
+      comment = "Code editor";
+      exec = "${scripts}/cursor.sh %F";
       icon = "${pkgs.code-cursor}/share/pixmaps/cursor.png";
       categories = [
         "Utility"
@@ -157,7 +194,7 @@ in
     code = {
       name = "Visual Studio Code";
       genericName = "Text Editor";
-      exec = "${pkgs.vscode}/bin/code --force-dark-mode %F";
+      exec = "${lib.getExe codeWrap} %F";
       icon = "vscode";
       categories = [
         "Utility"
@@ -167,10 +204,11 @@ in
       ];
       mimeType = ideMime;
       startupNotify = true;
+      settings.StartupWMClass = "code";
     };
     obsidian = {
       name = "Obsidian";
-      exec = "${pkgs.obsidian}/bin/obsidian --force-dark-mode %U";
+      exec = "${lib.getExe obsidianWrap} %U";
       icon = "obsidian";
       categories = [ "Office" ];
       mimeType = [ "x-scheme-handler/obsidian" ];
@@ -179,7 +217,8 @@ in
     idea-ultimate = {
       name = "IntelliJ IDEA Ultimate";
       genericName = "Java IDE";
-      exec = "${lib.getExe ideaWrap} %F";
+      comment = "Java IDE";
+      exec = "${scripts}/idea-ultimate.sh %F";
       icon = "${pkgs.jetbrains.idea}/idea/bin/idea.svg";
       categories = [
         "Development"
@@ -195,24 +234,4 @@ in
   };
 
   home.file."vms/ubuntu/Vagrantfile".source = ./dots/vagrant/ubuntu/Vagrantfile;
-
-  systemd.user.services.opencluely = {
-    Unit = {
-      Description = "OpenCluely (Go)";
-      PartOf = [ "graphical-session.target" ];
-      After = [ "graphical-session.target" ];
-      ConditionEnvironment = "WAYLAND_DISPLAY";
-    };
-    Service = {
-      Type = "simple";
-      WorkingDirectory = "${config.home.homeDirectory}/projects/opencluely";
-      ExecStart = "${config.home.homeDirectory}/projects/opencluely/opencluely tray";
-      Environment = "PATH=/run/current-system/sw/bin:/etc/profiles/per-user/${config.home.username}/bin";
-      Restart = "on-failure";
-      RestartSec = "5";
-      KillMode = "mixed";
-      TimeoutStopSec = "15";
-    };
-    Install.WantedBy = [ "graphical-session.target" ];
-  };
 }

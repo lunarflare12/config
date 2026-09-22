@@ -11,6 +11,7 @@ singleton AppsService 1.0 AppsService.qml
 singleton LaunchSplash 1.0 LaunchSplash.qml
 singleton WallpaperService 1.0 WallpaperService.qml
 singleton ThemeService 1.0 ThemeService.qml
+singleton CursorService 1.0 CursorService.qml
 singleton ClipboardService 1.0 ClipboardService.qml
 singleton EmojiService 1.0 EmojiService.qml
 singleton DesktopService 1.0 DesktopService.qml
@@ -18,3 +19,4 @@ singleton DesktopWidgets 1.0 DesktopWidgets.qml
 singleton DesktopGrid 1.0 DesktopGrid.qml
 singleton ShaderService 1.0 ShaderService.qml
 singleton LabService 1.0 LabService.qml
+singleton UpdateService 1.0 UpdateService.qml

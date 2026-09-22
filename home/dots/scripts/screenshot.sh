@@ -7,29 +7,51 @@ mkdir -p "$SCREENSHOT_DIR"
 MODE="${1:-region}"
 TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
 SCREENSHOT_PATH="$SCREENSHOT_DIR/screenshot_${TIMESTAMP}.png"
+LOCKDIR="${XDG_RUNTIME_DIR:-/tmp}/aurora-screenshot.lock.d"
 
-# Old hyprpicker used -z to freeze the screen. Current hyprpicker -z is
-# --no-zoom on the color picker, which steals the pointer from slurp.
-pkill -x slurp >/dev/null 2>&1 || true
-pkill -x hyprpicker >/dev/null 2>&1 || true
+# Directory lock cannot be inherited by forked wl-copy (the flock fd was).
+acquire_lock() {
+  local other
+  if mkdir "$LOCKDIR" 2>/dev/null; then
+    echo $$ >"$LOCKDIR/pid"
+    return 0
+  fi
+  other=$(cat "$LOCKDIR/pid" 2>/dev/null || true)
+  if [[ -n "$other" && -d "/proc/$other" && "$other" != "$$" ]]; then
+    return 1
+  fi
+  rm -rf "$LOCKDIR"
+  mkdir "$LOCKDIR" 2>/dev/null || return 1
+  echo $$ >"$LOCKDIR/pid"
+}
+
+release_lock() {
+  rm -rf "$LOCKDIR" 2>/dev/null || true
+}
 
 cleanup() {
   pkill -x slurp >/dev/null 2>&1 || true
+  release_lock
 }
 trap cleanup EXIT INT TERM HUP
 
+acquire_lock || exit 0
+
+# Super/Shift still down if the bind fires on press. Slurp treats the leftover
+# pointer/key edge as an instant 1x1 selection — that is the "works on try 4".
+if [[ "$MODE" == region || "$MODE" == window || "$MODE" == annotate || "$MODE" == region-edit || "$MODE" == edit ]]; then
+  sleep 0.25
+fi
+
 edit() {
   local src=$1
-  hyprctl dispatch focusmonitor DP-1 >/dev/null 2>&1 || true
   satty \
     --filename "$src" \
     --output-filename "$SCREENSHOT_PATH" \
-    --fullscreen current-screen \
     --early-exit all \
     --copy-command wl-copy \
     --actions-on-enter save-to-clipboard,save-to-file \
     --actions-on-escape save-to-clipboard,exit \
-    --floating-hack \
     --no-window-decoration \
     --initial-tool crop
 }
@@ -48,16 +70,36 @@ window_at_point() {
   ' | head -n 1
 }
 
+wide_enough() {
+  local geo=$1 rest w h
+  rest=${geo##* }
+  w=${rest%x*}
+  h=${rest#*x}
+  [[ "${w:-0}" -ge 8 && "${h:-0}" -ge 8 ]]
+}
+
+# First slurp often eats a phantom click. Retry once in this same invocation.
+pick_region() {
+  local geo
+  geo=$(slurp -d) || return 1
+  if [[ -n "$geo" ]] && wide_enough "$geo"; then
+    printf '%s' "$geo"
+    return 0
+  fi
+  geo=$(slurp -d) || return 1
+  [[ -n "$geo" ]] && wide_enough "$geo" || return 1
+  printf '%s' "$geo"
+}
+
 capture() {
-  grim "$@" "$SCREENSHOT_PATH"
-  wl-copy -t image/png < "$SCREENSHOT_PATH" >/dev/null 2>&1 || true
+  grim -c "$@" "$SCREENSHOT_PATH"
+  wl-copy -t image/png <"$SCREENSHOT_PATH" >/dev/null 2>&1 || true
   edit "$SCREENSHOT_PATH"
 }
 
 case "$MODE" in
   region | annotate | region-edit | edit)
-    geo=$(slurp -d) || exit 0
-    [[ -n "$geo" ]] || exit 0
+    geo=$(pick_region) || exit 0
     capture -g "$geo"
     ;;
   window)

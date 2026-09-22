@@ -4,24 +4,31 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 
+import "../core" as Core
+
 // Aurora Apps Service
 //
 // Application list and ranking for the launcher.
-// State: ~/.cache/aurora/launcher-usage.json
+// Usage:  ~/.cache/aurora/launcher-usage.json
+// Layout: ~/.local/state/aurora/app-layout.json  (not under HM-managed ~/.config)
 
 QtObject {
     id: root
 
     readonly property string home: Quickshell.env("HOME")
     readonly property string usagePath: root.home + "/.cache/aurora/launcher-usage.json"
-    readonly property string layoutPath: root.home + "/.config/aurora/app-layout.json"
-    readonly property string layoutLegacyPath: root.home + "/.cache/aurora/app-layout.json"
+    readonly property string layoutPath: root.home + "/.local/state/aurora/app-layout.json"
+    readonly property string layoutBackupPath: root.home + "/.local/state/aurora/app-layout.backup.json"
+    readonly property string layoutLegacyConfigPath: root.home + "/.config/aurora/app-layout.json"
+    readonly property string layoutLegacyCachePath: root.home + "/.cache/aurora/app-layout.json"
 
     property var usage: ({})
     property var launchpadOrder: []
     property var dockOrder: []
     property bool dockConfigured: false
     property bool layoutReady: false
+    property bool layoutHydrated: false
+    property bool layoutWriting: false
     property string openFolderId: ""
 
     readonly property var defaultDockNeedles: [
@@ -43,14 +50,52 @@ QtObject {
         blockLoading: true
         printErrors: false
         watchChanges: true
-        onFileChanged: this.reload()
+        onFileChanged: {
+            if (root.layoutWriting)
+                return
+            this.reload()
+        }
         onLoaded: root.loadLayout()
     }
 
-    property FileView layoutLegacyFile: FileView {
-        path: root.layoutLegacyPath
+    property FileView layoutBackupFile: FileView {
+        path: root.layoutBackupPath
         blockLoading: true
         printErrors: false
+    }
+
+    property FileView layoutLegacyConfigFile: FileView {
+        path: root.layoutLegacyConfigPath
+        blockLoading: true
+        printErrors: false
+    }
+
+    property FileView layoutLegacyCacheFile: FileView {
+        path: root.layoutLegacyCachePath
+        blockLoading: true
+        printErrors: false
+    }
+
+    property Timer layoutWriteUnlock: Timer {
+        interval: 800
+        repeat: false
+        onTriggered: root.layoutWriting = false
+    }
+
+    function readLayoutRaw() {
+        const primary = root.layoutFile.text()
+        if (primary && primary.length)
+            return primary
+        const backup = root.layoutBackupFile.text()
+        if (backup && backup.length)
+            return backup
+        const cfg = root.layoutLegacyConfigFile.text()
+        if (cfg && cfg.length)
+            return cfg
+        const cache = root.layoutLegacyCacheFile.text()
+        if (cache && cache.length)
+            return cache
+        return ""
     }
 
     function loadUsage() {
@@ -86,28 +131,47 @@ QtObject {
     }
 
     function loadLayout() {
-        let raw = root.layoutFile.text()
-        if (!raw)
-            raw = root.layoutLegacyFile.text()
+        if (root.layoutWriting)
+            return
+
+        const raw = root.readLayoutRaw()
         if (!raw) {
-            root.launchpadOrder = []
-            root.dockOrder = []
-            root.dockConfigured = false
+            // Empty read during FileView races must not wipe in-memory pins
+            // after a hot reload / flake rebuild.
+            if (root.launchpadOrder.length || root.dockOrder.length) {
+                root.layoutReady = true
+                root.layoutHydrated = true
+                return
+            }
             root.layoutReady = true
+            root.layoutHydrated = true
             return
         }
 
         try {
             const parsed = JSON.parse(raw)
-            root.launchpadOrder = root.normalizeLaunchpad(parsed && parsed.launchpad)
-            root.dockOrder = Array.isArray(parsed && parsed.dock) ? parsed.dock.map(String) : []
-            root.dockConfigured = parsed && Object.prototype.hasOwnProperty.call(parsed, "dock")
+            const nextLp = root.normalizeLaunchpad(parsed && parsed.launchpad)
+            const nextDock = root.normalizeDock(parsed && parsed.dock)
+            // Prefer richer disk layout over a transient empty memory state.
+            if (nextLp.length || nextDock.length || !root.launchpadOrder.length) {
+                root.launchpadOrder = nextLp
+                root.dockOrder = nextDock
+                root.dockConfigured = parsed && Object.prototype.hasOwnProperty.call(parsed, "dock")
+            }
+            // Migrate off HM-touched ~/.config and ensure state+backup exist.
+            if (root.launchpadOrder.length && root.layoutFile.text() !== raw)
+                root.saveLayout(true)
+            else if (root.launchpadOrder.length && !root.layoutBackupFile.text())
+                root.saveLayout(true)
         } catch (e) {
-            root.launchpadOrder = []
-            root.dockOrder = []
-            root.dockConfigured = false
+            if (!root.launchpadOrder.length) {
+                root.launchpadOrder = []
+                root.dockOrder = []
+                root.dockConfigured = false
+            }
         }
         root.layoutReady = true
+        root.layoutHydrated = true
     }
 
     function isFolderTile(item) {
@@ -141,7 +205,7 @@ QtObject {
         for (let i = 0; i < src.length; i++) {
             const item = src[i]
             if (typeof item === "string") {
-                const id = String(item)
+                const id = root.canonicalAppId(item)
                 if (!id || seen["app:" + id])
                     continue
                 seen["app:" + id] = true
@@ -157,7 +221,7 @@ QtObject {
             const appSeen = ({})
             const list = item.apps || []
             for (let a = 0; a < list.length; a++) {
-                const id = String(list[a] || "")
+                const id = root.canonicalAppId(list[a] || "")
                 if (!id || appSeen[id] || seen["app:" + id])
                     continue
                 appSeen[id] = true
@@ -176,6 +240,20 @@ QtObject {
                 "name": String(item.name || "Folder"),
                 "apps": apps
             })
+        }
+        return out
+    }
+
+    function normalizeDock(raw) {
+        const src = Array.isArray(raw) ? raw : []
+        const out = []
+        const seen = ({})
+        for (let i = 0; i < src.length; i++) {
+            const id = root.canonicalAppId(src[i])
+            if (!id || seen[id])
+                continue
+            seen[id] = true
+            out.push(id)
         }
         return out
     }
@@ -211,12 +289,20 @@ QtObject {
         return null
     }
 
-    function saveLayout() {
+    function saveLayout(userEdit) {
+        // Refuse to persist an empty grid — that is how hot-reload races wipe pins.
+        if (!root.launchpadOrder.length && !root.dockOrder.length)
+            return
         root.dockConfigured = true
-        root.layoutFile.setText(JSON.stringify({
+        const text = JSON.stringify({
             "launchpad": root.serializeLaunchpad(),
             "dock": root.dockOrder
-        }))
+        })
+        root.layoutWriting = true
+        root.layoutWriteUnlock.restart()
+        root.layoutFile.setText(text)
+        // Sacred copy: always refresh backup when we intentionally save.
+        root.layoutBackupFile.setText(text)
     }
 
     function sameIds(a, b) {
@@ -298,8 +384,19 @@ QtObject {
         const list = root.entries
         if (!list.length)
             return
-        if (!root.layoutReady)
+        if (!root.layoutHydrated || !root.layoutReady)
             root.loadLayout()
+
+        // Hot reload / flake rebuild starts with empty memory. Rehydrate from
+        // disk/backup and never invent an alphabetical grid on top of pins.
+        if (!root.launchpadOrder.length) {
+            root.loadLayout()
+            if (!root.launchpadOrder.length) {
+                const disk = root.readLayoutRaw()
+                if (disk && disk.length > 2)
+                    return
+            }
+        }
 
         const have = ({})
         for (let i = 0; i < list.length; i++) {
@@ -308,28 +405,49 @@ QtObject {
                 have[id] = true
         }
 
+        // Full catalog only: partial waves after a flake rebuild used to drop
+        // every pin not yet scanned and rewrite launchpad in alpha order.
+        const catalogWarm = list.length >= 12
+        const pruneMissing = list.length >= 40
+        const hadPins = root.launchpadOrder.length > 0
+        const diskHadPins = !!(root.readLayoutRaw() && root.readLayoutRaw().length > 2)
+
         const lp = []
         const seenLp = {}
         const prevLp = root.launchpadOrder
         for (let i = 0; i < prevLp.length; i++) {
             const item = root.cloneTile(prevLp[i])
             if (typeof item === "string") {
-                const id = item
-                if (!id || !have[id] || seenLp["app:" + id])
+                const raw = String(item || "")
+                if (!raw)
+                    continue
+                const id = root.resolveStoredId(raw) || raw
+                if (seenLp["app:" + id] || seenLp["app:" + raw])
+                    continue
+                const known = !!(have[id] || have[raw])
+                if (!known && pruneMissing)
                     continue
                 seenLp["app:" + id] = true
-                lp.push(id)
+                seenLp["app:" + raw] = true
+                lp.push(known ? id : raw)
                 continue
             }
             if (!root.isFolderTile(item))
                 continue
             const apps = []
             for (let a = 0; a < item.apps.length; a++) {
-                const id = String(item.apps[a] || "")
-                if (!id || !have[id] || seenLp["app:" + id])
+                const raw = String(item.apps[a] || "")
+                if (!raw)
+                    continue
+                const id = root.resolveStoredId(raw) || raw
+                if (seenLp["app:" + id] || seenLp["app:" + raw])
+                    continue
+                const known = !!(have[id] || have[raw])
+                if (!known && pruneMissing)
                     continue
                 seenLp["app:" + id] = true
-                apps.push(id)
+                seenLp["app:" + raw] = true
+                apps.push(known ? id : raw)
             }
             if (apps.length === 1) {
                 lp.push(apps[0])
@@ -341,12 +459,14 @@ QtObject {
             seenLp["folder:" + item.id] = true
             lp.push(item)
         }
-        for (let i = 0; i < list.length; i++) {
-            const id = list[i] && list[i].id ? String(list[i].id) : ""
-            if (!id || seenLp["app:" + id])
-                continue
-            seenLp["app:" + id] = true
-            lp.push(id)
+        if (catalogWarm) {
+            for (let i = 0; i < list.length; i++) {
+                const id = list[i] && list[i].id ? String(list[i].id) : ""
+                if (!id || seenLp["app:" + id])
+                    continue
+                seenLp["app:" + id] = true
+                lp.push(id)
+            }
         }
 
         const dock = []
@@ -364,9 +484,12 @@ QtObject {
             const id = root.resolveStoredId(raw) || raw
             if (!id || seenDock[id])
                 continue
+            const known = !!(have[id] || have[raw])
+            if (!known && pruneMissing)
+                continue
             seenDock[id] = true
             seenDock[raw] = true
-            dock.push(seenLp["app:" + id] ? id : raw)
+            dock.push(known ? id : raw)
         }
 
         let dockChanged = false
@@ -385,11 +508,18 @@ QtObject {
             dockChanged = true
         }
 
-        const lpChanged = !root.sameLaunchpad(root.launchpadOrder, lp)
+        // Same wave-guard for launchpad: never persist a shrunk grid.
+        const lpShrunk = prevLp.length > 2 && lp.length < prevLp.length
+        const lpChanged = !lpShrunk && !root.sameLaunchpad(root.launchpadOrder, lp)
         if (lpChanged)
             root.launchpadOrder = lp
-        if (lpChanged || dockChanged)
-            root.saveLayout()
+
+        // CRITICAL: sync must not rewrite the on-disk layout after rebuilds.
+        // Empty-memory → full catalog dumps were wiping folders/pins. Only seed
+        // the file when it truly does not exist yet.
+        const seeding = !hadPins && !diskHadPins && root.launchpadOrder.length > 0
+        if (seeding || (dockChanged && !diskHadPins && !hadPins))
+            root.saveLayout(true)
     }
 
     function sameLaunchpad(a, b) {
@@ -626,7 +756,6 @@ QtObject {
             src[toOrder] = target
             src.splice(fromOrder, 1)
             root.launchpadOrder = root.normalizeLaunchpad(src)
-            root.openFolderId = String(target.id || targetTile.id || "")
             root.saveLayout()
             return
         }
@@ -879,8 +1008,15 @@ QtObject {
     }
 
     function isMainFileManager(entry) {
-        const id = String(entry.id || "").toLowerCase()
-        return id === "thunar" || id === "org.xfce.thunar" || id === "finder"
+        const id = String(entry.id || "").toLowerCase().replace(/\.desktop$/, "")
+        return id === "thunar"
+    }
+
+    function canonicalAppId(id) {
+        const low = String(id || "").toLowerCase().replace(/\.desktop$/, "")
+        if (low === "org.xfce.thunar" || low === "finder")
+            return "thunar"
+        return String(id || "")
     }
 
     function isKeymapp(entry) {
@@ -913,6 +1049,70 @@ QtObject {
         if (id === "spotify" || id.indexOf("spotify") !== -1)
             return true
         return root.haystack(entry).indexOf("spotify") !== -1
+    }
+
+    function isInsta360(entry) {
+        if (!entry)
+            return false
+        return root.haystack(entry).indexOf("insta360") !== -1
+    }
+
+    function isIdea(entry) {
+        if (!entry)
+            return false
+        const id = String(entry.id || "").toLowerCase().replace(/\.desktop$/, "")
+        if (id === "idea-ultimate" || id === "idea" || id === "intellij-idea" || id.indexOf("idea-ultimate") !== -1)
+            return true
+        const start = String(entry.startupWmClass || entry.startupClass || entry.wmClass || "").toLowerCase()
+        if (start === "jetbrains-idea" || start === "jetbrains-idea-ce")
+            return true
+        const name = String(entry.name || "").toLowerCase().trim()
+        if (name.indexOf("intellij") !== -1 || name === "idea" || name.indexOf("idea ultimate") !== -1)
+            return true
+        const exec = String(entry.execString || entry.exec || "").toLowerCase()
+        if (exec.indexOf("idea-ultimate") !== -1 || exec.indexOf("idea-ultimate.sh") !== -1)
+            return true
+        return false
+    }
+
+    function isCursor(entry) {
+        if (!entry)
+            return false
+        const id = String(entry.id || "").toLowerCase().replace(/\.desktop$/, "")
+        if (id === "cursor" || id === "code-cursor")
+            return true
+        const start = String(entry.startupWmClass || entry.startupClass || entry.wmClass || "").toLowerCase()
+        if (start === "cursor")
+            return true
+        const name = String(entry.name || "").toLowerCase().trim()
+        if (name === "cursor")
+            return true
+        const exec = String(entry.execString || entry.exec || "").toLowerCase()
+        if (exec.indexOf("cursor.sh") !== -1 || exec.indexOf("code-cursor") !== -1 || exec.indexOf("/bin/cursor") !== -1)
+            return true
+        if (/(^|[\\s'\"\\/])cursor(\\s|$)/.test(exec) && exec.indexOf("set-cursor") < 0 && exec.indexOf("load-cursor") < 0)
+            return true
+        return false
+    }
+
+    function isObs(entry) {
+        if (!entry)
+            return false
+        const id = String(entry.id || "").toLowerCase().replace(/\.desktop$/, "")
+        if (id === "com.obsproject.studio" || id === "obs-studio" || id === "obs")
+            return true
+        const start = String(entry.startupWmClass || entry.startupClass || entry.wmClass || "").toLowerCase()
+        if (start === "obs" || start === "com.obsproject.studio")
+            return true
+        const name = String(entry.name || "").toLowerCase().trim()
+        if (name === "obs studio" || name === "obs")
+            return true
+        const exec = String(entry.execString || entry.exec || "").toLowerCase()
+        // Wrapper path, nix binary, or bare name — never miss launcher tiles.
+        if (exec.indexOf("obs.sh") !== -1 || exec.indexOf("/bin/obs") !== -1
+                || exec.indexOf("obs-studio") !== -1 || /(^|[\\s\\/])obs(\\s|$)/.test(exec))
+            return true
+        return false
     }
 
     function resolveIcon(icon, fallback) {
@@ -1154,8 +1354,35 @@ QtObject {
     // Actions
 
     property var pendingLaunch: null
+    property var pendingEntry: null
+    property int pendingWorkspace: 0
     property bool launchConsumed: false
+    property int existingGen: 0
     signal spawnStarting()
+    signal splashNeeded()
+
+    property Process existingProc: Process {
+        property int gen: 0
+        stdout: StdioCollector {}
+        stderr: StdioCollector {}
+        onExited: function (exitCode) {
+            if (existingProc.gen !== root.existingGen)
+                return;
+            root.onExistingDone(exitCode);
+        }
+    }
+
+    property Timer existingWait: Timer {
+        interval: 800
+        repeat: false
+        onTriggered: {
+            if (existingProc.running) {
+                existingProc.running = false;
+                return;
+            }
+            root.onExistingDone(1);
+        }
+    }
 
     function splashKind(app) {
         const text = root.haystack(app);
@@ -1172,7 +1399,102 @@ QtObject {
             return true;
         if (text.indexOf("satty") !== -1)
             return true;
+        // OBS needles used to match Obsidian and cancel the real spawn.
+        if (root.isObs(app))
+            return true;
+        // Tray Activate "succeeds" and cancels the spawn; window never rises.
+        if (root.isCursor(app))
+            return true;
         return false;
+    }
+
+    function finishLaunch() {
+        root.pendingLaunch = null;
+        root.pendingEntry = null;
+    }
+
+    function runDirect(app, entry) {
+        const steamId = root.steamAppId(app);
+        if (steamId) {
+            Quickshell.execDetached([root.home + "/.config/scripts/steam.sh", "steam://rungameid/" + steamId]);
+            return;
+        }
+        if (root.isSpotify(app) || root.isSpotify(entry))
+            Quickshell.execDetached([root.home + "/.config/scripts/spotify"]);
+        else if (root.isInsta360(app) || root.isInsta360(entry))
+            Quickshell.execDetached([root.home + "/.config/scripts/insta360-link.sh"]);
+        else if (root.isObs(app) || root.isObs(entry))
+            Quickshell.execDetached([root.home + "/.config/scripts/obs.sh"]);
+        else if (root.isCursor(app) || root.isCursor(entry))
+            Quickshell.execDetached([root.home + "/.config/scripts/cursor.sh"]);
+        else if (root.isIdea(app) || root.isIdea(entry))
+            Quickshell.execDetached([root.home + "/.config/scripts/idea-ultimate.sh"]);
+        else if (app.execute)
+            app.execute();
+        else if (app.command && app.command.length)
+            Quickshell.execDetached(app.command);
+        else if (app.execString || app.exec)
+            Quickshell.execDetached(["sh", "-c", "exec " + root.stripFieldCodes(app.execString || app.exec)]);
+    }
+
+    function startExisting(app) {
+        const needles = LaunchSplash.needlesOf(app);
+        const cmd = [root.home + "/.config/scripts/activate-existing"];
+        for (let i = 0; i < needles.length; i++)
+            cmd.push(String(needles[i]));
+        root.existingGen += 1;
+        existingProc.gen = root.existingGen;
+        if (existingProc.running)
+            existingProc.running = false;
+        existingProc.command = cmd;
+        existingProc.running = true;
+        existingWait.restart();
+    }
+
+    function onExistingDone(code) {
+        existingWait.stop();
+        const app = root.pendingLaunch;
+        const entry = root.pendingEntry;
+        const ws = root.pendingWorkspace;
+        if (!app)
+            return;
+        if (root.launchConsumed) {
+            root.finishLaunch();
+            return;
+        }
+        if (code === 0) {
+            root.launchConsumed = true;
+            root.finishLaunch();
+            return;
+        }
+        if (code === 2) {
+            // Process lives but tray did not raise — focus the mapped window
+            // instead of spawning a second client + LaunchSplash skeleton.
+            if (LaunchSplash.tryFocus(app)) {
+                root.launchConsumed = true;
+                root.finishLaunch();
+                return;
+            }
+            root.execPinned(app, entry, ws);
+            root.finishLaunch();
+            return;
+        }
+        // Last chance before splash: Quickshell toplevels may lag; try again.
+        if (LaunchSplash.tryFocus(app)) {
+            root.launchConsumed = true;
+            root.finishLaunch();
+            return;
+        }
+        root.splashNeeded();
+        if (root.launchConsumed) {
+            root.finishLaunch();
+            return;
+        }
+        if (root.skipSplash(app))
+            root.runDirect(app, entry);
+        else
+            root.execPinned(app, entry, ws);
+        root.finishLaunch();
     }
 
     function launch(entry) {
@@ -1192,32 +1514,81 @@ QtObject {
             root.bump(id);
         root.closeFolder();
         root.pendingLaunch = app;
+        root.pendingEntry = entry;
+        root.pendingWorkspace = Core.Session.activeWorkspaceOnMonitor(Core.Session.focusedMonitorName());
         root.launchConsumed = false;
+        // OBS / Cursor: never go through splash/tryFocus. Cursor's tray
+        // Activate returns success and the launcher swallows the click.
+        // Still pin to the workspace the user is on now, not where the
+        // window first appeared.
+        if (root.isObs(app) || root.isObs(entry) || root.isCursor(app) || root.isCursor(entry) || root.isIdea(app) || root.isIdea(entry)) {
+            const dest = root.pendingWorkspace;
+            LaunchSplash.armLaunch(app, dest);
+            const running = LaunchSplash.findRunning(app);
+            if (running)
+                Core.Session.bringWindow(running, dest);
+            root.runDirect(app, entry);
+            root.finishLaunch();
+            return;
+        }
         root.spawnStarting();
         if (root.launchConsumed) {
-            root.pendingLaunch = null;
+            root.finishLaunch();
             return;
         }
-        if (root.isSpotify(app) || root.isSpotify(entry)) {
-            Quickshell.execDetached([root.home + "/.config/scripts/spotify"]);
-            root.pendingLaunch = null;
+        if (root.skipSplash(app)) {
+            root.runDirect(app, entry);
+            root.finishLaunch();
             return;
         }
-        if (app.execute) {
-            app.execute();
-            root.pendingLaunch = null;
+        root.startExisting(app);
+    }
+
+    function luaQuote(s) {
+        return "\"" + String(s || "").replace(/\\/g, "\\\\").replace(/"/g, "\\\"") + "\"";
+    }
+
+    function shellJoin(args) {
+        const out = [];
+        for (let i = 0; i < args.length; i++)
+            out.push("'" + String(args[i]).replace(/'/g, "'\\''") + "'");
+        return out.join(" ");
+    }
+
+    function stripFieldCodes(line) {
+        return String(line || "").replace(/%[fFuUdDnNickvm]/g, "").replace(/\s+/g, " ").trim();
+    }
+
+    function execPinned(app, entry, ws) {
+        const id = Number(ws);
+        const rule = id >= 1 ? "[workspace " + id + " silent] " : "";
+        let cmd = "";
+        if (root.isSpotify(app) || root.isSpotify(entry))
+            cmd = "'" + root.home + "/.config/scripts/spotify'";
+        else if (root.isInsta360(app) || root.isInsta360(entry))
+            cmd = "'" + root.home + "/.config/scripts/insta360-link.sh'";
+        else if (root.isObs(app) || root.isObs(entry))
+            cmd = "'" + root.home + "/.config/scripts/obs.sh'";
+        else if (root.isCursor(app) || root.isCursor(entry))
+            cmd = "'" + root.home + "/.config/scripts/cursor.sh'";
+        else if (root.isIdea(app) || root.isIdea(entry))
+            cmd = "'" + root.home + "/.config/scripts/idea-ultimate.sh'";
+        else if (root.steamAppId(app) || root.steamAppId(entry))
+            cmd = "'" + root.home + "/.config/scripts/steam.sh' 'steam://rungameid/" + (root.steamAppId(app) || root.steamAppId(entry)) + "'";
+        else if (app.command && app.command.length)
+            cmd = root.shellJoin(app.command);
+        else if (app.execString || app.exec) {
+            // Hypr exec_cmd is not a shell — bare `obs` / PATH binaries die when
+            // the dispatcher PATH is thin. Always run desktop Exec via sh.
+            const inner = root.stripFieldCodes(app.execString || app.exec);
+            cmd = "sh -c " + "'" + String(inner).replace(/'/g, "'\\''") + "'";
+        }
+        if (!cmd) {
+            if (app.execute)
+                app.execute();
             return;
         }
-        const cmd = app.command;
-        if (cmd && cmd.length) {
-            Quickshell.execDetached(cmd);
-            root.pendingLaunch = null;
-            return;
-        }
-        const line = String(app.execString || app.exec || "");
-        if (line)
-            Quickshell.execDetached(["sh", "-c", "exec " + line]);
-        root.pendingLaunch = null;
+        Quickshell.execDetached(["hyprctl", "eval", "hl.dispatch(hl.dsp.exec_cmd(" + root.luaQuote(rule + cmd) + "))"]);
     }
 
     function steamIdFromClass(cls) {

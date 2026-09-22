@@ -20,19 +20,6 @@ Components.PopupSurface {
             id: body
             spacing: Core.Theme.spacing
 
-            Components.PopupHeader {
-                width: parent.width
-                title: "Brightness"
-                subtitle: popup.svc.displayList.length > 1 ? "Choose a display" : popup.svc.selectedLabel
-                showToggle: false
-            }
-
-            Rectangle {
-                width: parent.width
-                height: 1
-                color: Core.Theme.separator
-            }
-
             Repeater {
                 model: popup.svc.displayList
 

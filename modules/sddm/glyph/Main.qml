@@ -10,22 +10,25 @@ Rectangle {
     color: "black"
     focus: true
 
-    // State Management
-    property bool isUnlocked: false
-    property color finalClockColor: "transparent"
-    property bool readyToReveal: false
-
-    // MASTER INDICES
+    property bool inputOpen: false
     property int userIdx: userModel.lastIndex >= 0 ? userModel.lastIndex : 0
     property int sessionIdx: sessionModel.lastIndex >= 0 ? sessionModel.lastIndex : 0
 
     Component.onCompleted: {
-        if (userModel.lastIndex >= 0) userIdx = userModel.lastIndex
-        if (sessionModel.lastIndex >= 0) sessionIdx = sessionModel.lastIndex
+        if (userModel.lastIndex >= 0)
+            userIdx = userModel.lastIndex;
+        if (sessionModel.lastIndex >= 0)
+            sessionIdx = sessionModel.lastIndex;
     }
 
-    FontLoader { id: ndotFont; source: "assets/fonts/Ndot-57-Aligned.ttf"; }
-    FontLoader { id: symbolFont; source: "assets/fonts/SymbolsNerdFont.ttf" }
+    FontLoader {
+        id: ndotFont
+        source: "assets/fonts/Ndot-57-Aligned.ttf"
+    }
+    FontLoader {
+        id: symbolFont
+        source: "assets/fonts/SymbolsNerdFont.ttf"
+    }
     property string globalFont: "Inter"
 
     Image {
@@ -33,134 +36,153 @@ Rectangle {
         anchors.fill: parent
         source: config.background || "assets/images/background.jpg"
         fillMode: Image.PreserveAspectCrop
-        onStatusChanged: if (status == Image.Ready) brightnessTimer.start()
-    }
-
-    Timer { id: brightnessTimer; interval: 800; onTriggered: brightnessCanvas.requestPaint() }
-
-    Canvas {
-        id: brightnessCanvas
-        width: 20; height: 20; visible: false
-        renderTarget: Canvas.Image
-        onPaint: {
-            var ctx = getContext("2d")
-            ctx.drawImage(bg, 0, 0, width, height)
-            var data = ctx.getImageData(0, 0, width, height).data
-            var r = 0, g = 0, b = 0
-            for (var i = 0; i < data.length; i += 4) { r += data[i]; g += data[i+1]; b += data[i+2] }
-            var luminance = (0.299 * (r/(data.length/4)) + 0.587 * (g/(data.length/4)) + 0.114 * (b/(data.length/4))) / 255
-
-            // 1. STEP ONE: CALCULATE AND ASSIGN COLOR
-            container.finalClockColor = (luminance > 0.5) ? "black" : "white"
-            console.log("Calculated Color: " + container.finalClockColor)
-
-            // 2. STEP TWO: WAIT FOR PROPERTY TO SETTLE BEFORE REVEAL
-            revealTimer.start()
-        }
-    }
-
-    Timer {
-        id: revealTimer
-        interval: 800 // Increased delay for a more cinematic reveal
-        onTriggered: container.readyToReveal = true
+        asynchronous: true
+        cache: true
     }
 
     Rectangle {
-        anchors.fill: parent; color: "black"; opacity: container.isUnlocked ? 0.45 : 0.15
-        Behavior on opacity { NumberAnimation { duration: 400 } }
+        anchors.fill: parent
+        color: "black"
+        opacity: container.inputOpen ? 0.42 : 0.12
+        Behavior on opacity {
+            NumberAnimation {
+                duration: 420
+                easing.type: Easing.OutCubic
+            }
+        }
     }
 
-    MouseArea { anchors.fill: parent; onClicked: container.revealInput(); enabled: !container.isUnlocked }
-    Keys.onPressed: (event) => {
-        if (container.isUnlocked)
-            return
+    MouseArea {
+        anchors.fill: parent
+        enabled: !container.inputOpen
+        onClicked: container.revealInput()
+    }
+
+    Keys.onPressed: event => {
         if (event.key === Qt.Key_Escape) {
-            event.accepted = true
-            return
+            container.hideInput();
+            event.accepted = true;
+            return;
         }
-        var ch = event.text || ""
+        var ch = event.text || "";
         if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-            container.revealInput()
-            event.accepted = true
-            return
+            container.revealInput();
+            event.accepted = true;
+            return;
         }
         if (event.key === Qt.Key_Backspace) {
-            container.revealInput()
-            event.accepted = true
-            return
+            container.revealInput();
+            event.accepted = true;
+            return;
         }
         if (ch.length > 0 && ch.charCodeAt(0) >= 32) {
-            container.revealInput(ch)
-            event.accepted = true
-            return
+            container.revealInput(ch);
+            event.accepted = true;
+            return;
         }
-        container.revealInput()
-        event.accepted = true
+        container.revealInput();
+        event.accepted = true;
     }
 
     function revealInput(ch) {
-        container.isUnlocked = true
-        Qt.callLater(function() {
+        container.inputOpen = true;
+        Qt.callLater(function () {
             if (ch)
-                loginPanel.prependPassword(ch)
+                loginPanel.prependPassword(ch);
             else
-                loginPanel.focusPassword()
-        })
+                loginPanel.focusPassword();
+        });
     }
 
-    // THE CLOCK
+    function hideInput() {
+        container.inputOpen = false;
+        loginPanel.reset();
+        container.focus = true;
+    }
+
     Clock {
         id: clock
         anchors.top: parent.top
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.topMargin: 72
-        symbolFontName: symbolFont.name; fontName: container.globalFont
+        symbolFontName: symbolFont.name
+        fontName: container.globalFont
         textColor: "white"
-
-        visible: container.readyToReveal
-        opacity: visible ? (container.isUnlocked ? 0.4 : 1.0) : 0.0
-
+        opacity: container.inputOpen ? 0.55 : 1.0
         Behavior on opacity {
             NumberAnimation {
-                duration: 1200;
-                easing.type: Easing.OutQuint
+                duration: 420
+                easing.type: Easing.OutCubic
             }
         }
-        Behavior on scale { NumberAnimation { duration: 450; easing.type: Easing.OutCubic } }
     }
 
     LoginPanel {
         id: loginPanel
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: container.isUnlocked ? 90 : -420
+        anchors.bottomMargin: 90
         width: 400
-        enabled: container.isUnlocked
-        fontName: container.globalFont; textColor: "white"
-        userIndex: container.userIdx; sessionIndex: container.sessionIdx
-        onUserSelected: container.userIdx = index; onSessionSelected: container.sessionIdx = index
-        opacity: container.isUnlocked ? 1.0 : 0.0
-        Behavior on opacity { NumberAnimation { duration: 280; easing.type: Easing.OutCubic } }
-        Behavior on anchors.bottomMargin { NumberAnimation { duration: 560; easing.type: Easing.OutCubic } }
+        fontName: container.globalFont
+        textColor: "white"
+        userIndex: container.userIdx
+        sessionIndex: container.sessionIdx
+        onUserSelected: container.userIdx = index
+        onSessionSelected: container.sessionIdx = index
+        onDismissed: container.hideInput()
+        opacity: container.inputOpen ? 1.0 : 0.0
+        scale: container.inputOpen ? 1.0 : 0.96
+        transformOrigin: Item.Bottom
+        visible: opacity > 0.01
+        enabled: container.inputOpen
+        property real slide: container.inputOpen ? 0 : 1
+        transform: Translate {
+            y: loginPanel.slide * 360
+        }
+        Behavior on opacity {
+            NumberAnimation {
+                duration: 380
+                easing.type: Easing.OutCubic
+            }
+        }
+        Behavior on scale {
+            NumberAnimation {
+                duration: 560
+                easing.type: Easing.OutCubic
+            }
+        }
+        Behavior on slide {
+            NumberAnimation {
+                duration: 560
+                easing.type: Easing.OutCubic
+            }
+        }
     }
 
-    Connections { target: sddm; function onLoginFailed() { loginPanel.triggerError() } }
+    Connections {
+        target: sddm
+        function onLoginFailed() {
+            loginPanel.triggerError();
+        }
+        function onLoginSucceeded() {
+            container.inputOpen = false;
+        }
+    }
 
     PowerMenu {
         id: powerMenu
-        anchors.bottom: parent.bottom; anchors.right: parent.right; anchors.margins: 50
-        symbolFontName: symbolFont.name; fontName: container.globalFont; textColor: "white"
-        opacity: container.isUnlocked ? 0.5 : 1.0; Behavior on opacity { NumberAnimation { duration: 400 } }
+        anchors.bottom: parent.bottom
+        anchors.right: parent.right
+        anchors.margins: 50
+        symbolFontName: symbolFont.name
+        fontName: container.globalFont
+        textColor: "white"
+        opacity: container.inputOpen ? 0.55 : 1.0
+        Behavior on opacity {
+            NumberAnimation {
+                duration: 420
+                easing.type: Easing.OutCubic
+            }
+        }
     }
-
-    Text {
-        text: ""; font.family: container.globalFont; font.pixelSize: 14; font.letterSpacing: 1
-        color: "white"
-        visible: container.readyToReveal
-        opacity: visible ? (container.isUnlocked ? 0.0 : 0.6) : 0.0
-        anchors.bottom: parent.bottom; anchors.horizontalCenter: parent.horizontalCenter; anchors.bottomMargin: 40
-        Behavior on opacity { NumberAnimation { duration: 1000 } }
-    }
-
-    Keys.onEscapePressed: { container.isUnlocked = false; loginPanel.reset(); container.focus = true; }
 }

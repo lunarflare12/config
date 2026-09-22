@@ -41,7 +41,7 @@ Scope {
         }
 
         function close(): void {
-            Core.Session.screenshotOpen = false;
+            Core.Session.dismissScreenshot();
         }
     }
 
@@ -122,6 +122,26 @@ Scope {
 
         function close(): void {
             Core.PopupManager.close();
+        }
+    }
+
+    IpcHandler {
+        target: "cursor"
+
+        function toggle(): void {
+            Core.PopupManager.toggle("cursor");
+        }
+
+        function open(): void {
+            Core.PopupManager.open("cursor");
+        }
+
+        function close(): void {
+            Core.PopupManager.close();
+        }
+
+        function apply(id: string): void {
+            Services.CursorService.apply(id);
         }
     }
 
@@ -268,6 +288,14 @@ Scope {
                 sourceSize.height: 216
                 source: modelData && modelData.thumb ? "file://" + modelData.thumb : ""
             }
+        }
+
+        Image {
+            width: 1
+            height: 1
+            asynchronous: true
+            cache: true
+            source: Services.WallpaperService.current ? ("file://" + Services.WallpaperService.current) : ""
         }
     }
 }

@@ -1,0 +1,60 @@
+[
+  {
+    "id": "macos",
+    "name": "macOS",
+    "theme": "macOS",
+    "thumb": "macos.png"
+  },
+  {
+    "id": "moga",
+    "name": "Moga",
+    "theme": "Moga",
+    "source": "https://vsthemes.org/en/cursors/black/72954-moga.html",
+    "newsId": 72954,
+    "thumb": "moga.png"
+  },
+  {
+    "id": "hatsune-miku",
+    "name": "Hatsune Miku",
+    "theme": "Hatsune-Miku",
+    "source": "https://vsthemes.org/en/cursors/anime/72390-hatsune-miku.html",
+    "newsId": 72390,
+    "animated": true,
+    "thumb": "hatsune-miku.png"
+  },
+  {
+    "id": "mita",
+    "name": "Mita",
+    "theme": "Mita",
+    "source": "https://vsthemes.org/en/cursors/anime/70653-mita.html",
+    "newsId": 70653,
+    "animated": true,
+    "thumb": "mita.png"
+  },
+  {
+    "id": "overwatch-pointer",
+    "name": "Overwatch Pointer",
+    "theme": "Overwatch-Pointer",
+    "source": "https://vsthemes.org/en/cursors/games/14474-overwatch-pointer.html",
+    "newsId": 14474,
+    "thumb": "overwatch-pointer.png"
+  },
+  {
+    "id": "gradient-blue",
+    "name": "Gradient Blue",
+    "theme": "Gradient-Blue",
+    "source": "https://vsthemes.org/en/cursors/animated/14826-gradient-blue.html",
+    "newsId": 14826,
+    "animated": true,
+    "thumb": "gradient-blue.png"
+  },
+  {
+    "id": "terracota",
+    "name": "Terracota",
+    "theme": "Terracota",
+    "source": "https://vsthemes.org/en/cursors/colored/26964-terracota.html",
+    "newsId": 26964,
+    "animated": true,
+    "thumb": "terracota.png"
+  }
+]

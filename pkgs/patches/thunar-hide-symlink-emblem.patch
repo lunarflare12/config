@@ -1,0 +1,16 @@
+--- a/thunar/thunar-file.c
++++ b/thunar/thunar-file.c
+@@ -3759,9 +3759,8 @@
+       g_strfreev (emblem_names);
+     }
+ 
+-  if (thunar_file_is_symlink (file))
+-    emblems = g_list_prepend (emblems, g_strdup (THUNAR_FILE_EMBLEM_NAME_SYMBOLIC_LINK));
+-
++  /* Finder-style: symlink folders stay a solid folder icon, no chain badge. */
++
+   /* determine the user ID of the file owner */
+   /* TODO what are we going to do here on non-UNIX systems? */
+   uid = file->info != NULL
+         ? g_file_info_get_attribute_uint32 (file->info, G_FILE_ATTRIBUTE_UNIX_UID)
+         : 0;

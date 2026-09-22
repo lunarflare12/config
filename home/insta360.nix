@@ -1,4 +1,4 @@
-{ lib, pkgs, ... }:
+{ lib, pkgs, config, ... }:
 
 let
   seedIni = pkgs.writeText "insta360link.ini" ''
@@ -61,4 +61,33 @@ in
       cp ${seedIni} "$ini"
     fi
   '';
+
+  systemd.user.services.insta360-hold = {
+    Unit = {
+      Description = "Insta360 Link (keep powered like Windows)";
+      After = [ "graphical-session.target" ];
+      PartOf = [ "graphical-session.target" ];
+    };
+    Service = {
+      Type = "simple";
+      ExecStart = "${config.home.homeDirectory}/.config/scripts/insta360-hold.sh";
+      Restart = "always";
+      RestartSec = "2";
+    };
+    Install.WantedBy = [ "graphical-session.target" ];
+  };
+
+  xdg.desktopEntries.insta360linkgui = {
+    name = "Insta360 Link Controller";
+    genericName = "Webcam Controller";
+    exec = "${config.home.homeDirectory}/.config/scripts/insta360-link.sh";
+    icon = "camera-web";
+    categories = [
+      "AudioVideo"
+      "Video"
+      "Settings"
+    ];
+    terminal = false;
+    settings.StartupWMClass = "insta360linkgui";
+  };
 }

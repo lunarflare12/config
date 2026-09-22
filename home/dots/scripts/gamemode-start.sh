@@ -22,9 +22,16 @@ touch "${HOME}/.local/state/aurora-game"
   "$NVSETTINGS" -a "[gpu:0]/GPUPowerMizerMode=1" || true
   "$HYPRCTL" eval 'dofile("/home/dd/.config/hypr/config/decorations.lua")' || true
   "$HYPRCTL" eval 'dofile("/home/dd/.config/hypr/config/animations.lua")' || true
-  "$HYPRCTL" eval 'hl.config({ decoration = { blur = { enabled = false } }, animations = { enabled = false }, misc = { vrr = 0, render_unfocused_fps = 205, mouse_move_focuses_monitor = false }, render = { send_content_type = true }, debug = { vfr = false, render_solitary_wo_damage = true } })' || true
+  # Do not disable decoration.blur globally — leftover aurora-game left Finder
+  # without blur. Games already use no_blur window rules.
+  "$HYPRCTL" eval 'hl.config({ animations = { enabled = false }, misc = { vrr = 0, mouse_move_focuses_monitor = true } })' || true
   "$HYPRCTL" eval 'if _G.aurora_sync_texture_expand then _G.aurora_sync_texture_expand() end' || true
-  "$QS" ipc call bar hide || true
+  # Do not load csgo-vulkan-fix here. Albion/Dota set aurora-game too;
+  # the store plugin then treats class steam as steam_app_* and stretches
+  # the library. Overwatch.sh loads the plugin by itself.
+  # Do not `bar hide` here: that blanked the menu bar on every DP-1
+  # workspace for the whole GameMode session. Session.qml hides chrome
+  # only on the workspace that actually shows the game.
 } >"$LOG" 2>&1
 systemctl --user stop hyprsunset.service >/dev/null 2>&1 || true
 systemctl --user start awww.service >/dev/null 2>&1 || true

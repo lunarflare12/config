@@ -24,6 +24,7 @@ QtObject {
     property int overviewDropLocal: 0
     property var overviewDropSwap: null
     property bool overviewDropPlus: false
+    property int overviewDropIndex: 0
     property var spaceOrder: ({})
     property int spaceRev: 0
     property bool compacting: false
@@ -71,6 +72,79 @@ QtObject {
     readonly property var monitorOrder: ["DP-1", "HDMI-A-1"]
     readonly property string gameMonitor: "DP-1"
     property bool forceHideGameBar: false
+    property bool activeWindowFullscreen: false
+    property bool activeWindowCovers: false
+    property string activeWindowMonitor: ""
+    property int fsTick: 0
+
+    property Process fsPoll: Process {
+        command: ["hyprctl", "-j", "activewindow"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (!text)
+                    return;
+                try {
+                    const o = JSON.parse(text);
+                    if (!o || o.class === undefined) {
+                        root.activeWindowFullscreen = false;
+                        root.activeWindowCovers = false;
+                        return;
+                    }
+                    const fs = Number(o.fullscreen || 0);
+                    const fsc = Number(o.fullscreenClient || 0);
+                    const cls = String(o.class || o.initialClass || "").toLowerCase();
+                    const exclusive = fs >= 2 || fsc >= 2;
+                    const game = cls.indexOf("steam_app_") !== -1 || cls.indexOf("gamescope") !== -1
+                        || cls.indexOf("dota2") !== -1 || cls.indexOf("minecraft") !== -1
+                        || cls.indexOf("albion") !== -1;
+                    const media = cls.indexOf("google-chrome") !== -1 || cls === "chrome"
+                        || cls.indexOf("firefox") !== -1 || cls.indexOf("zen") !== -1
+                        || cls === "mpv" || cls.indexOf("vlc") !== -1 || cls.indexOf("celluloid") !== -1;
+                    root.activeWindowFullscreen = exclusive || (media && (fs >= 1 || fsc >= 1));
+                    const at = o.at || [0, 0];
+                    const size = o.size || [0, 0];
+                    let covers = false;
+                    let monName = "";
+                    const mons = (Hyprland.monitors && Hyprland.monitors.values) ? Hyprland.monitors.values : [];
+                    for (let i = 0; i < mons.length; i++) {
+                        const m = mons[i];
+                        const mx = Number(m.x || 0);
+                        const my = Number(m.y || 0);
+                        const mw = Number(m.width || 0);
+                        const mh = Number(m.height || 0);
+                        if (Math.abs(Number(at[0]) - mx) <= 8 && Math.abs(Number(at[1]) - my) <= 8 && Number(size[0]) >= mw - 16 && Number(size[1]) >= mh - 16) {
+                            covers = true;
+                            monName = m.name || "";
+                            break;
+                        }
+                    }
+                    if (!monName) {
+                        for (let j = 0; j < mons.length; j++) {
+                            if (Number(mons[j].id) === Number(o.monitor)) {
+                                monName = mons[j].name || "";
+                                break;
+                            }
+                        }
+                    }
+                    root.activeWindowCovers = covers;
+                    root.activeWindowMonitor = monName;
+                    root.fsTick += 1;
+                } catch (e) {
+                }
+            }
+        }
+    }
+
+    property Timer fsTimer: Timer {
+        interval: 200
+        running: true
+        repeat: true
+        onTriggered: {
+            if (root.fsPoll.running)
+                root.fsPoll.running = false;
+            root.fsPoll.running = true;
+        }
+    }
     property FileView gameFlagFile: FileView {
         path: Quickshell.env("HOME") + "/.local/state/aurora-game"
         watchChanges: true
@@ -100,6 +174,14 @@ QtObject {
         root.overviewOpen = !root.overviewOpen;
     }
 
+    // In-process lock. Never `qs ipc call lock` from inside qs — a stale crash
+    // marker makes that binary spawn another full shell (duplicate bars/docks).
+    signal lockRequested()
+
+    function requestLock() {
+        root.lockRequested();
+    }
+
     function toggleScreenshot() {
         root.screenshotOpen = !root.screenshotOpen;
     }
@@ -110,8 +192,20 @@ QtObject {
 
     function dismissScreenshot() {
         root.screenshotOpen = false;
-        Quickshell.execDetached(["hyprctl", "dispatch", "closewindow", "class:^(com.gabm.satty|satty)$"]);
-        Quickshell.execDetached(["pkill", "-f", "satty"]);
+        root.sattySuppressUntil = 0;
+    }
+
+    // Ignore workspace churn while Satty is spawning (focusmonitor + map).
+    property double sattySuppressUntil: 0
+
+    function armSattySuppress() {
+        root.sattySuppressUntil = Date.now() + 1200;
+    }
+
+    function shouldDismissSatty() {
+        if (Date.now() < root.sattySuppressUntil)
+            return false;
+        return root.screenshotOpen || root.sattyOpen;
     }
 
     function closeOverlays() {
@@ -133,9 +227,17 @@ QtObject {
 
     readonly property int mainWorkspace: root.activeWorkspaceOnMonitor(root.gameMonitor)
 
+    // Any focused-workspace change (any monitor) closes the screenshot editor.
+    readonly property int focusedWorkspaceId: Hyprland.focusedWorkspace ? Number(Hyprland.focusedWorkspace.id) : 0
+
+    onFocusedWorkspaceIdChanged: {
+        if (root.focusedWorkspaceId <= 0)
+            return;
+        root.screenshotOpen = false;
+    }
+
     onMainWorkspaceChanged: {
-        if (root.screenshotOpen || root.sattyOpen)
-            root.dismissScreenshot();
+        root.screenshotOpen = false;
     }
 
     function monitorIndex(name) {
@@ -225,14 +327,21 @@ QtObject {
     readonly property int gameLayoutRev: {
         let h = root.forceHideGameBar ? 1 : 0;
         h += root.gameFlagPresent ? 2 : 0;
+        h += root.fsTick * 13;
+        h += root.activeWindowFullscreen ? 5 : 0;
+        h += root.activeWindowCovers ? 7 : 0;
         h += Hyprland.focusedWorkspace ? Number(Hyprland.focusedWorkspace.id) * 31 : 0;
         const values = (Hyprland.toplevels && Hyprland.toplevels.values) ? Hyprland.toplevels.values : [];
         for (let i = 0; i < values.length; i++) {
             const t = values[i];
-            if (!root.isGameClient(t))
-                continue;
             const ipc = t.lastIpcObject || {};
-            h += 10 + Number(ipc.fullscreen || 0) + Number(ipc.fullscreenClient || 0) * 3 + root.toplevelWorkspaceId(t) * 17;
+            if (ipc.mapped === false || ipc.hidden === true)
+                continue;
+            const fs = Number((t.fullscreen !== undefined ? t.fullscreen : ipc.fullscreen) || 0);
+            const fsc = Number(ipc.fullscreenClient || 0);
+            if (fs === 0 && fsc === 0 && !root.isGameClient(t))
+                continue;
+            h += 10 + fs + fsc * 3 + root.toplevelWorkspaceId(t) * 17;
         }
         return h;
     }
@@ -307,7 +416,7 @@ QtObject {
             return false;
         const cls = String(ipc.class || ipc.initialClass || ipc.initial_class || t.className || "").toLowerCase();
         const title = String(t.title || ipc.title || "").toLowerCase();
-        if (cls.indexOf("steam_app_") !== -1 || cls.indexOf("gamescope") !== -1 || cls.indexOf("dota2") !== -1)
+        if (cls.indexOf("steam_app_") !== -1 || cls.indexOf("gamescope") !== -1 || cls.indexOf("dota2") !== -1 || cls.indexOf("albion") !== -1)
             return true;
         if (cls.indexOf("prism") !== -1)
             return false;
@@ -332,25 +441,90 @@ QtObject {
         return -1;
     }
 
+    function isMediaClient(t) {
+        if (!t)
+            return false;
+        const ipc = t.lastIpcObject || {};
+        const cls = String(ipc.class || ipc.initialClass || ipc.initial_class || t.className || "").toLowerCase();
+        return cls.indexOf("google-chrome") !== -1 || cls === "chrome"
+            || cls.indexOf("firefox") !== -1 || cls.indexOf("zen") !== -1
+            || cls === "mpv" || cls.indexOf("vlc") !== -1 || cls.indexOf("celluloid") !== -1;
+    }
+
+    function isExclusiveFullscreen(t) {
+        if (!t)
+            return false;
+        const ipc = t.lastIpcObject || {};
+        if (ipc.mapped === false || ipc.hidden === true)
+            return false;
+        const fs = Number((t.fullscreen !== undefined ? t.fullscreen : ipc.fullscreen) || 0);
+        const fsc = Number(ipc.fullscreenClient || 0);
+        return fs >= 2 || fsc >= 2;
+    }
+
+    function isVideoFullscreen(t) {
+        if (!root.isMediaClient(t))
+            return false;
+        const ipc = t.lastIpcObject || {};
+        if (ipc.mapped === false || ipc.hidden === true)
+            return false;
+        const fs = Number((t.fullscreen !== undefined ? t.fullscreen : ipc.fullscreen) || 0);
+        const fsc = Number(ipc.fullscreenClient || 0);
+        const content = String(ipc.content || ipc.contentType || "").toLowerCase();
+        return fs >= 1 || fsc >= 1 || content.indexOf("video") !== -1;
+    }
+
+    function windowCoversMonitor(t, screen) {
+        if (!t || !screen)
+            return false;
+        const ipc = t.lastIpcObject || {};
+        if (ipc.mapped === false || ipc.hidden === true)
+            return false;
+        const at = ipc.at;
+        const size = ipc.size;
+        if (!at || !size)
+            return false;
+        const want = root.monitorNameForScreen(screen);
+        const mons = (Hyprland.monitors && Hyprland.monitors.values) ? Hyprland.monitors.values : [];
+        for (let i = 0; i < mons.length; i++) {
+            const m = mons[i];
+            if (m.name !== want)
+                continue;
+            const mx = Number(m.x || 0);
+            const my = Number(m.y || 0);
+            const mw = Number(m.width || 0);
+            const mh = Number(m.height || 0);
+            return Math.abs(Number(at[0]) - mx) <= 8 && Math.abs(Number(at[1]) - my) <= 8 && Number(size[0]) >= mw - 16 && Number(size[1]) >= mh - 16;
+        }
+        return false;
+    }
+
     function gameFullscreenOnScreen(screen) {
         const _ = root.gameLayoutRev;
-        // Hide only on the workspace that actually has the game. Other desks
-        // on this monitor (and HDMI) keep the bar.
         if (!screen)
             return false;
         const want = root.monitorNameForScreen(screen);
         const active = root.activeWorkspaceOnMonitor(want);
+        // forceHideGameBar / active FS apply only on the workspace that
+        // is actually showing the game. GameMode used to blank every
+        // desktop on DP-1 while Albion sat on workspace 4.
+        if ((root.activeWindowFullscreen || root.activeWindowCovers) && (!root.activeWindowMonitor || root.activeWindowMonitor === want)) {
+            const focusedWs = Hyprland.focusedWorkspace ? Number(Hyprland.focusedWorkspace.id) : -1;
+            if (focusedWs < 0 || active < 0 || focusedWs === active)
+                return true;
+        }
         const values = (Hyprland.toplevels && Hyprland.toplevels.values) ? Hyprland.toplevels.values : [];
         for (let i = 0; i < values.length; i++) {
             const t = values[i];
-            if (!root.isGameClient(t) || !root.isToplevelOnScreen(t, screen))
+            if (!root.isToplevelOnScreen(t, screen))
                 continue;
             const wsId = root.toplevelWorkspaceId(t);
             if (wsId >= 0 && active >= 0 && wsId !== active)
                 continue;
             if (wsId < 0 && root.focusedMonitorName() !== want)
                 continue;
-            return true;
+            if (root.isGameClient(t) || root.isExclusiveFullscreen(t) || root.isVideoFullscreen(t) || root.windowCoversMonitor(t, screen))
+                return true;
         }
         return false;
     }
@@ -544,20 +718,27 @@ QtObject {
         root.spaceRev = root.spaceRev + 1;
     }
 
-    function reorderSpaceOnMonitor(monitorName, fromLocal, beforeLocal, plus) {
+    function reorderSpaceToIndex(monitorName, fromLocal, insertIndex) {
         const list = root.workspaceLocalsOnMonitor(monitorName).slice();
-        const fromIdx = list.indexOf(fromLocal);
+        const from = Number(fromLocal);
+        let fromIdx = -1;
+        for (let i = 0; i < list.length; i++) {
+            if (Number(list[i]) === from) {
+                fromIdx = i;
+                break;
+            }
+        }
         if (fromIdx < 0)
             return;
+        let insert = Number(insertIndex);
+        if (!(insert >= 0))
+            insert = list.length;
+        if (insert === fromIdx)
+            return;
         list.splice(fromIdx, 1);
-        if (plus)
-            list.push(fromLocal);
-        else {
-            let insert = list.indexOf(beforeLocal);
-            if (insert < 0)
-                insert = list.length;
-            list.splice(insert, 0, fromLocal);
-        }
+        if (insert > list.length)
+            insert = list.length;
+        list.splice(insert, 0, from);
         const saved = root.spaceOrder[monitorName] || [];
         if (saved.length === list.length) {
             let same = true;
@@ -727,6 +908,21 @@ QtObject {
             t.wayland.activate();
     }
 
+    // Launch from the current workspace: move the window here. Do not
+    // jump the user to wherever that client first appeared.
+    function bringWindow(t, destWs) {
+        if (!t)
+            return;
+        const dest = Number(destWs);
+        const at = root.toplevelWorkspaceId(t);
+        if (dest >= 1 && at !== dest)
+            root.moveWindowSilent(t, dest);
+        if (dest >= 1)
+            root.focusWorkspace(dest);
+        if (t.wayland && typeof t.wayland.activate === "function")
+            t.wayland.activate();
+    }
+
     function closeWindow(t) {
         if (!t)
             return;
@@ -761,12 +957,24 @@ QtObject {
         return "(function() local w = hl.get_window(\"" + sel + "\"); if not w then return false end; hl.dispatch(hl.dsp.window.move({ workspace = " + destGlobal + ", window = w })); return true end)()";
     }
 
+    function hyprMoveSilentLua(sel, destGlobal) {
+        return "(function() local w = hl.get_window(\"" + sel + "\"); if not w then return false end; hl.dispatch(hl.dsp.window.move({ workspace = " + destGlobal + ", window = w, silent = true })); return true end)()";
+    }
+
     function moveWindowToLocal(t, monitorName, localWs) {
         const sel = root.windowSelector(t);
         const dest = root.globalId(monitorName, localWs);
         if (!sel || !(dest >= 1))
             return;
         Quickshell.execDetached(["hyprctl", "eval", root.hyprMoveLua(sel, dest)]);
+    }
+
+    function moveWindowSilent(t, destGlobal) {
+        const sel = root.windowSelector(t);
+        const dest = Number(destGlobal);
+        if (!sel || !(dest >= 1))
+            return;
+        Quickshell.execDetached(["hyprctl", "eval", root.hyprMoveSilentLua(sel, dest)]);
     }
 
     function swapWindows(a, b) {
@@ -789,6 +997,7 @@ QtObject {
         root.overviewDropLocal = 0;
         root.overviewDropSwap = null;
         root.overviewDropPlus = false;
+        root.overviewDropIndex = 0;
     }
 
     function beginOverviewSpaceDrag(monitorName, localWs, gx, gy) {
@@ -803,6 +1012,7 @@ QtObject {
         root.overviewDropLocal = Number(localWs) || 0;
         root.overviewDropSwap = null;
         root.overviewDropPlus = false;
+        root.overviewDropIndex = -1;
     }
 
     function updateOverviewDrag(gx, gy) {
@@ -810,11 +1020,13 @@ QtObject {
         root.overviewDragY = gy;
     }
 
-    function setOverviewDrop(monitorName, localWs, plus, swapToplevel) {
+    function setOverviewDrop(monitorName, localWs, plus, swapToplevel, insertIndex) {
         root.overviewDropMonitor = monitorName || "";
         root.overviewDropLocal = Number(localWs) || 0;
         root.overviewDropPlus = !!plus;
         root.overviewDropSwap = swapToplevel || null;
+        if (insertIndex !== undefined && insertIndex !== null)
+            root.overviewDropIndex = Number(insertIndex);
     }
 
     function finishOverviewDrag() {
@@ -826,29 +1038,23 @@ QtObject {
         const local = root.overviewDropLocal;
         const plus = root.overviewDropPlus;
         const swap = root.overviewDropSwap;
+        const insertIndex = root.overviewDropIndex;
         root.clearOverviewDrag();
 
         if (kind === "space") {
             if (!fromMon || !(fromLocal >= 1) || !mon)
                 return;
-            if (plus) {
-                const dest = root.firstFreeLocal(mon, fromMon === mon ? [fromLocal] : []);
-                if (!(dest >= 1))
-                    return;
-                if (fromMon === mon)
-                    root.reorderSpaceOnMonitor(mon, fromLocal, dest, true);
-                else
-                    root.moveWorkspaceTo(fromMon, fromLocal, mon, dest);
-                return;
-            }
-            if (!(local >= 1))
-                return;
             if (fromMon === mon) {
-                if (fromLocal !== local)
-                    root.reorderSpaceOnMonitor(mon, fromLocal, local, false);
+                if (plus)
+                    root.reorderSpaceToIndex(mon, fromLocal, 99);
+                else if (insertIndex >= 0)
+                    root.reorderSpaceToIndex(mon, fromLocal, insertIndex);
                 return;
             }
-            root.moveWorkspaceTo(fromMon, fromLocal, mon, local);
+            let destLocal = plus ? root.firstFreeLocal(mon) : local;
+            if (!(destLocal >= 1))
+                destLocal = 1;
+            root.moveWorkspaceTo(fromMon, fromLocal, mon, destLocal);
             return;
         }
 
@@ -878,11 +1084,20 @@ QtObject {
         root.overviewDropLocal = 0;
         root.overviewDropSwap = null;
         root.overviewDropPlus = false;
+        root.overviewDropIndex = 0;
+    }
+
+    onSattyOpenChanged: {
+        if (root.sattyOpen)
+            root.armSattySuppress();
+        else
+            root.sattySuppressUntil = 0;
     }
 
     function runScreenshot(mode) {
         root.screenshotOpen = false;
         root.overviewOpen = false;
+        root.armSattySuppress();
         Quickshell.execDetached([root.scripts + "/screenshot.sh", mode]);
     }
 }

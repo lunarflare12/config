@@ -28,6 +28,7 @@ stdenv.mkDerivation {
     ./patches/insta360-gui-bugs.patch
     ./patches/insta360-image-looks.patch
     ./patches/insta360-resolution.patch
+    ./patches/insta360-fast-start.patch
   ];
 
   nativeBuildInputs = [
@@ -79,10 +80,12 @@ stdenv.mkDerivation {
         install -Dm755 insta360linkgui $out/bin/insta360linkgui
         install -Dm755 linkctl $out/bin/linkctl
         install -Dm644 /dev/stdin $out/lib/udev/rules.d/99-insta360-link.rules <<'EOF'
-    # Insta360 Link / Link 2 — non-root access + no USB autosuspend
+    # Insta360 Link / Link 2 — non-root access.
+    # uvcvideo re-enables autosuspend on bind, so also RUN after bind.
     SUBSYSTEM=="video4linux", ATTRS{idVendor}=="2e1a", MODE="0666", GROUP="video"
-    SUBSYSTEM=="usb", ATTR{idVendor}=="2e1a", MODE="0666", ATTR{power/control}="on", ATTR{power/autosuspend}="-1"
-    SUBSYSTEM=="usb", ATTRS{idVendor}=="2e1a", TEST=="power/control", ATTR{power/control}="on"
+    SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="2e1a", MODE="0666"
+    ACTION=="add|bind", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="2e1a", ATTR{power/control}="on", ATTR{power/autosuspend}="-1"
+    ACTION=="bind", DRIVER=="uvcvideo", ATTRS{idVendor}=="2e1a", RUN+="/bin/sh -c 'echo on > /sys$env{DEVPATH}/../power/control; echo -1 > /sys$env{DEVPATH}/../power/autosuspend'"
     EOF
         runHook postInstall
   '';

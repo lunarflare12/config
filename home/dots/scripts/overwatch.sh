@@ -16,7 +16,7 @@ if [ -x "${BASH_SOURCE[0]%/*}/gamemode-start.sh" ]; then
   "${BASH_SOURCE[0]%/*}/gamemode-start.sh" >/dev/null 2>&1 || true
 fi
 if [ -x "${BASH_SOURCE[0]%/*}/ow-stretch-plugin.sh" ]; then
-  "${BASH_SOURCE[0]%/*}/ow-stretch-plugin.sh" >/dev/null 2>&1 || true
+  "${BASH_SOURCE[0]%/*}/ow-stretch-plugin.sh" sync >/dev/null 2>&1 || true
 fi
 
 export PROTON_ENABLE_NVAPI="${PROTON_ENABLE_NVAPI:-1}"
@@ -65,11 +65,11 @@ export DXVK_CONFIG_FILE="$PROTON_DXVK_CONFIG_FILE"
 export __GL_SHADER_DISK_CACHE_PATH="$ow_nv_cache"
 
 read -r phys_w phys_h refresh _ <<<"$(game_monitor)"
-# 16:9 internally (FOV 103 / 1:1 zoom). csgo-vulkan-fix stretches that
-# 1920x1080 buffer onto the 2560x1080 panel. Borderless so the Xiaomi
-# does not modeset 1920@120.
-width=1920
-height=1080
+# 16:9 internally (FOV 103 / 1:1 zoom). Render 2560x1440 so the stretch
+# onto the 2560x1080 panel is width-native (no 1920→2560 blur) and only
+# a 1440→1080 downscale on Y. Borderless so the Xiaomi does not modeset.
+width=2560
+height=1440
 use_219=0
 # User-requested lock: 205 FPS, not refresh-3 and not uncapped.
 fps_cap=205
@@ -92,7 +92,7 @@ game_ini_set "$ini" "[Render.13]" "WindowedHeight" "\"${height}\""
 game_ini_set "$ini" "[Render.13]" "FullScreenRefresh" "\"${refresh}\""
 game_ini_set "$ini" "[Render.13]" "WindowedRefresh" "\"${refresh}\""
 game_ini_set "$ini" "[Render.13]" "Use219AspectRatio" "\"${use_219}\""
-# Borderless 1920x1080. Exclusive 1920 modeset drops the Xiaomi to 120Hz.
+# Borderless. Exclusive modeset drops the Xiaomi to 120Hz.
 game_ini_set "$ini" "[Render.13]" "FullscreenWindow" "\"1\""
 game_ini_set "$ini" "[Render.13]" "FullscreenWindowEnabled" "\"1\""
 game_ini_set "$ini" "[Render.13]" "FieldOfView" "\"103.000000\""
@@ -112,6 +112,9 @@ game_ini_set "$ini" "[Render.13]" "ReflexMode" "\"0\""
 game_ini_set "$ini" "[Input.1]" "HighTickInput" "\"1\""
 
 game_wine_warp "/steam/steamapps/compatdata/2357570/pfx/user.reg" disable
+# XWayland otherwise parks HDMI at +0+0 and OW on DP-1 at +1920. That
+# plus the 1920 fake buffer walks clicks left of the cursor.
+game_xwayland_ultrawide
 game_x_primary "$phys_w" "$phys_h"
 game_strip_overlay
 game_place_overwatch

@@ -191,6 +191,7 @@ FocusScope {
                 border.color: cell.selected ? Core.Theme.accent : (cell.applied ? Core.Theme.accentMuted : Qt.rgba(1, 1, 1, 0.22))
 
                 Image {
+                    id: thumb
                     anchors.fill: parent
                     anchors.margins: 1
                     asynchronous: true
@@ -199,6 +200,7 @@ FocusScope {
                     sourceSize.height: 360
                     smooth: true
                     fillMode: Image.PreserveAspectCrop
+                    visible: thumb.status === Image.Ready
                     source: {
                         const item = cell.modelData;
                         if (!item)

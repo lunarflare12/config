@@ -18,6 +18,7 @@ let
   hyprLinks = [
     "hyprland.lua"
     "config/animations.lua"
+    "config/cursor-env.lua"
     "config/decorations.lua"
     "config/theme.lua"
     "config/layerules.lua"
@@ -93,7 +94,12 @@ in
         text = ''
           return {
               terminal = "${params.terminal}",
-              browser = "${params.browser}",
+              browser = "${
+                if params.browser == "google-chrome" then
+                  "${config.home.homeDirectory}/.config/scripts/google-chrome.sh"
+                else
+                  params.browser
+              }",
               file_manager = "${config.home.homeDirectory}/.config/scripts/finder.sh",
               scripts = os.getenv("HOME") .. "/.config/scripts",
           }
@@ -150,7 +156,6 @@ in
               hl.exec_cmd("${scripts}/hypr-fix-safe-mode.sh")
               hl.exec_cmd("hypridle")
               hl.exec_cmd("${scripts}/steam-lock-shaders.sh")
-              hl.exec_cmd("${scripts}/ow-stretch-plugin.sh")
               hl.exec_cmd("${scripts}/qs-session-start.sh")
           end)
 

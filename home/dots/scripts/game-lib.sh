@@ -57,6 +57,21 @@ game_gamescope() {
   return 1
 }
 
+# XWayland enumerates HDMI first, so it sits at +0+0 even though Hyprland
+# has DP-1 at 0x0. --pos is ignored; turning HDMI off is the only move
+# that puts the ultrawide at X origin while Overwatch is up.
+game_xwayland_ultrawide() {
+  DISPLAY="${DISPLAY:-:0}" game_host xrandr \
+    --output HDMI-A-1 --off \
+    --output DP-1 --primary --mode 2560x1080 --pos 0x0 >/dev/null 2>&1 || true
+}
+
+game_xwayland_restore() {
+  DISPLAY="${DISPLAY:-:0}" game_host xrandr \
+    --output DP-1 --primary --mode 2560x1080 --pos 0x0 \
+    --output HDMI-A-1 --mode 1920x1080 --pos 2560x0 >/dev/null 2>&1 || true
+}
+
 # Host binaries (hyprctl/qs) cannot see Steam's libstdc++ / libcurl.
 game_host() {
   env -u LD_PRELOAD -u LD_LIBRARY_PATH -u STEAM_RUNTIME_LIBRARY_PATH \
@@ -67,25 +82,30 @@ game_host() {
 game_place_overwatch() {
   (
     local i
-    for i in $(seq 1 12); do
-      sleep 0.5
+    # A few silent pins while Proton maps. Do not focus workspace 4 — that
+    # yanked every desktop onto the game. Stop once the client is gone so
+    # this loop cannot fight Alt+F4 / Steam stop.
+    for i in $(seq 1 6); do
+      sleep 0.4
       game_host hyprctl eval '
 local w
 for _, x in ipairs(hl.get_windows()) do
-  local c = string.lower(tostring(x.initial_class or x.class or ""))
-  local t = string.lower(tostring(x.title or ""))
-  if c:find("steam_app_2357570", 1, true) or c:find("overwatch", 1, true) or t:find("overwatch", 1, true) then
+  local c = string.lower(tostring(x.initial_class or "") .. " " .. tostring(x.class or ""))
+  if c:find("steam", 1, true) and not c:find("steam_app_", 1, true) then
+    -- Steam library title is often "Overwatch 2"
+  elseif c:find("steam_app_2357570", 1, true) or c:find("overwatch", 1, true) then
     w = x
     break
   end
 end
-if w then
-  pcall(function()
-    hl.dispatch(hl.dsp.window.move({ workspace = 4, window = w }))
-  end)
-  pcall(function()
-    hl.dispatch(hl.dsp.window.fullscreen_state({ window = w, internal = 1, client = 0 }))
-  end)
+if not w then
+  return false
+end
+pcall(function()
+  hl.dispatch(hl.dsp.window.move({ workspace = 4, window = w, silent = true }))
+end)
+pcall(function()
+  hl.dispatch(hl.dsp.window.fullscreen_state({ window = w, internal = 2, client = 0 }))
 end
 ' >/dev/null 2>&1 || true
     done

@@ -10,8 +10,20 @@ if [[ -x $xfq ]]; then
   "$xfq" -c thunar -p /last-location-bar -s ThunarLocationButtons >/dev/null 2>&1 || true
 fi
 
-thunar_bin=/run/current-system/sw/bin/thunar
-if [[ ! -x $thunar_bin ]]; then
+system_thunar=/run/current-system/sw/bin/thunar
+patched_thunar="${HOME}/.local/lib/thunar-patched/bin/thunar"
+
+if [[ -x $patched_thunar ]]; then
+  thunar_bin=$patched_thunar
+  if [[ -z ${THUNARX_DIRS:-} && -x $system_thunar ]]; then
+    plugin_dir=$(dirname "$(readlink -f "$system_thunar")")/../lib/thunarx-3
+    if [[ -d $plugin_dir ]]; then
+      export THUNARX_DIRS=$plugin_dir
+    fi
+  fi
+elif [[ -x $system_thunar ]]; then
+  thunar_bin=$system_thunar
+else
   thunar_bin=$(command -v thunar)
 fi
 

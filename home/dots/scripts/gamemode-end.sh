@@ -18,6 +18,12 @@ QS="/etc/profiles/per-user/dd/bin/qs"
 NVSETTINGS="/run/current-system/sw/bin/nvidia-settings"
 
 rm -f "${HOME}/.local/state/aurora-game"
+SO=$(awk '{print; exit}' "${HOME}/.config/hypr/ow-vkfix-dir" 2>/dev/null)
+if [ -n "$SO" ]; then
+  for cand in "$SO/lib/libcsgo-vulkan-fix.so" "$SO/lib/hyprland/libcsgo-vulkan-fix.so"; do
+    [ -f "$cand" ] && "$HYPRCTL" plugin unload "$cand" >/dev/null 2>&1 || true
+  done
+fi
 "$QS" ipc call bar show >/dev/null 2>&1 || true
 "$HYPRCTL" eval 'dofile("/home/dd/.config/hypr/config/decorations.lua")' >/dev/null 2>&1 || true
 "$HYPRCTL" eval 'dofile("/home/dd/.config/hypr/config/animations.lua")' >/dev/null 2>&1 || true

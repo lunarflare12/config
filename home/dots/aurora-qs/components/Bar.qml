@@ -21,13 +21,36 @@ PanelWindow {
     }
 
     implicitHeight: Core.Theme.barHeight
-    exclusiveZone: root.gameFullscreen ? 0 : Core.Theme.barHeight
+    exclusiveZone: (root.gameFullscreen || root.hideHold) ? 0 : Core.Theme.barHeight
     color: "#000000"
 
     readonly property string monitorName: Core.Session.monitorNameForScreen(root.screen)
+    readonly property bool onMain: Core.Session.isDesktopMonitor(root.monitorName)
     readonly property bool gameFullscreen: Core.Session.gameFullscreenOnScreen(root.screen)
+    property bool hideHold: false
 
-    visible: !root.gameFullscreen
+    onGameFullscreenChanged: {
+        if (root.gameFullscreen) {
+            showDelay.stop();
+            root.hideHold = true;
+        } else {
+            root.hideHold = true;
+            showDelay.restart();
+        }
+    }
+
+    Timer {
+        id: showDelay
+        interval: 480
+        repeat: false
+        onTriggered: root.hideHold = false
+    }
+
+    // Dock exclusive insets this panel. Pull back over the reserved
+    // strip so the menu bar is continuous (no wallpaper hole).
+    margins.left: root.onMain && !root.gameFullscreen && !root.hideHold ? -Core.Theme.dockReserve : 0
+
+    visible: !root.gameFullscreen && !root.hideHold
 
     WlrLayershell.namespace: "aurora-bar"
     WlrLayershell.keyboardFocus: tray.menuOpen ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
@@ -123,6 +146,8 @@ PanelWindow {
                 Modules.Network {
                     iconOnly: true
                 }
+
+                Modules.Update {}
 
                 Modules.Clock {
                     id: clockModule

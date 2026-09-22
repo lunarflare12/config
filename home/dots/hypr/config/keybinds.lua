@@ -1,4 +1,12 @@
-local programs = require("config/programs")
+local ok_programs, programs = pcall(require, "config/programs")
+if not ok_programs or type(programs) ~= "table" then
+    programs = {
+        terminal = "kitty",
+        browser = (os.getenv("HOME") or "/home/dd") .. "/.config/scripts/google-chrome.sh",
+        file_manager = (os.getenv("HOME") or "/home/dd") .. "/.config/scripts/finder.sh",
+        scripts = (os.getenv("HOME") or "/home/dd") .. "/.config/scripts",
+    }
+end
 local mod = "SUPER"
 local WS_PER = 10
 local MONITORS = { "DP-1", "HDMI-A-1" }
@@ -70,11 +78,13 @@ hl.bind(mod .. " + SHIFT + S", hl.dsp.exec_cmd(programs.scripts .. "/screenshot.
 hl.bind(mod .. " + PRINT", hl.dsp.exec_cmd(programs.scripts .. "/screenshot.sh region"))
 hl.bind(mod .. " + P", hl.dsp.exec_cmd("hyprpicker --autocopy"))
 hl.bind(mod .. " + Q", hl.dsp.window.close())
+hl.bind(mod .. " + SHIFT + Q", hl.dsp.window.kill())
 hl.bind(mod .. " + SHIFT + F", hl.dsp.window.float({ action = "toggle" }))
-hl.bind(mod .. " + F", hl.dsp.window.fullscreen())
+hl.bind(mod .. " + F", hl.dsp.window.fullscreen({ mode = "fullscreen", action = "toggle", layout_aware = false }))
 hl.bind(mod .. " + SHIFT + R", hl.dsp.exec_cmd(programs.scripts .. "/reload-hypr.sh"))
 hl.bind(mod .. " + SHIFT + W", hl.dsp.exec_cmd("qs ipc call wallpaper toggle"))
 hl.bind(mod .. " + SHIFT + T", hl.dsp.exec_cmd("qs ipc call theme toggle"))
+hl.bind(mod .. " + SHIFT + C", hl.dsp.exec_cmd("qs ipc call cursor toggle"))
 hl.bind(mod .. " + SHIFT + G", hl.dsp.exec_cmd("qs ipc call shaders toggle"))
 hl.bind(mod .. " + ALT + L", hl.dsp.exec_cmd("qs ipc call lock lock"))
 hl.bind("F24", hl.dsp.exec_cmd("hyprctl switchxkblayout all next"))

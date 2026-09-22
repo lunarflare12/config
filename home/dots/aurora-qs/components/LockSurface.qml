@@ -43,11 +43,12 @@ WlSessionLockSurface {
         Rectangle {
             anchors.fill: parent
             color: "black"
-            opacity: surface.session.inputOpen ? 0.45 : 0.15
+            opacity: surface.session.inputOpen ? 0.42 : 0.12
 
             Behavior on opacity {
                 NumberAnimation {
-                    duration: 400
+                    duration: 420
+                    easing.type: Easing.OutCubic
                 }
             }
         }
@@ -62,12 +63,12 @@ WlSessionLockSurface {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.topMargin: 72
             spacing: 4
-            opacity: surface.session.inputOpen ? 0.4 : 1.0
+            opacity: surface.session.inputOpen ? 0.55 : 1.0
 
             Behavior on opacity {
                 NumberAnimation {
-                    duration: 1200
-                    easing.type: Easing.OutQuint
+                    duration: 420
+                    easing.type: Easing.OutCubic
                 }
             }
 
@@ -106,19 +107,34 @@ WlSessionLockSurface {
             id: loginPanel
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
-            anchors.bottomMargin: surface.session.inputOpen ? 90 : -420
+            anchors.bottomMargin: 90
             width: 400
             height: 400
             opacity: surface.session.inputOpen ? 1 : 0
+            scale: surface.session.inputOpen ? 1 : 0.96
+            transformOrigin: Item.Bottom
+            visible: opacity > 0.01
+            enabled: surface.session.inputOpen
+            property real slide: surface.session.inputOpen ? 0 : 1
+            transform: Translate {
+                y: loginPanel.slide * 360
+            }
 
             Behavior on opacity {
                 NumberAnimation {
-                    duration: 280
+                    duration: 380
                     easing.type: Easing.OutCubic
                 }
             }
 
-            Behavior on anchors.bottomMargin {
+            Behavior on scale {
+                NumberAnimation {
+                    duration: 560
+                    easing.type: Easing.OutCubic
+                }
+            }
+
+            Behavior on slide {
                 NumberAnimation {
                     duration: 560
                     easing.type: Easing.OutCubic
@@ -361,11 +377,12 @@ WlSessionLockSurface {
             anchors.right: parent.right
             anchors.margins: 50
             spacing: 20
-            opacity: surface.session.inputOpen ? 0.5 : 1.0
+            opacity: surface.session.inputOpen ? 0.55 : 1.0
 
             Behavior on opacity {
                 NumberAnimation {
-                    duration: 400
+                    duration: 420
+                    easing.type: Easing.OutCubic
                 }
             }
 

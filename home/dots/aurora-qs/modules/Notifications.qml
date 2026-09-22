@@ -13,10 +13,10 @@ import "../services" as Services
 PanelWindow {
     id: root
 
-    anchors.top: true
+    anchors.bottom: true
     anchors.right: true
 
-    margins.top: Core.Theme.barHeight + 10
+    margins.bottom: Core.Theme.dockReserve + 8
     margins.right: 6
 
     readonly property var toasts: Services.NotificationServer.toasts
@@ -29,7 +29,7 @@ PanelWindow {
 
     // Headroom for maxVisible cards at their tallest. A card carrying action
     // buttons and an open reply field is roughly twice the height of a bare one,
-    // and at 640 the fourth card in a full stack was clipped off the bottom.
+    // and at 640 the fourth card in a full stack was clipped off the top.
     //
     // Costs nothing: the window is transparent and its input is masked to the
     // card stack, so the unused area is neither drawn nor clickable.
@@ -66,7 +66,7 @@ PanelWindow {
     Column {
         id: column
 
-        anchors.top: parent.top
+        anchors.bottom: parent.bottom
         anchors.right: parent.right
 
         width: root.toastWidth + root.toastGutter * 2

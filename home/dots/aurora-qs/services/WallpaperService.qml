@@ -13,6 +13,8 @@ QtObject {
     readonly property string wallpaperDirectory: root.home + "/Wallpapers"
     readonly property string thumbDirectory: root.home + "/.cache/aurora/wallpaper-thumbs"
     readonly property string statePath: root.home + "/.cache/aurora/current-wallpaper"
+    readonly property string persistPath: root.home + "/.local/state/aurora/wallpaper"
+    readonly property string currentNamePath: root.wallpaperDirectory + "/.current"
     readonly property string thumbScript: root.home + "/.config/scripts/cache-wallpaper-thumbs.sh"
 
     property bool scanning: false
@@ -27,12 +29,41 @@ QtObject {
         onFileChanged: this.reload()
     }
 
-    readonly property string current: {
-        const raw = root.stateFile.text()
+    property FileView persistFile: FileView {
+        path: root.persistPath
+        watchChanges: true
+        blockLoading: true
+        printErrors: false
+        onFileChanged: this.reload()
+    }
+
+    property FileView nameFile: FileView {
+        path: root.currentNamePath
+        watchChanges: true
+        blockLoading: true
+        printErrors: false
+        onFileChanged: this.reload()
+    }
+
+    function normalize(raw) {
         if (!raw)
             return ""
+        let path = String(raw).trim()
+        if (!path.length)
+            return ""
+        if (path.indexOf("/") < 0)
+            path = root.wallpaperDirectory + "/" + path
+        return path
+    }
 
-        return raw.trim()
+    readonly property string current: {
+        const cache = root.normalize(root.stateFile.text())
+        if (cache.length)
+            return cache
+        const persist = root.normalize(root.persistFile.text())
+        if (persist.length)
+            return persist
+        return root.normalize(root.nameFile.text())
     }
 
     property Process scanProcess: Process {

@@ -1,5 +1,4 @@
 [general]
-fullscreen = "current-screen"
 early-exit = ["all"]
 copy-command = "wl-copy"
 annotation-size-factor = 1.0
@@ -8,5 +7,4 @@ actions-on-escape = ["save-to-clipboard", "exit"]
 notification-thumbnail = "screenshot"
 corner-roundness = 12
 initial-tool = "crop"
-floating-hack = true
 no-window-decoration = true

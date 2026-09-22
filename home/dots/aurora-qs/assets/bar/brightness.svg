@@ -1,4 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
-  <circle cx="12" cy="12" r="3.5" stroke="#F5F5F7" stroke-width="1.7"/>
-  <path stroke="#F5F5F7" stroke-width="1.7" stroke-linecap="round" d="M12 4.2v1.6M12 18.2v1.6M4.2 12h1.6M18.2 12h1.6M6.6 6.6l1.1 1.1M16.3 16.3l1.1 1.1M17.4 6.6l-1.1 1.1M7.7 16.3l-1.1 1.1"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+  <circle cx="12" cy="12" r="4.15" fill="#F5F5F7"/>
+  <g fill="#F5F5F7">
+    <rect x="11.1" y="2.05" width="1.8" height="3.45" rx="0.9"/>
+    <rect x="11.1" y="18.5" width="1.8" height="3.45" rx="0.9"/>
+    <rect x="2.05" y="11.1" width="3.45" height="1.8" rx="0.9"/>
+    <rect x="18.5" y="11.1" width="3.45" height="1.8" rx="0.9"/>
+    <g transform="rotate(45 12 12)">
+      <rect x="11.1" y="2.05" width="1.8" height="3.45" rx="0.9"/>
+      <rect x="11.1" y="18.5" width="1.8" height="3.45" rx="0.9"/>
+      <rect x="2.05" y="11.1" width="3.45" height="1.8" rx="0.9"/>
+      <rect x="18.5" y="11.1" width="3.45" height="1.8" rx="0.9"/>
+    </g>
+  </g>
 </svg>

@@ -420,52 +420,57 @@ Item {
             contentHeight: vpnCol.height
             boundsBehavior: Flickable.StopAtBounds
 
-            Column {
-                id: vpnCol
-                width: parent.width
-                spacing: 2
+                Column {
+                    id: vpnCol
+                    width: parent.width
+                    spacing: 2
 
-                Repeater {
-                    model: root.svc.vpnItems
+                    Repeater {
+                        model: root.svc.vpnItems
 
-                    Item {
-                        required property var modelData
-                        width: vpnCol.width
-                        height: row.visible ? row.implicitHeight : folderHead.implicitHeight
+                        Item {
+                            required property var modelData
+                            width: vpnCol.width
+                            height: row.visible ? row.implicitHeight : folderHead.implicitHeight + 4
 
-                        Column {
-                            id: folderHead
-                            width: parent.width
-                            visible: modelData.item === "folder"
-                            spacing: 6
-
-                            DesktopTitle {
+                            Column {
+                                id: folderHead
                                 width: parent.width
-                                title: String(modelData.name || "")
+                                visible: modelData.item === "folder"
+                                spacing: 6
+
+                                Text {
+                                    width: parent.width
+                                    text: String(modelData.name || "")
+                                    color: Core.Theme.foregroundMuted
+                                    font.family: Core.Theme.fontFamily
+                                    font.pixelSize: Core.Theme.fontSizeSmall
+                                    font.weight: Font.DemiBold
+                                    renderType: Text.NativeRendering
+                                }
+
+                                Rectangle {
+                                    width: parent.width
+                                    height: 1
+                                    color: Core.Theme.separator
+                                }
                             }
 
-                            Rectangle {
+                            ListRow {
+                                id: row
                                 width: parent.width
-                                height: 1
-                                color: Core.Theme.separator
+                                visible: modelData.item === "tunnel"
+                                iconSource: modelData.kind === "amnezia" ? Qt.resolvedUrl("../assets/amnezia.png") : Qt.resolvedUrl("../assets/vpn.svg")
+                                title: String(modelData.label || modelData.name || "")
+                                subtitle: modelData.up ? "connected" : "disconnected"
+                                trailing: modelData.up ? "ON" : "OFF"
+                                trailingColor: modelData.up ? Core.Theme.accent : Core.Theme.foregroundMuted
+                                active: !!modelData.up
+                                busy: root.svc.busy
+                                onActivated: root.svc.toggleVpn(modelData.kind, modelData.name)
                             }
-                        }
-
-                        ListRow {
-                            id: row
-                            width: parent.width
-                            visible: modelData.item === "tunnel"
-                            iconSource: modelData.kind === "amnezia" ? Qt.resolvedUrl("../assets/amnezia.png") : Qt.resolvedUrl("../assets/vpn.svg")
-                            title: String(modelData.label || modelData.name || "")
-                            subtitle: modelData.up ? "connected" : "disconnected"
-                            trailing: modelData.up ? "ON" : "OFF"
-                            trailingColor: modelData.up ? Core.Theme.accent : Core.Theme.foregroundMuted
-                            active: !!modelData.up
-                            busy: root.svc.busy
-                            onActivated: root.svc.toggleVpn(modelData.kind, modelData.name)
                         }
                     }
-                }
 
                 Text {
                     visible: root.svc.vpnItems.length === 0

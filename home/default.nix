@@ -33,8 +33,11 @@
       enable = true;
       defaultApplications = {
         "text/html" = "${params.browser}.desktop";
+        "application/xhtml+xml" = "${params.browser}.desktop";
         "x-scheme-handler/http" = "${params.browser}.desktop";
         "x-scheme-handler/https" = "${params.browser}.desktop";
+        "x-scheme-handler/about" = "${params.browser}.desktop";
+        "x-scheme-handler/unknown" = "${params.browser}.desktop";
         "application/pdf" = "org.pwmt.zathura.desktop";
         "application/epub+zip" = "org.pwmt.zathura.desktop";
         "application/msword" = "libreoffice-writer.desktop";
@@ -55,16 +58,28 @@
   # Stale *.hm.bak and a hand-enabled OpenCluely wants link block checkLinkTargets.
   home.activation.dropStaleHmBackups = lib.hm.dag.entryBefore [ "checkLinkTargets" ] ''
     configHome="${config.xdg.configHome}"
-    find "$configHome/aurora" "$configHome/hypr" "$configHome/systemd" -name '*.hm.bak' -delete 2>/dev/null || true
-    rm -f "$configHome/hypr/ow-vkfix-dir"
+    find "$configHome/aurora" "$configHome/hypr" "$configHome/systemd" "$configHome/gtk-3.0" "$configHome/gtk-4.0" \
+      \( -name '*.hm.bak' -o -name '*.hm.bak.prev' -o -name '*.prev' \) -delete 2>/dev/null || true
+    rm -f "$configHome/hypr/ow-vkfix-dir" "$configHome/hypr/ow-vkfix-dir.prev"
 
-    unit="$configHome/systemd/user/opencluely.service"
-    wants="$configHome/systemd/user/graphical-session.target.wants/opencluely.service"
-    rm -f "$wants"
-    if [ -e "$unit" ] && [ ! -L "$unit" ]; then
-      rm -f "$unit"
-    fi
-  '';
+    wantsDir="$configHome/systemd/user/graphical-session.target.wants"
+    for name in opencluely.service obs-tray.service insta360-hold.service; do
+      rm -f "$wantsDir/$name"
+      unit="$configHome/systemd/user/$name"
+      if [ -e "$unit" ] && [ ! -L "$unit" ]; then
+        rm -f "$unit"
+      fi
+    done
+
+    # Hand-copied / old-generation desktops shadow HM wrappers (cursor.sh, idea-ultimate.sh).
+    apps="$HOME/.local/share/applications"
+    for name in cursor.desktop idea-ultimate.desktop com.obsproject.Studio.desktop; do
+      target="$apps/$name"
+      if [ -e "$target" ] && [ ! -L "$target" ]; then
+        rm -f "$target"
+      fi
+    done
+  ''
 
   imports = [
     ./hyprland.nix

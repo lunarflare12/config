@@ -53,7 +53,7 @@ Components.LauncherView {
             "title": "Lock",
             "icon": Core.Icons.lock,
             "danger": false,
-            "command": ["qs", "ipc", "call", "lock", "lock"]
+            "command": []
         },
         {
             "id": "sleep",
@@ -77,9 +77,15 @@ Components.LauncherView {
 
     onAccepted: {
         const item = launcher.results[launcher.selectedIndex];
-        if (!item || !item.command || item.command.length === 0)
+        if (!item)
             return;
         launcher.dismiss();
+        if (item.id === "lock") {
+            Core.Session.requestLock();
+            return;
+        }
+        if (!item.command || item.command.length === 0)
+            return;
         Quickshell.execDetached(item.command);
     }
 

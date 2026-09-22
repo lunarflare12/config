@@ -1,7 +1,5 @@
 import QtQuick
 
-import QtQuick.Effects
-
 import Quickshell
 import Quickshell.Wayland
 
@@ -23,8 +21,7 @@ PanelWindow {
         bottom: true
     }
 
-    // Opaque while the menu is up so live windows cannot show through.
-    color: root.intro > 0.01 ? "#101014" : (root.stripOpen ? Qt.rgba(0, 0, 0, 0.12) : "transparent")
+    color: "transparent"
     exclusionMode: ExclusionMode.Ignore
     visible: !(Core.Session.overviewOpen && !root.launcherOpen)
     exclusiveZone: 0
@@ -46,7 +43,7 @@ PanelWindow {
     property real intro: 0
     property bool closingLaunchpad: false
 
-    readonly property var launchers: [appLauncher, wallpaperPicker, themePicker, clipboardView, emojiPicker, powerMenu]
+    readonly property var launchers: [appLauncher, appearancePicker, clipboardView, emojiPicker, powerMenu]
 
     readonly property var activeLauncher: {
         const list = root.launchers;
@@ -59,9 +56,10 @@ PanelWindow {
 
     readonly property bool launcherOpen: root.host && root.activeLauncher !== null
     readonly property bool launchpadOpen: root.host && appLauncher.open
-    readonly property bool wallpaperOpen: root.host && wallpaperPicker.open
-    readonly property bool themeOpen: root.host && themePicker.open
-    readonly property bool stripOpen: root.wallpaperOpen || root.themeOpen
+    readonly property bool wallpaperOpen: root.host && appearancePicker.open && appearancePicker.mode === "wallpaper"
+    readonly property bool themeOpen: root.host && appearancePicker.open && appearancePicker.mode === "theme"
+    readonly property bool cursorOpen: root.host && appearancePicker.open && appearancePicker.mode === "cursor"
+    readonly property bool stripOpen: root.host && appearancePicker.open
     readonly property bool showLaunchpad: root.launchpadOpen || (root.closingLaunchpad && root.intro > 0.01)
     readonly property bool showCard: root.launcherOpen && !root.showLaunchpad && !root.stripOpen
     readonly property bool onMain: Core.Session.isDesktopMonitor(Core.Session.monitorNameForScreen(root.screen))
@@ -118,57 +116,37 @@ PanelWindow {
         visible: root.intro > 0.01
         clip: true
 
-        readonly property string wall: Services.WallpaperService.current ? ("file://" + Services.WallpaperService.current) : ""
+        readonly property string wallPath: {
+            const cur = Services.WallpaperService.current;
+            if (cur && cur.length)
+                return cur;
+            const list = Services.WallpaperService.wallpapers;
+            if (list && list.length && list[0].path)
+                return list[0].path;
+            return "";
+        }
+        readonly property string wall: frost.wallPath.length ? ("file://" + frost.wallPath) : ""
 
-        // Solid wallpaper crop. Covers every pixel so windows never leak through.
+        Rectangle {
+            anchors.fill: parent
+            color: "#1a1a1e"
+        }
+
         Image {
+            id: wallImage
             anchors.fill: parent
             source: frost.wall
             fillMode: Image.PreserveAspectCrop
-            asynchronous: true
+            asynchronous: false
             cache: true
             mipmap: true
             smooth: true
-        }
-
-        Item {
-            id: wallSrc
-            width: Math.max(1, Math.round(frost.width / 4))
-            height: Math.max(1, Math.round(frost.height / 4))
-            x: -width - 8
-            layer.enabled: true
-            layer.smooth: true
-            layer.mipmap: true
-
-            Image {
-                anchors.fill: parent
-                source: frost.wall
-                fillMode: Image.PreserveAspectCrop
-                asynchronous: true
-                cache: true
-                mipmap: true
-                smooth: true
-            }
-        }
-
-        MultiEffect {
-            anchors.fill: parent
-            source: wallSrc
-            autoPaddingEnabled: false
-            blurEnabled: true
-            blurMax: 48
-            blur: 1.0
-            saturation: 0.85
+            visible: status === Image.Ready
         }
 
         Rectangle {
             anchors.fill: parent
-            color: Qt.rgba(0.08, 0.08, 0.10, 0.42)
-        }
-
-        Rectangle {
-            anchors.fill: parent
-            color: Qt.rgba(1, 1, 1, 0.06)
+            color: Qt.rgba(0.04, 0.04, 0.06, wallImage.status === Image.Ready ? 0.28 : 0)
         }
     }
 
@@ -299,15 +277,8 @@ PanelWindow {
         }
     }
 
-    Modules.WallpaperPicker {
-        id: wallpaperPicker
-        anchors.fill: parent
-        z: 3
-        hosted: root.host
-    }
-
-    Modules.ThemePicker {
-        id: themePicker
+    Modules.AppearancePicker {
+        id: appearancePicker
         anchors.fill: parent
         z: 3
         hosted: root.host

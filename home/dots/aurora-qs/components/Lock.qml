@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Services.Pam
+import "../core" as Core
 
 Scope {
     id: root
@@ -15,6 +16,13 @@ Scope {
     readonly property string userName: Quickshell.env("USER") || ""
 
     onCurrentTextChanged: root.showFailure = false
+
+    Connections {
+        target: Core.Session
+        function onLockRequested() {
+            root.lockSession();
+        }
+    }
 
     function lockSession() {
         root.inputOpen = false;

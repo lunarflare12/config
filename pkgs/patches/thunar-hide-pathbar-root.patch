@@ -1,0 +1,58 @@
+--- a/thunar/thunar-location-buttons.c
++++ b/thunar/thunar-location-buttons.c
+@@ -475,14 +475,28 @@
+       /* add the new buttons */
+       for (file = current_directory; file != NULL; file = file_parent)
+         {
++          /* `/` is icon-only (label hidden). Without drive-harddisk-symbolic it
++             is an empty pill; Finder treats Home as the leftmost crumb. */
++          if (thunar_file_is_local (file) && thunar_file_is_root (file))
++            {
++              if (file != current_directory)
++                g_object_unref (G_OBJECT (file));
++              break;
++            }
++
+           button = thunar_location_buttons_make_button (buttons, file);
+           buttons->list = g_list_append (buttons->list, button);
+           gtk_container_add (GTK_CONTAINER (buttons), button);
+           gtk_widget_show (button);
+ 
+-          /* use 'Home' as fake root button */
++          /* use 'Home' as fake root button and stop walking toward `/` */
+           if (!buttons->fake_root_button && eglible_for_fake_root (file))
+-            buttons->fake_root_button = g_list_last (buttons->list);
++            {
++              buttons->fake_root_button = g_list_last (buttons->list);
++              if (G_LIKELY (file != current_directory))
++                g_object_unref (G_OBJECT (file));
++              break;
++            }
+ 
+           /* continue with the parent (if any) */
+           file_parent = thunar_file_get_parent (file, NULL);
+@@ -810,6 +824,15 @@
+         buttons->last_visible_button = thunar_location_buttons_detect_last_visible_button (buttons, buttons_area_width, &buttons_total_width);
+     }
+ 
++  /* Don't reserve the scroll chevrons when every crumb is already visible.
++     Thunar still allocates slider_width for them; missing pan-start-symbolic
++     then paints an empty pill to the left of Home. */
++  if (buttons->first_visible_button == NULL
++      || buttons->first_visible_button->next == NULL)
++    first_slider_allocation.width = 0;
++  if (buttons->last_visible_button == buttons->list)
++    second_slider_allocation.width = 0;
++
+   /* hide buttons before first_visible_button */
+   if (buttons->first_visible_button != NULL)
+     {
+@@ -871,6 +894,8 @@
+   /* allocate the sliders */
+   gtk_widget_get_preferred_width (GTK_WIDGET (buttons->left_slider), &temp_width, NULL);  /* to avoid warnings in gtk >= 3.20 */
+   gtk_widget_get_preferred_width (GTK_WIDGET (buttons->right_slider), &temp_width, NULL); /* to avoid warnings in gtk >= 3.20 */
++  gtk_widget_set_child_visible (buttons->left_slider, first_slider_allocation.width > 0);
++  gtk_widget_set_child_visible (buttons->right_slider, second_slider_allocation.width > 0);
+   gtk_widget_size_allocate (buttons->left_slider, &first_slider_allocation);
+   gtk_widget_size_allocate (buttons->right_slider, &second_slider_allocation);
+   thunar_location_buttons_update_sliders (buttons);

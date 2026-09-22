@@ -18,7 +18,7 @@
   };
 
   terminal = "kitty";
-  browser = "firefox";
+  browser = "google-chrome";
   fileManager = "thunar";
   cursorSize = 24;
 
@@ -48,6 +48,7 @@
     "obsidian"
     "kubectl"
     "k9s"
+    "openlens"
     "awscli2"
     "btop"
     "vagrant"

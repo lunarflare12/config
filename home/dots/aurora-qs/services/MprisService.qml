@@ -189,6 +189,38 @@ Singleton {
             root.active.raise();
     }
 
+    function raiseApp(app) {
+        if (!app)
+            return false;
+        const needles = LaunchSplash.needlesOf(app);
+        const list = root.players;
+        for (let i = 0; i < list.length; i++) {
+            const p = list[i];
+            if (!p || !p.canRaise)
+                continue;
+            const blob = String((p.identity || "") + " " + (p.desktopEntry || "")).toLowerCase();
+            if (!blob.trim())
+                continue;
+            let hit = false;
+            for (let n = 0; n < needles.length; n++) {
+                const needle = String(needles[n] || "").toLowerCase();
+                if (!needle || needle.length < 4)
+                    continue;
+                if (needle === "chrome" || needle === "chromium")
+                    continue;
+                if (blob.indexOf(needle) >= 0) {
+                    hit = true;
+                    break;
+                }
+            }
+            if (!hit)
+                continue;
+            p.raise();
+            return true;
+        }
+        return false;
+    }
+
     onActiveChanged: root.pullPosition()
     onPlayingChanged: root.pullPosition()
     onArtUrlChanged: root.pullPosition()

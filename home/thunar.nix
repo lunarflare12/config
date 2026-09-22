@@ -37,12 +37,22 @@ in
     pkgs.ffmpegthumbnailer
     pkgs.webp-pixbuf-loader
     pkgs.zenity
+    pkgs.finder-pick
     (lib.hiPrio (
       pkgs.writeShellScriptBin "thunar" ''
         exec "${finderExec}" "$@"
       ''
     ))
   ];
+
+  xdg.configFile."xdg-desktop-portal-termfilechooser/config".text = ''
+    [filechooser]
+    cmd=${scripts}/finder-pick.sh
+    default_dir=${homeDir}
+    open_mode=suggested
+    save_mode=suggested
+    create_help_file=0
+  '';
 
   xfconf.settings.thunar = {
     last-view = "ThunarIconView";
@@ -57,6 +67,10 @@ in
     last-sort-order = "GTK_SORT_ASCENDING";
     last-location-bar = "ThunarLocationButtons";
     last-side-pane = "ThunarShortcutsPane";
+    hidden-bookmarks = [
+      "recent:///"
+      "file://${homeDir}"
+    ];
     last-menubar-visible = false;
     last-statusbar-visible = true;
     last-image-preview-visible = false;
@@ -74,7 +88,7 @@ in
     misc-always-show-tabs = false;
     misc-open-new-window-as-tab = false;
     shortcuts-icon-size = "THUNAR_ICON_SIZE_24";
-    shortcuts-icon-emblems = true;
+    shortcuts-icon-emblems = false;
   };
 
   xdg.userDirs = {
@@ -90,15 +104,16 @@ in
     publicShare = "${homeDir}/Public";
   };
 
-  xdg.configFile."gtk-3.0/bookmarks".text = ''
-    file://${homeDir}/Desktop Desktop
-    file://${homeDir}/Documents Documents
-    file://${homeDir}/Downloads Downloads
-    file://${homeDir}/Pictures Pictures
-    file://${homeDir}/Videos Movies
-    file://${homeDir}/Music Music
-    file://${homeDir} Home
-  '';
+  xdg.configFile."gtk-3.0/bookmarks" = {
+    force = true;
+    text = ''
+      file:/// Root
+      file://${homeDir}/Desktop Desktop
+      file://${homeDir}/Documents Documents
+      file://${homeDir}/Downloads Downloads
+      file://${homeDir}/Pictures Pictures
+    '';
+  };
 
   xdg.configFile."Thunar/uca.xml" = {
     force = true;
@@ -236,7 +251,12 @@ in
 
   xdg.desktopEntries = {
     thunar = finderEntry;
-    "org.xfce.thunar" = finderEntry;
+    "org.xfce.thunar" = finderEntry // {
+      noDisplay = true;
+    };
+    Finder = finderEntry // {
+      noDisplay = true;
+    };
   };
 
   xdg.dataFile."icons/hicolor/256x256/apps/thunar.png" = {
@@ -252,18 +272,34 @@ in
     force = true;
   };
 
+  # Hide GNOME/Thunar chain badge on aliases. Custom emblems still work.
+  xdg.dataFile."icons/hicolor/scalable/emblems/emblem-symbolic-link.svg" = {
+    text = ''<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"/>'';
+    force = true;
+  };
+
   gtk.gtk3.extraCss = ''
+    @import url("${homeDir}/.config/aurora/gtk-colors.css");
+
     window.thunar,
     window.thunarwindow,
     .thunar {
       border-radius: 18px;
+      background-color: alpha(@theme_bg_color, 0.52);
+      background-image: none;
     }
 
     window.thunar headerbar,
     window.thunarwindow headerbar,
-    .thunar headerbar {
+    .thunar headerbar,
+    window.thunar .titlebar,
+    .thunar .titlebar {
       min-height: 48px;
       padding: 4px 10px 4px 10px;
+      background-color: alpha(@theme_bg_color, 0.48);
+      background-image: none;
+      box-shadow: none;
+      border: none;
     }
 
     window.thunar toolbar,
@@ -291,10 +327,44 @@ in
       min-height: 24px;
     }
 
+    /* Path-bar left chevron is always allocated (~slider_width) even at Home.
+       WhiteSur has no pan-start-symbolic, so it paints an empty pill. Thunar
+       also size-allocates that slot in C, so min-width:0 cannot collapse it —
+       hide the chrome and pull crumbs over the reserved width. */
+    window.thunar .path-bar.linked > *:first-child,
+    .thunar .path-bar.linked > *:first-child,
+    window.thunar thunarlocationbuttons > *:first-child,
+    .thunar thunarlocationbuttons > *:first-child {
+      opacity: 0;
+      min-width: 0;
+      min-height: 0;
+      padding: 0;
+      margin: 0;
+      border: none;
+      background: none;
+      background-image: none;
+      box-shadow: none;
+      outline: none;
+      -gtk-icon-transform: scale(0);
+    }
+
+    window.thunar .path-bar.linked > *:first-child image,
+    window.thunar .path-bar.linked > *:first-child label,
+    .thunar .path-bar.linked > *:first-child image,
+    .thunar .path-bar.linked > *:first-child label {
+      opacity: 0;
+      min-width: 0;
+      min-height: 0;
+      padding: 0;
+      margin: 0;
+    }
+
     window.thunar .sidebar,
     .thunar .shortcuts-pane,
     window.thunar paned > widget:nth-child(1) {
       min-width: 200px;
+      background-color: alpha(@theme_bg_color, 0.38);
+      background-image: none;
     }
 
     window.thunar .sidebar .view,
@@ -303,24 +373,101 @@ in
     .thunar treeview.view {
       font-size: 13px;
       padding: 8px 0;
+      color: alpha(@theme_fg_color, 0.92);
+    }
+
+    window.thunar .sidebar .view:hover,
+    .thunar .shortcuts-pane .view:hover {
+      background-color: alpha(@theme_selected_bg_color, 0.22);
+      color: @theme_selected_fg_color;
+      border-radius: 8px;
+    }
+
+    window.thunar .sidebar .view:selected,
+    window.thunar .sidebar .view:selected:focus,
+    window.thunar .sidebar .view:selected:hover,
+    .thunar .shortcuts-pane .view:selected,
+    .thunar .shortcuts-pane .view:selected:focus {
+      background-color: alpha(@theme_selected_bg_color, 0.42);
+      color: @theme_selected_fg_color;
+      border-radius: 8px;
     }
 
     window.thunar .standard-view,
-    .thunar .standard-view,
+    .thunar .standard-view {
+      padding: 0;
+      background-color: transparent;
+      background-image: none;
+    }
+
     window.thunar iconview,
     .thunar iconview {
       padding: 18px 16px;
+      background-color: transparent;
+      background-image: none;
+    }
+
+    window.thunar .view,
+    .thunar .view {
+      background-color: transparent;
+      background-image: none;
     }
 
     window.thunar iconview:selected,
-    .thunar iconview:selected {
-      border-radius: 10px;
+    window.thunar iconview:selected:focus,
+    window.thunar iconview:selected:hover,
+    .thunar iconview:selected,
+    .thunar iconview:selected:focus,
+    window.thunar .view:selected,
+    window.thunar .view:selected:focus,
+    .thunar .view:selected,
+    window.thunar .standard-view .view:selected,
+    window.thunar .standard-view treeview.view:selected,
+    window.thunar .standard-view treeview.view:selected:focus,
+    window.thunar .standard-view treeview.view:selected:hover {
+      background-color: alpha(@theme_selected_bg_color, 0.40);
+      color: @theme_selected_fg_color;
+      border-radius: 0;
+    }
+
+    window.thunar iconview:hover,
+    .thunar iconview:hover,
+    window.thunar .view:hover,
+    .thunar .view:hover,
+    window.thunar .standard-view .view:hover,
+    window.thunar .standard-view treeview.view:hover {
+      background-color: alpha(@theme_selected_bg_color, 0.18);
+      border-radius: 0;
+    }
+
+    window.thunar .path-bar button:checked,
+    window.thunar .path-bar button:checked:hover,
+    .thunar .path-bar button:checked,
+    window.thunar .linked.path-bar > button:checked,
+    .thunar .linked.path-bar > button:checked {
+      background-color: alpha(@theme_selected_bg_color, 0.36);
+      color: @theme_selected_fg_color;
+    }
+
+    window.thunar entry selection,
+    window.thunar text selection,
+    .thunar entry selection,
+    .thunar text selection {
+      background-color: @theme_selected_bg_color;
+      color: @theme_selected_fg_color;
+    }
+
+    window.thunar treeview header button,
+    .thunar treeview header button {
+      border-radius: 0;
     }
 
     window.thunar statusbar,
     .thunar statusbar {
       padding: 2px 14px;
       font-size: 12px;
+      background-color: alpha(@theme_bg_color, 0.42);
+      background-image: none;
     }
 
     /* Gtk menus are separate popup windows, not children of window.thunar. */
@@ -338,6 +485,8 @@ in
     menuitem:hover,
     menuitem:selected {
       border-radius: 6px;
+      background-color: alpha(@theme_selected_bg_color, 0.36);
+      color: @theme_selected_fg_color;
     }
 
     menu separator {

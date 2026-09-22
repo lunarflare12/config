@@ -9,7 +9,7 @@ hl.config({
         -- Keep desktop chrome even if aurora-game is left behind. Games already
         -- get border_size 0 + fullscreen via window rules.
         gaps_in = 4,
-        gaps_out = { top = 4, right = 10, bottom = 10, left = 10 },
+        gaps_out = { top = 0, right = 10, bottom = 10, left = 0 },
         border_size = 4,
         resize_on_border = false,
         allow_tearing = true,
@@ -44,10 +44,10 @@ hl.config({
         -- Auto scanout on NVIDIA exclusive FS blanks the other output.
         direct_scanout = 0,
         cm_enabled = false,
-        -- Never globally. Overwatch 1920→2560 is toggled in windows.lua
+        -- Never globally. Overwatch 2560x1440→2560x1080 is toggled with the plugin
         -- when that window is focused; otherwise Steam CEF clicks miss.
         expand_undersized_textures = false,
-        send_content_type = playing,
+        send_content_type = false,
         -- Triple-buffer scheduling made 1% lows worse on 200Hz+60Hz NVIDIA.
         new_render_scheduling = false,
     },
@@ -60,23 +60,25 @@ hl.config({
         -- damage rect on this NVIDIA driver and SIGSEGV Hyprland.
         no_hardware_cursors = true,
         use_cpu_buffer = false,
-        enable_hyprcursor = false,
+        enable_hyprcursor = true,
         default_monitor = "DP-1",
     },
     misc = {
         force_default_wallpaper = 0,
         disable_hyprland_logo = true,
         middle_click_paste = false,
-        mouse_move_focuses_monitor = not playing,
+        -- Always on. GameMode used to flip this off for the whole session
+        -- and the second monitor stopped taking focus until the game quit.
+        mouse_move_focuses_monitor = true,
         -- Xiaomi DP-1 is not VRR-capable. vrr=2 waits on a signal that
         -- never comes and hitchs a 205 FPS cap.
         vrr = 0,
-        render_unfocused_fps = playing and 205 or 15,
+        render_unfocused_fps = 15,
     },
     debug = {
         -- Mixed 200Hz + 60Hz NVIDIA: VFR emits empty damage rects and hitches.
         vfr = false,
-        render_solitary_wo_damage = playing,
+        render_solitary_wo_damage = false,
     },
     binds = {
         disable_keybind_grabbing = true,

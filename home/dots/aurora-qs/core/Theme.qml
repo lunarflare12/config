@@ -328,7 +328,9 @@ QtObject {
 
     readonly property int barHeight: 24
 
-    readonly property int dockReserve: 84
+    // 8px inset + 64px glass. Extra reserve here leaves wallpaper
+    // between the dock and tiled windows.
+    readonly property int dockReserve: 72
 
     readonly property int moduleHeight: 22
 

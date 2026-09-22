@@ -20,7 +20,9 @@ Item {
     // Action buttons: [{ icon, tooltip, spinning, action }]
     property var actions: []
 
-    implicitHeight: 40
+    readonly property bool hasText: root.title !== "" || root.subtitle !== ""
+
+    implicitHeight: root.hasText ? 40 : (root.actions.length ? 32 : 0)
 
     Image {
         id: lead
@@ -40,6 +42,7 @@ Item {
     }
 
     Column {
+        visible: root.hasText
         anchors.left: lead.visible ? lead.right : parent.left
         anchors.leftMargin: lead.visible ? 8 : 6
         anchors.right: actionRow.left
@@ -50,7 +53,7 @@ Item {
 
         Text {
             width: parent.width
-
+            visible: root.title !== ""
             text: root.title
 
             elide: Text.ElideRight
@@ -93,6 +96,7 @@ Item {
             model: root.actions
 
             delegate: Rectangle {
+                required property int index
                 required property var modelData
 
                 width: 28
@@ -145,8 +149,9 @@ Item {
                     cursorShape: Qt.PointingHandCursor
 
                     onClicked: {
-                        if (typeof modelData.action === "function")
-                            modelData.action();
+                        const row = root.actions[index];
+                        if (row && row.action)
+                            row.action();
                     }
                 }
             }

@@ -22,8 +22,8 @@ Components.PopupSurface {
 
             Components.PopupHeader {
                 width: parent.width
-                title: "Ethernet"
-                subtitle: popup.svc.linkLabel
+                title: ""
+                subtitle: ""
                 showToggle: false
                 actions: [
                     {
@@ -34,12 +34,6 @@ Components.PopupSurface {
                         }
                     }
                 ]
-            }
-
-            Rectangle {
-                width: parent.width
-                height: 1
-                color: Core.Theme.separator
             }
 
             Components.ListRow {

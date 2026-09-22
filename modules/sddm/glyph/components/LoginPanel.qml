@@ -11,6 +11,8 @@ Item {
     property color textColor: "white"
     property string fontName: "serif" 
     property bool isLoggingIn: false
+    property bool showFailure: false
+    signal dismissed()
     
     // API for parent Main.qml
     property int userIndex: 0
@@ -60,13 +62,18 @@ Item {
     function reset() {
         passwordField.text = ""
         isLoggingIn = false
+        showFailure = false
         userDropdown.open = false
         sessionDropdown.open = false
         errorShake.stop()
         card.x = (root.width - card.width) / 2
     }
 
-    function triggerError() { isLoggingIn = false; errorShake.start() }
+    function triggerError() {
+        isLoggingIn = false;
+        showFailure = true;
+        errorShake.start();
+    }
 
     SequentialAnimation {
         id: errorShake
@@ -154,8 +161,10 @@ Item {
                     selectionColor: root.accentColor; enabled: !root.isLoggingIn
                     background: Rectangle { color: Qt.rgba(255, 255, 255, 0.18); radius: 18; border.color: passwordField.activeFocus ? root.accentColor : Qt.rgba(255, 255, 255, 0.28); border.width: 1 }
                     onAccepted: root.handleLogin()
+                    onTextChanged: root.showFailure = false
+                    Keys.onEscapePressed: root.dismissed()
                 }
-                Text { text: "Enter Password"; font.family: root.fontName; font.pixelSize: 14; color: Qt.rgba(255, 255, 255, 0.5); anchors.centerIn: parent; visible: passwordField.text === ""; z: 5 }
+                Text { text: root.showFailure ? "Incorrect password" : "Enter Password"; font.family: root.fontName; font.pixelSize: 14; color: root.showFailure ? "#FF453A" : Qt.rgba(255, 255, 255, 0.5); anchors.centerIn: parent; visible: passwordField.text === ""; z: 5 }
             }
 
             RowLayout {

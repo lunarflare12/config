@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Wayland
+import Quickshell.Hyprland
 
 import "../core" as Core
 import "../services" as Services
@@ -40,22 +41,40 @@ PanelWindow {
 
     readonly property string monitorName: Core.Session.monitorNameForScreen(root.screen)
     readonly property bool gameFullscreen: Core.Session.gameFullscreenOnScreen(root.screen)
-    readonly property bool mine: Services.LaunchSplash.shown && Services.LaunchSplash.monitorName === root.monitorName && !root.gameFullscreen
+    readonly property int activeWorkspace: {
+        if (typeof Hyprland === "undefined")
+            return Core.Session.activeWorkspaceOnMonitor(root.monitorName);
+        const _ = Hyprland.focusedWorkspace ? Hyprland.focusedWorkspace.id : 0;
+        const __ = (Hyprland.workspaces && Hyprland.workspaces.values) ? Hyprland.workspaces.values.length : 0;
+        return Core.Session.activeWorkspaceOnMonitor(root.monitorName);
+    }
+    readonly property bool onLaunchSpace: root.activeWorkspace === Services.LaunchSplash.workspaceId
+    readonly property bool mine: Services.LaunchSplash.shown && Services.LaunchSplash.monitorName === root.monitorName && root.onLaunchSpace && !root.gameFullscreen
     readonly property bool open: root.mine
     property real intro: 0
+    property bool fadeIntro: true
 
-    readonly property int leftPad: Core.Session.isDesktopMonitor(root.monitorName) ? Core.Theme.dockReserve + 10 : 10
-    readonly property int topPad: Core.Theme.barHeight + 4
+    readonly property int leftPad: Core.Session.isDesktopMonitor(root.monitorName) ? Core.Theme.dockReserve : 10
+    readonly property int topPad: Core.Theme.barHeight
     readonly property int rightPad: 10
     readonly property int bottomPad: 10
 
-    onMineChanged: root.intro = root.mine ? 1 : 0
+    onMineChanged: {
+        if (root.mine) {
+            root.fadeIntro = Services.LaunchSplash.shown;
+            root.intro = 1;
+            return;
+        }
+        root.fadeIntro = !Services.LaunchSplash.shown;
+        root.intro = 0;
+    }
     onIntroChanged: {
         if (root.intro <= 0.01 && !Services.LaunchSplash.shown)
             Services.LaunchSplash.release();
     }
 
     Behavior on intro {
+        enabled: root.fadeIntro
         NumberAnimation {
             duration: root.mine ? 180 : 220
             easing.type: root.mine ? Easing.OutCubic : Easing.InCubic

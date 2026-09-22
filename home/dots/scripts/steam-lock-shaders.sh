@@ -55,4 +55,30 @@ for cfg in (home / ".local/share/Steam/userdata").glob("*/config/localconfig.vdf
         text = text[:body_at] + body + text[body_end:]
     if text != orig:
         cfg.write_text(text)
+
+apps = home / ".local/share/applications"
+steam_sh = script / "steam.sh"
+if apps.is_dir():
+    for desk in apps.glob("*.desktop"):
+        text = desk.read_text(errors="replace")
+        m = re.search(r"steam://rungameid/(\d+)", text)
+        if not m:
+            continue
+        appid = m.group(1)
+        want_exec = f"Exec={steam_sh} steam://rungameid/{appid}"
+        new = re.sub(r"^Exec=.*$", want_exec, text, count=1, flags=re.M)
+        if re.search(r"^StartupWMClass=", new, re.M):
+            new = re.sub(
+                r"^StartupWMClass=.*$",
+                f"StartupWMClass=steam_app_{appid}",
+                new,
+                count=1,
+                flags=re.M,
+            )
+        else:
+            if not new.endswith("\n"):
+                new += "\n"
+            new += f"StartupWMClass=steam_app_{appid}\n"
+        if new != text:
+            desk.write_text(new)
 PY

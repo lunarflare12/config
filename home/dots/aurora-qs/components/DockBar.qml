@@ -231,7 +231,7 @@ Item {
         id: hit
         anchors.left: parent.left
         anchors.verticalCenter: parent.verticalCenter
-        width: 74 + (tray.menuOpen || tray.folderOpen ? Math.max(trashMenu.width, folderMenu.width) + 10 : 0)
+        width: 74 + (tray.menuOpen || folderMenu.folderIntro > 0.01 ? Math.max(trashMenu.width, folderMenu.width) + 10 : 0)
         height: dockBody.height
 
         Item {
@@ -436,7 +436,8 @@ Item {
                                         return;
                                     }
                                     if (slot.runningTop) {
-                                        Core.Session.focusWindow(slot.runningTop);
+                                        const here = Core.Session.activeWorkspaceOnMonitor(Core.Session.focusedMonitorName());
+                                        Core.Session.bringWindow(slot.runningTop, here);
                                         return;
                                     }
                                     Services.AppsService.launch(slot.modelData);
@@ -665,7 +666,7 @@ Item {
 
         Rectangle {
             id: folderMenu
-            visible: tray.folderOpen
+            visible: folderMenu.folderIntro > 0.01
             z: 40
             width: 228
             height: folderCol.implicitHeight + 14
@@ -677,6 +678,29 @@ Item {
             border.width: Core.Theme.borderWidth
             border.color: Core.Theme.borderActive
             antialiasing: true
+            opacity: folderMenu.folderIntro
+            scale: 0.92 + 0.08 * folderMenu.folderIntro
+            transformOrigin: Item.Left
+            property var heldFolder: null
+            readonly property var folder: tray.openFolder || folderMenu.heldFolder
+            readonly property bool folderWanted: tray.folderOpen
+            property real folderIntro: folderMenu.folderWanted ? 1 : 0
+
+            onFolderWantedChanged: {
+                if (folderMenu.folderWanted && tray.openFolder)
+                    folderMenu.heldFolder = tray.openFolder;
+            }
+            onFolderIntroChanged: {
+                if (folderMenu.folderIntro <= 0.01 && !folderMenu.folderWanted)
+                    folderMenu.heldFolder = null;
+            }
+
+            Behavior on folderIntro {
+                NumberAnimation {
+                    duration: folderMenu.folderWanted ? 180 : 140
+                    easing.type: folderMenu.folderWanted ? Easing.OutCubic : Easing.InCubic
+                }
+            }
 
             Glass {
                 anchors.fill: parent
@@ -696,7 +720,7 @@ Item {
                     id: folderName
                     width: parent.width
                     height: 22
-                    text: tray.openFolder ? tray.openFolder.name : ""
+                    text: folderMenu.folder ? folderMenu.folder.name : ""
                     color: Core.Theme.foreground
                     font.family: Core.Theme.fontFamily
                     font.pixelSize: 13
@@ -704,8 +728,8 @@ Item {
                     horizontalAlignment: Text.AlignHCenter
                     selectByMouse: true
                     onEditingFinished: {
-                        if (tray.openFolder)
-                            Services.AppsService.renameFolder(tray.openFolder.id, folderName.text);
+                        if (folderMenu.folder)
+                            Services.AppsService.renameFolder(folderMenu.folder.id, folderName.text);
                     }
                 }
 
@@ -717,12 +741,12 @@ Item {
                     columnSpacing: 8
 
                     Repeater {
-                        model: tray.openFolder ? tray.openFolder.apps.length : 0
+                        model: folderMenu.folder ? folderMenu.folder.apps.length : 0
 
                         Item {
                             id: fcell
                             required property int index
-                            readonly property var modelData: tray.openFolder ? tray.openFolder.apps[fcell.index] : null
+                            readonly property var modelData: folderMenu.folder ? folderMenu.folder.apps[fcell.index] : null
                             width: 64
                             height: 72
 

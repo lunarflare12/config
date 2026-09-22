@@ -15,7 +15,10 @@ let
     ];
     "org.freedesktop.impl.portal.ScreenCast" = [ "hyprland" ];
     "org.freedesktop.impl.portal.Screenshot" = [ "hyprland" ];
-    "org.freedesktop.impl.portal.FileChooser" = [ "gtk" ];
+    "org.freedesktop.impl.portal.FileChooser" = [
+      "termfilechooser"
+      "gtk"
+    ];
     "org.freedesktop.impl.portal.Settings" = [ "gtk" ];
   };
   symbolsNerdFont = "${pkgs.nerd-fonts.symbols-only}/share/fonts/truetype/NerdFonts/Symbols/SymbolsNerdFont-Regular.ttf";
@@ -111,6 +114,20 @@ in
       alsa.enable = true;
       alsa.support32Bit = true;
       pulse.enable = true;
+      wireplumber.extraConfig."52-insta360-camera" = {
+        "monitor.v4l2.rules" = [
+          {
+            matches = [
+              { "node.description" = "~Insta360.*"; }
+            ];
+            actions.update-props = {
+              "session.suspend-timeout-seconds" = 0;
+              "node.pause-on-idle" = false;
+              "priority.session" = 2000;
+            };
+          }
+        ];
+      };
       wireplumber.extraConfig."51-audio-priority" = {
         "monitor.alsa.rules" = [
           {
@@ -141,11 +158,18 @@ in
     sessionVariables = desktopEnv.wayland // desktopEnv.gtkQt;
   };
 
+  systemd.user.services.xdg-desktop-portal-gtk.environment = {
+    GTK_THEME = "WhiteSur-Dark";
+    GTK_APPLICATION_PREFER_DARK_THEME = "1";
+    ADW_DEBUG_COLOR_SCHEME = "prefer-dark";
+  };
+
   xdg.portal = {
     enable = true;
     extraPortals = [
       pkgs.xdg-desktop-portal-gtk
       pkgs.xdg-desktop-portal-hyprland
+      pkgs.xdg-desktop-portal-termfilechooser
     ];
     config = {
       common = portal;

@@ -100,6 +100,41 @@ let
     force = true;
   });
 
+  themeToGtk =
+    themeId:
+    let
+      inherit (themeData.themes.${themeId}) colors;
+    in
+    ''
+      @define-color aurora_accent ${colors.accent};
+      @define-color aurora_accent_hover ${colors.accentHover};
+      @define-color aurora_accent_muted ${colors.accentMuted};
+      @define-color aurora_accent_fg ${colors.accentForeground};
+      @define-color aurora_text ${colors.text};
+      @define-color aurora_text_secondary ${colors.textSecondary};
+      @define-color aurora_text_muted ${colors.textMuted};
+      @define-color aurora_bg ${colors.background};
+      @define-color aurora_surface ${colors.surface};
+      @define-color aurora_border ${colors.border};
+
+      @define-color theme_fg_color ${colors.text};
+      @define-color theme_text_color ${colors.text};
+      @define-color theme_selected_bg_color ${colors.accent};
+      @define-color theme_selected_fg_color ${colors.text};
+      @define-color theme_unfocused_selected_bg_color ${colors.accentMuted};
+      @define-color theme_unfocused_selected_fg_color ${colors.text};
+      @define-color selected_bg_color ${colors.accent};
+      @define-color selected_fg_color ${colors.text};
+      @define-color accent_color ${colors.accent};
+      @define-color accent_bg_color ${colors.accent};
+      @define-color accent_fg_color ${colors.accentForeground};
+    '';
+
+  gtkThemeFiles = lib.genAttrs themeNames (themeId: {
+    text = themeToGtk themeId;
+    force = true;
+  });
+
   themeList = builtins.concatStringsSep "\n" (
     map (
       themeId:
@@ -122,6 +157,10 @@ let
     themeId: file: lib.nameValuePair "aurora/themes/${themeId}.kitty.conf" file
   ) kittyThemeFiles;
 
+  generatedGtkFiles = lib.mapAttrs' (
+    themeId: file: lib.nameValuePair "aurora/themes/${themeId}.gtk.css" file
+  ) gtkThemeFiles;
+
 in
 {
   xdg.configFile = {
@@ -138,14 +177,36 @@ in
       lib.mapAttrsToList (key: value: "${key}=${value}\n") env.gtkQt
     );
 
-    "xdg-desktop-portal/portals.conf".text = ''
-      [preferred]
-      default=hyprland;gtk
-      org.freedesktop.impl.portal.Settings=gtk
-      org.freedesktop.impl.portal.FileChooser=gtk
-      org.freedesktop.impl.portal.ScreenCast=hyprland
-      org.freedesktop.impl.portal.Screenshot=hyprland
-    '';
+    "xdg-desktop-portal/portals.conf" = {
+      force = true;
+      text = ''
+        [preferred]
+        default=hyprland;gtk
+        org.freedesktop.impl.portal.Settings=gtk
+        org.freedesktop.impl.portal.FileChooser=termfilechooser;gtk
+        org.freedesktop.impl.portal.ScreenCast=hyprland
+        org.freedesktop.impl.portal.Screenshot=hyprland
+      '';
+    };
+    "xdg-desktop-portal/hyprland-portals.conf" = {
+      force = true;
+      text = ''
+        [preferred]
+        default=hyprland;gtk
+        org.freedesktop.impl.portal.Settings=gtk
+        org.freedesktop.impl.portal.FileChooser=termfilechooser;gtk
+        org.freedesktop.impl.portal.ScreenCast=hyprland
+        org.freedesktop.impl.portal.Screenshot=hyprland
+      '';
+    };
+    "gtk-4.0/gtk.gresource" = {
+      force = true;
+      source = "${config.gtk.theme.package}/share/themes/${config.gtk.theme.name}/gtk-4.0/gtk.gresource";
+    };
+    "gtk-4.0/gtk-dark.css" = {
+      force = true;
+      source = "${config.gtk.theme.package}/share/themes/${config.gtk.theme.name}/gtk-4.0/gtk-dark.css";
+    };
 
     "qt6ct/qt6ct.conf".text = ''
       [Appearance]
@@ -205,7 +266,8 @@ in
 
   // generatedLuaFiles
   // generatedJsonFiles
-  // generatedKittyFiles;
+  // generatedKittyFiles
+  // generatedGtkFiles;
 
   gtk = {
     enable = true;
@@ -250,6 +312,10 @@ in
       gtk-decoration-layout = "close,minimize,maximize:";
       gtk-dialogs-use-header = true;
     };
+    gtk4.extraCss = ''
+      @import url("resource:///org/gnome/theme/gtk.css");
+      @import url("${config.home.homeDirectory}/.config/aurora/gtk-colors.css");
+    '';
   };
 
   home.sessionVariables = env.gtkQt // {
@@ -304,6 +370,12 @@ in
     else
       ln -sfn "$theme_dir/themes/$default_theme.kitty.conf" "$active_kitty"
     fi
+
+    if [[ -f "$theme_dir/themes/$selected.gtk.css" ]]; then
+      ln -sfn "$theme_dir/themes/$selected.gtk.css" "$theme_dir/gtk-colors.css"
+    elif [[ -f "$theme_dir/themes/$default_theme.gtk.css" ]]; then
+      ln -sfn "$theme_dir/themes/$default_theme.gtk.css" "$theme_dir/gtk-colors.css"
+    fi
   '';
 
   home.file.".local/bin/aurora-theme" = {
@@ -353,6 +425,7 @@ in
       theme_lua="$THEME_DIR/$theme_id.lua"
       theme_json="$THEME_DIR/$theme_id.json"
       theme_kitty="$THEME_DIR/$theme_id.kitty.conf"
+      theme_gtk="$THEME_DIR/$theme_id.gtk.css"
 
       if [[ ! -f "$theme_lua" ]]; then
         echo "Aurora: generated Lua theme not found: $theme_id" >&2
@@ -371,6 +444,9 @@ in
 
       ln -sfn "$theme_lua" "$ACTIVE_LUA"
       ln -sfn "$theme_kitty" "$ACTIVE_KITTY"
+      if [[ -f "$theme_gtk" ]]; then
+        ln -sfn "$theme_gtk" "$CONFIG_DIR/gtk-colors.css"
+      fi
 
       printf '%s\n' "$theme_id" > "$ACTIVE_THEME"
 
@@ -415,7 +491,9 @@ in
         gsettings set org.gnome.desktop.interface color-scheme prefer-dark >/dev/null 2>&1 || true
         gsettings set org.gnome.desktop.interface gtk-theme WhiteSur-Dark >/dev/null 2>&1 || true
         gsettings set org.gnome.desktop.interface icon-theme WhiteSur-dark >/dev/null 2>&1 || true
-        gsettings set org.gnome.desktop.interface cursor-theme macOS >/dev/null 2>&1 || true
+        if [[ -f "$HOME/.cache/aurora/current-cursor-theme" ]]; then
+          gsettings set org.gnome.desktop.interface cursor-theme "$(cat "$HOME/.cache/aurora/current-cursor-theme")" >/dev/null 2>&1 || true
+        fi
       fi
 
       printf '%s\n' "dark" > "$CONFIG_DIR/mode"

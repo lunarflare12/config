@@ -73,6 +73,8 @@ Components.LauncherView {
         const to = launcher.hoverSlot;
         if (!launcher.dragging || from < 0 || to < 0 || from === to)
             return i;
+        if (launcher.mergeDrop)
+            return i;
         if (i === from)
             return to;
         if (from < to) {
@@ -156,16 +158,25 @@ Components.LauncherView {
                 return global;
             }
 
+            function iconSize() {
+                return Math.round(Math.min(88, stage.cellW * 0.56));
+            }
+
             function overIcon(gx, gy, index) {
                 if (index < 0)
                     return false;
+                const dest = launcher.results[index];
                 const col = index % launcher.columns;
                 const row = Math.floor(index / launcher.columns);
+                if (dest && dest.type === "folder") {
+                    return gx >= col * stage.cellW && gx < (col + 1) * stage.cellW && gy >= row * stage.cellH && gy < (row + 1) * stage.cellH;
+                }
+                const size = stage.iconSize();
                 const cx = (col + 0.5) * stage.cellW;
-                const cy = (row + 0.5) * stage.cellH;
+                const cy = row * stage.cellH + 18 + size / 2;
                 const dx = gx - cx;
                 const dy = gy - cy;
-                const hit = 28;
+                const hit = size / 2 + 14;
                 return dx * dx + dy * dy < hit * hit;
             }
 
@@ -273,10 +284,10 @@ Components.LauncherView {
                 clip: true
                 boundsBehavior: Flickable.StopAtBounds
                 flickableDirection: Flickable.VerticalFlick
-                interactive: !launcher.dragging && !launcher.openFolder
+                interactive: !launcher.dragging && folderLayer.folderIntro < 0.01
                 contentWidth: width
                 contentHeight: Math.max(height, stage.rows * stage.cellH + 24)
-                visible: !launcher.openFolder || launcher.searching
+                visible: folderLayer.folderIntro < 0.01 || launcher.searching
 
                 Text {
                     anchors.centerIn: parent
@@ -308,6 +319,7 @@ Components.LauncherView {
                             readonly property int row: Math.floor(cell.index / launcher.columns)
                             readonly property int vis: launcher.flowIndexFor(cell.globalIndex)
                             readonly property bool isFolder: cell.modelData && cell.modelData.type === "folder"
+                            readonly property bool mergeTarget: launcher.mergeDrop && launcher.hoverSlot === cell.globalIndex && launcher.dragFrom !== cell.globalIndex
 
                             width: stage.cellW
                             height: stage.cellH
@@ -356,7 +368,7 @@ Components.LauncherView {
                                 width: Math.round(Math.min(88, cell.width * 0.58)) + 10
                                 height: width
                                 radius: 22
-                                color: launcher.mergeDrop && launcher.hoverSlot === cell.globalIndex && launcher.dragFrom !== cell.globalIndex ? Qt.rgba(1, 1, 1, 0.2) : "transparent"
+                                color: cell.mergeTarget ? Qt.rgba(1, 1, 1, 0.32) : "transparent"
                             }
 
                             Item {
@@ -374,7 +386,7 @@ Components.LauncherView {
                                     anchors.topMargin: 10
                                     width: Math.round(Math.min(88, cell.width * 0.56))
                                     height: width
-                                    scale: iconMouse.containsMouse && !launcher.dragging ? 1.08 : 1
+                                    scale: cell.mergeTarget ? 1.16 : (iconMouse.containsMouse && !launcher.dragging ? 1.08 : 1)
                                     transformOrigin: Item.Center
 
                                     Behavior on scale {
@@ -400,6 +412,7 @@ Components.LauncherView {
                                         visible: cell.isFolder
                                         anchors.fill: parent
                                         apps: cell.modelData && cell.modelData.apps ? cell.modelData.apps : []
+                                        lit: cell.mergeTarget
                                     }
                                 }
 
@@ -523,7 +536,7 @@ Components.LauncherView {
 
             Rectangle {
                 z: 5
-                visible: scroller.contentHeight > scroller.height + 4 && (!launcher.openFolder || launcher.searching)
+                visible: scroller.contentHeight > scroller.height + 4 && (folderLayer.folderIntro < 0.01 || launcher.searching)
                 anchors.right: parent.right
                 anchors.rightMargin: 6
                 anchors.top: scroller.top
@@ -547,15 +560,35 @@ Components.LauncherView {
             Rectangle {
                 id: folderLayer
                 anchors.fill: parent
-                visible: !!(launcher.openFolder && !launcher.searching)
+                visible: folderLayer.folderIntro > 0.01
                 z: 30
-                color: Qt.rgba(0, 0, 0, 0.38)
+                color: "transparent"
 
-                readonly property int folderCount: launcher.openFolder ? launcher.openFolder.apps.length : 0
+                property var heldFolder: null
+                readonly property var folder: launcher.openFolder || folderLayer.heldFolder
+                readonly property bool folderWanted: !!(launcher.openFolder && !launcher.searching)
+                property real folderIntro: folderLayer.folderWanted ? 1 : 0
+                readonly property int folderCount: folderLayer.folder ? folderLayer.folder.apps.length : 0
                 readonly property int folderCols: Math.min(4, Math.max(1, folderLayer.folderCount))
                 readonly property int folderRows: Math.max(1, Math.ceil(folderLayer.folderCount / folderLayer.folderCols))
                 readonly property int cellW: 108
                 readonly property int cellH: 120
+
+                onFolderWantedChanged: {
+                    if (folderLayer.folderWanted && launcher.openFolder)
+                        folderLayer.heldFolder = launcher.openFolder;
+                }
+                onFolderIntroChanged: {
+                    if (folderLayer.folderIntro <= 0.01 && !folderLayer.folderWanted)
+                        folderLayer.heldFolder = null;
+                }
+
+                Behavior on folderIntro {
+                    NumberAnimation {
+                        duration: folderLayer.folderWanted ? 220 : 160
+                        easing.type: folderLayer.folderWanted ? Easing.OutCubic : Easing.InCubic
+                    }
+                }
 
                 MouseArea {
                     anchors.fill: parent
@@ -572,6 +605,9 @@ Components.LauncherView {
                     border.width: 1
                     border.color: Qt.rgba(1, 1, 1, 0.28)
                     clip: true
+                    opacity: folderLayer.folderIntro
+                    scale: 0.82 + 0.18 * folderLayer.folderIntro
+                    transformOrigin: Item.Center
 
                     MouseArea {
                         anchors.fill: parent
@@ -584,7 +620,7 @@ Components.LauncherView {
                         anchors.right: parent.right
                         anchors.topMargin: 16
                         height: 28
-                        text: launcher.openFolder ? launcher.openFolder.name : ""
+                        text: folderLayer.folder ? folderLayer.folder.name : ""
                         color: "#FFFFFF"
                         font.family: Core.Theme.fontFamily
                         font.pixelSize: 18
@@ -592,8 +628,8 @@ Components.LauncherView {
                         horizontalAlignment: Text.AlignHCenter
                         selectByMouse: true
                         onEditingFinished: {
-                            if (launcher.openFolder)
-                                Services.AppsService.renameFolder(launcher.openFolder.id, folderTitle.text);
+                            if (folderLayer.folder)
+                                Services.AppsService.renameFolder(folderLayer.folder.id, folderTitle.text);
                         }
                     }
 
@@ -625,7 +661,7 @@ Components.LauncherView {
                                 Item {
                                     id: fapp
                                     required property int index
-                                    readonly property var appEntry: launcher.openFolder ? launcher.openFolder.apps[fapp.index] : null
+                                    readonly property var appEntry: folderLayer.folder ? folderLayer.folder.apps[fapp.index] : null
                                     readonly property int col: fapp.index % folderLayer.folderCols
                                     readonly property int row: Math.floor(fapp.index / folderLayer.folderCols)
                                     readonly property int vis: stage.folderFlowIndexFor(fapp.index)
