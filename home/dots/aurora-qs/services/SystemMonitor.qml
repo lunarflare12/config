@@ -120,8 +120,7 @@ Item {
             const match = text.match(/^model name\s*:\s*(.+)$/m);
             if (match)
                 monitor.cpuName = monitor.tidyCpuName(match[1]);
-        } catch (e) {
-        }
+        } catch (e) {}
     }
 
     function formatBytes(bytes) {

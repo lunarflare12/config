@@ -105,8 +105,7 @@ PanelWindow {
         MouseArea {
             anchors.fill: parent
             acceptedButtons: Qt.LeftButton | Qt.RightButton
-            onClicked: {
-            }
+            onClicked: {}
         }
 
         Rectangle {
@@ -141,8 +140,7 @@ PanelWindow {
                     if (root.svc.updating)
                         return "Качаю " + (root.svc.updatingName || "игру") + " · " + Math.round(root.svc.downloadPercent) + "%";
                     if (root.svc.building)
-                        return (root.svc.buildingName !== "" ? "Собираю " + root.svc.buildingName : "Собираю без запуска игр")
-                            + (root.svc.barPercent > 0 ? " · " + Math.round(root.svc.barPercent) + "%" : "");
+                        return (root.svc.buildingName !== "" ? "Собираю " + root.svc.buildingName : "Собираю без запуска игр") + (root.svc.barPercent > 0 ? " · " + Math.round(root.svc.barPercent) + "%" : "");
                     if (root.svc.stale)
                         return "Есть патч или несобранные шейдеры";
                     if (root.svc.checkedAt > 0)

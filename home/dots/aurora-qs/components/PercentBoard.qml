@@ -1,7 +1,6 @@
 import QtQuick
 
 import "../core" as Core
-import "../services" as Services
 
 Rectangle {
     id: board
@@ -171,10 +170,18 @@ Rectangle {
 
             Connections {
                 target: board
-                function onValuesChanged() { graph.requestPaint(); }
-                function onCurrentValueChanged() { graph.requestPaint(); }
-                function onHoverIndexChanged() { graph.requestPaint(); }
-                function onSeriesColorChanged() { graph.requestPaint(); }
+                function onValuesChanged() {
+                    graph.requestPaint();
+                }
+                function onCurrentValueChanged() {
+                    graph.requestPaint();
+                }
+                function onHoverIndexChanged() {
+                    graph.requestPaint();
+                }
+                function onSeriesColorChanged() {
+                    graph.requestPaint();
+                }
             }
 
             onWidthChanged: requestPaint()

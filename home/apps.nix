@@ -4,37 +4,14 @@
   pkgs,
   params,
   inputs,
+  space,
   ...
 }:
 
 let
+  inherit (space) mkSpaces;
   scripts = "${config.home.homeDirectory}/.config/scripts";
   zenBrowser = inputs.zen-browser.packages.${pkgs.stdenv.hostPlatform.system}.default;
-  chromeBin = lib.getExe pkgs.google-chrome;
-  ideaBin = lib.getExe pkgs.jetbrains.idea;
-  chromeFlags = "--force-dark-mode --enable-features=WebUIDarkMode,MemorySaverMode --disable-features=SpareRendererForSitePerProcess --process-per-site --renderer-process-limit=8";
-  chromeWrap = wrap "google-chrome" ''exec ${chromeBin} ${chromeFlags} "$@"'';
-  steamWrap = wrap "steam" ''
-    exec ${scripts}/steam.sh "$@"
-  '';
-  # NIXOS_OZONE_WL=0 is still set; the nixpkgs Electron wrapper then
-  # injects --ozone-platform-hint / --enable-wayland-ime / etc. Newer
-  # Electron prints those as unknown options. Unset, pass ozone ourselves.
-  electronWrap =
-    name: pkg: flags:
-    wrap name ''
-      unset NIXOS_OZONE_WL
-      unset ELECTRON_OZONE_PLATFORM_HINT
-      exec ${lib.getExe pkg} ${flags} "$@"
-    '';
-  discordWrap = electronWrap "discord" pkgs.discord "--ozone-platform=x11 --disable-gpu --disable-gpu-compositing";
-  cursorWrap = electronWrap "cursor" pkgs.code-cursor "--ozone-platform=wayland --force-dark-mode";
-  codeWrap = electronWrap "code" pkgs.vscode "--ozone-platform=wayland --force-dark-mode";
-  obsidianWrap = electronWrap "obsidian" pkgs.obsidian "--ozone-platform=wayland --force-dark-mode";
-  ideaWrap = wrap "idea-ultimate" ''
-    export IDEA_ULTIMATE_BIN=${lib.escapeShellArg ideaBin}
-    exec ${scripts}/idea-ultimate.sh "$@"
-  '';
   chromeMime = [
     "application/pdf"
     "text/html"
@@ -44,42 +21,78 @@ let
     "x-scheme-handler/https"
   ];
   chromeEntry = {
-    name = "Google Chrome";
+    name = "Chrome DD";
     genericName = "Web Browser";
     exec = "${scripts}/google-chrome.sh %U";
-    icon = "google-chrome";
+    icon = "${pkgs.google-chrome}/share/icons/hicolor/256x256/apps/google-chrome.png";
     categories = [
       "Network"
       "WebBrowser"
     ];
     mimeType = chromeMime;
     startupNotify = true;
+    settings.StartupWMClass = "chrome-dd";
   };
   ideMime = [
     "application/x-code-workspace"
     "text/plain"
     "inode/directory"
   ];
-  wrap =
-    name: command:
-    pkgs.writeShellApplication {
+
+  # Thin PATH shims that keep calling the git-tree scripts (compose + store
+  # pins live there). Dark theme is injected by those scripts via space-env.
+  shim =
+    name: script:
+    (pkgs.writeShellApplication {
       inherit name;
-      text = command;
+      text = ''exec ${scripts}/${script} "$@"'';
+    }).overrideAttrs
+      (old: {
+        meta = (old.meta or { }) // {
+          # Beat leftover vendor bins if a container pin still leaks into the profile.
+          priority = 0;
+        };
+      });
+
+  spaces = mkSpaces {
+    discord = {
+      kind = "host";
+      # Official discord-1.0.155 SIGSEGV / exits on this host; Vesktop is the
+      # working Discord client (window class: vesktop).
+      package = pkgs.vesktop;
+      platform = "wayland";
+      forceDark = true;
+      flags = [ ];
     };
-in
-{
-  programs.firefox = {
-    enable = true;
-    profiles.default.settings = {
-      "browser.theme.content-theme" = 0;
-      "browser.theme.toolbar-theme" = 0;
-      "extensions.activeThemeID" = "firefox-compact-dark@mozilla.org";
-      "layout.css.prefers-color-scheme.content-override" = 0;
-      "ui.systemUsesDarkTheme" = 1;
-      "widget.gtk.respect-color-scheme" = true;
+    cursor = {
+      kind = "host";
+      package = pkgs.code-cursor;
+      platform = "wayland";
+      forceDark = true;
+      env = {
+        GTK_USE_PORTAL = "1";
+      };
+    };
+    # startOnly containers: compose already carries dark x-env + theme mounts.
+    spotify = {
+      kind = "container";
+      startOnly = true;
+    };
+    idea-ultimate = {
+      kind = "container";
+      service = "idea";
+      startOnly = true;
+    };
+    telegram-2 = {
+      kind = "container";
+      compose = "containers/telegram/compose.yml";
+      startOnly = true;
     };
   };
 
+  inherit (spaces) discord cursor;
+in
+{
   programs.zathura = {
     enable = true;
     options = {
@@ -102,27 +115,114 @@ in
     };
   };
 
+  # Shared dark-theme exports + `space_docker_env` for every launcher script.
+  xdg.configFile."aurora/space-env.sh" = {
+    text = space.spaceEnvSh;
+    force = true;
+  };
+
   home.sessionPath = [ scripts ];
 
   home.packages = [
-    zenBrowser
     pkgs.xrandr
-    chromeWrap
-    steamWrap
-    discordWrap
-    cursorWrap
-    codeWrap
-    obsidianWrap
-    ideaWrap
-    (pkgs.runCommand "google-chrome-stable-bin" { } ''
-      mkdir -p $out/bin
-      ln -s ${lib.getExe chromeWrap} $out/bin/google-chrome-stable
-    '')
-    (wrap "wayland-box" ''exec ${./dots/scripts/wayland-box.sh} "$@"'')
-  ]
-  ++ lib.optional (
-    params.browser != "firefox" && params.browser != "google-chrome"
-  ) pkgs.${params.browser};
+    spaces.discord.package
+    spaces.cursor.package
+    spaces.spotify.package
+    spaces.idea-ultimate.package
+    spaces.telegram-2.package
+    (shim "google-chrome" "google-chrome.sh")
+    (shim "chrome-az" "chrome-az.sh")
+    (shim "chrome-hika" "chrome-hika.sh")
+    (shim "firefox" "firefox.sh")
+    (shim "zen" "zen.sh")
+    (shim "telegram-1" "telegram-1.sh")
+    (shim "telegram" "telegram-1.sh")
+    (shim "steam" "steam.sh")
+    (shim "overwatch" "overwatch.sh")
+    (shim "terraria" "terraria.sh")
+    (shim "albion" "albion.sh")
+    (shim "code" "code.sh")
+    (shim "obsidian" "obsidian.sh")
+    (shim "openlens" "openlens.sh")
+    (shim "libreoffice" "libreoffice.sh")
+    (shim "soffice" "libreoffice.sh")
+    (pkgs.writeShellApplication {
+      name = "wayland-box";
+      text = ''exec ${./dots/scripts/wayland-box.sh} "$@"'';
+    })
+  ];
+
+  # Keep store paths for containerized apps without installing their .desktop files.
+  # Steam FHS is pinned via /etc/aurora/steam-bin (modules/steam.nix), not here.
+  home.file.".local/share/aurora/container-store-refs".text = ''
+    ${pkgs.google-chrome}
+    ${pkgs.firefox}
+    ${zenBrowser}
+    ${pkgs.jetbrains.idea}
+    ${pkgs.vscode}
+    ${pkgs.obsidian}
+    ${pkgs.openlens}
+    ${pkgs.libreoffice}
+    ${pkgs.spotify}
+    ${pkgs.openlens.extracted}
+  '';
+
+  # Compose interpolates these so a rebuild cannot leave stale /nix/store command paths.
+  home.file."containers/apps/.env" = {
+    text = ''
+      CHROME_BIN=${pkgs.google-chrome}/bin/google-chrome-stable
+      FIREFOX_BIN=${pkgs.firefox}/bin/firefox
+      ZEN_BIN=${zenBrowser}/bin/zen
+      IDEA_BIN=${pkgs.jetbrains.idea}/bin/idea
+      SPOTIFY_BIN=${pkgs.spotify}/bin/spotify
+      OBSIDIAN_BIN=${pkgs.obsidian}/bin/obsidian
+      LIBREOFFICE_BIN=${pkgs.libreoffice}/bin/soffice
+      VSCODE_BIN=${pkgs.vscode}/bin/code
+      VSCODE_ELECTRON=${pkgs.vscode}/lib/vscode/code
+      OPENLENS_APP=${pkgs.openlens.extracted}
+    '';
+    force = true;
+  };
+
+  home.file."containers/apps/launch-vscode.sh" = {
+    executable = true;
+    force = true;
+    text = ''
+      #!/bin/bash
+      set -euo pipefail
+      wrapper=${pkgs.vscode}/bin/code
+      electron=${pkgs.vscode}/lib/vscode/code
+      eval "$(sed '/^exec /d' "$wrapper")"
+      unset ELECTRON_RUN_AS_NODE
+      unset DISPLAY
+      exec "$electron" \
+        --ozone-platform=wayland \
+        --force-dark-mode \
+        --no-sandbox \
+        --disable-setuid-sandbox \
+        --user-data-dir=/home/app/.config/Code \
+        "$@"
+    '';
+  };
+
+  home.file."containers/apps/launch-openlens.sh" = {
+    executable = true;
+    force = true;
+    text = ''
+      #!/bin/sh
+      set -eu
+      app=${pkgs.openlens.extracted}
+      export ICU_DATA="$app"
+      unset DISPLAY
+      cd "$app"
+      exec "$app/open-lens" \
+        --ozone-platform=wayland \
+        --force-dark-mode \
+        --no-sandbox \
+        --disable-setuid-sandbox \
+        "$@"
+    '';
+  };
 
   xdg.desktopEntries = {
     google-chrome = chromeEntry;
@@ -140,7 +240,7 @@ in
     };
     overwatch = {
       name = "Overwatch";
-      exec = "${scripts}/steam.sh steam://rungameid/2357570";
+      exec = "${scripts}/overwatch.sh";
       icon = "steam_icon_2357570";
       categories = [ "Game" ];
       terminal = false;
@@ -148,7 +248,7 @@ in
     };
     "albion-online" = {
       name = "Albion Online";
-      exec = "${scripts}/steam.sh steam://rungameid/761890";
+      exec = "${scripts}/albion.sh";
       icon = "steam_icon_761890";
       categories = [ "Game" ];
       terminal = false;
@@ -156,7 +256,7 @@ in
     };
     terraria = {
       name = "Terraria";
-      exec = "${scripts}/steam.sh steam://rungameid/105600";
+      exec = "${scripts}/terraria.sh";
       icon = "steam_icon_105600";
       categories = [ "Game" ];
       terminal = false;
@@ -173,13 +273,13 @@ in
       mimeType = [ "x-scheme-handler/discord" ];
       terminal = false;
       startupNotify = true;
-      settings.StartupWMClass = "discord";
+      settings.StartupWMClass = "vesktop";
     };
     cursor = {
       name = "Cursor";
       genericName = "Text Editor";
       comment = "Code editor";
-      exec = "${scripts}/cursor.sh %F";
+      exec = "${lib.getExe cursor.package} %F";
       icon = "${pkgs.code-cursor}/share/pixmaps/cursor.png";
       categories = [
         "Utility"
@@ -194,7 +294,7 @@ in
     code = {
       name = "Visual Studio Code";
       genericName = "Text Editor";
-      exec = "${lib.getExe codeWrap} %F";
+      exec = "${scripts}/code.sh %F";
       icon = "vscode";
       categories = [
         "Utility"
@@ -208,10 +308,79 @@ in
     };
     obsidian = {
       name = "Obsidian";
-      exec = "${lib.getExe obsidianWrap} %U";
+      exec = "${scripts}/obsidian.sh %U";
       icon = "obsidian";
       categories = [ "Office" ];
       mimeType = [ "x-scheme-handler/obsidian" ];
+      startupNotify = true;
+    };
+    openlens = {
+      name = "OpenLens";
+      genericName = "Kubernetes IDE";
+      exec = "${scripts}/openlens.sh";
+      icon = "${pkgs.openlens}/share/icons/hicolor/512x512/apps/openlens.png";
+      categories = [ "Development" ];
+      startupNotify = true;
+      settings.StartupWMClass = "open-lens";
+    };
+    libreoffice-startcenter = {
+      name = "LibreOffice";
+      exec = "${scripts}/libreoffice.sh";
+      icon = "libreoffice-startcenter";
+      categories = [ "Office" ];
+      startupNotify = true;
+    };
+    libreoffice-writer = {
+      name = "LibreOffice Writer";
+      genericName = "Word Processor";
+      exec = "${scripts}/libreoffice.sh --writer %U";
+      icon = "libreoffice-writer";
+      categories = [
+        "Office"
+        "WordProcessor"
+      ];
+      mimeType = [
+        "application/msword"
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        "application/vnd.oasis.opendocument.text"
+      ];
+      startupNotify = true;
+    };
+    libreoffice-calc = {
+      name = "LibreOffice Calc";
+      genericName = "Spreadsheet";
+      exec = "${scripts}/libreoffice.sh --calc %U";
+      icon = "libreoffice-calc";
+      categories = [
+        "Office"
+        "Spreadsheet"
+      ];
+      mimeType = [
+        "application/vnd.ms-excel"
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      ];
+      startupNotify = true;
+    };
+    libreoffice-impress = {
+      name = "LibreOffice Impress";
+      genericName = "Presentation";
+      exec = "${scripts}/libreoffice.sh --impress %U";
+      icon = "libreoffice-impress";
+      categories = [
+        "Office"
+        "Presentation"
+      ];
+      mimeType = [
+        "application/vnd.ms-powerpoint"
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+      ];
+      startupNotify = true;
+    };
+    libreoffice-draw = {
+      name = "LibreOffice Draw";
+      exec = "${scripts}/libreoffice.sh --draw %U";
+      icon = "libreoffice-draw";
+      categories = [ "Office" ];
       startupNotify = true;
     };
     idea-ultimate = {
@@ -231,7 +400,201 @@ in
       startupNotify = true;
       settings.StartupWMClass = "jetbrains-idea";
     };
+    chrome-az = {
+      name = "Chrome Aziza";
+      genericName = "Web Browser";
+      exec = "${scripts}/chrome-az.sh";
+      icon = "${pkgs.google-chrome}/share/icons/hicolor/256x256/apps/google-chrome.png";
+      categories = [
+        "Network"
+        "WebBrowser"
+      ];
+      startupNotify = true;
+      settings.StartupWMClass = "chrome-az";
+    };
+    chrome-hika = {
+      name = "Chrome hika911";
+      genericName = "Web Browser";
+      exec = "${scripts}/chrome-hika.sh";
+      icon = "${pkgs.google-chrome}/share/icons/hicolor/256x256/apps/google-chrome.png";
+      categories = [
+        "Network"
+        "WebBrowser"
+      ];
+      startupNotify = true;
+      settings.StartupWMClass = "chrome-hika";
+    };
+    firefox = {
+      name = "Firefox";
+      genericName = "Web Browser";
+      exec = "${scripts}/firefox.sh";
+      icon = "${pkgs.firefox}/share/icons/hicolor/128x128/apps/firefox.png";
+      categories = [
+        "Network"
+        "WebBrowser"
+      ];
+      startupNotify = true;
+      settings.StartupWMClass = "firefox";
+    };
+    zen = {
+      name = "Zen";
+      genericName = "Web Browser";
+      exec = "${scripts}/zen.sh";
+      icon = "${zenBrowser}/share/icons/hicolor/128x128/apps/zen.png";
+      categories = [
+        "Network"
+        "WebBrowser"
+      ];
+      startupNotify = true;
+      settings.StartupWMClass = "zen";
+    };
+    spotify = {
+      name = "Spotify";
+      genericName = "Music Player";
+      exec = "${scripts}/spotify.sh";
+      icon = "spotify-client";
+      categories = [
+        "Audio"
+        "Music"
+      ];
+      mimeType = [ "x-scheme-handler/spotify" ];
+      startupNotify = true;
+      settings.StartupWMClass = "spotify";
+    };
+    telegram-1 = {
+      name = "Telegram 1";
+      exec = "${scripts}/telegram-1.sh %U";
+      icon = "org.telegram.desktop";
+      categories = [
+        "Network"
+        "InstantMessaging"
+      ];
+      mimeType = [
+        "x-scheme-handler/tg"
+        "x-scheme-handler/telegram"
+        "x-scheme-handler/tonsite"
+      ];
+      startupNotify = true;
+    };
+    telegram-2 = {
+      name = "Telegram 2";
+      exec = "${scripts}/telegram-2.sh";
+      icon = "org.telegram.desktop";
+      categories = [
+        "Network"
+        "InstantMessaging"
+      ];
+      startupNotify = true;
+    };
+    writer = {
+      name = "Hidden";
+      exec = "true";
+      noDisplay = true;
+      settings.Hidden = "true";
+    };
+    calc = {
+      name = "Hidden";
+      exec = "true";
+      noDisplay = true;
+      settings.Hidden = "true";
+    };
+    impress = {
+      name = "Hidden";
+      exec = "true";
+      noDisplay = true;
+      settings.Hidden = "true";
+    };
+    draw = {
+      name = "Hidden";
+      exec = "true";
+      noDisplay = true;
+      settings.Hidden = "true";
+    };
+    startcenter = {
+      name = "Hidden";
+      exec = "true";
+      noDisplay = true;
+      settings.Hidden = "true";
+    };
+    math = {
+      name = "Hidden";
+      exec = "true";
+      noDisplay = true;
+      settings.Hidden = "true";
+    };
+    base = {
+      name = "Hidden";
+      exec = "true";
+      noDisplay = true;
+      settings.Hidden = "true";
+    };
+    xsltfilter = {
+      name = "Hidden";
+      exec = "true";
+      noDisplay = true;
+      settings.Hidden = "true";
+    };
+    code-url-handler = {
+      name = "Hidden";
+      exec = "true";
+      noDisplay = true;
+      settings.Hidden = "true";
+    };
+    "org.telegram.desktop" = {
+      name = "Hidden";
+      exec = "true";
+      noDisplay = true;
+      settings.Hidden = "true";
+    };
+    idea-oss = {
+      name = "Hidden";
+      exec = "true";
+      noDisplay = true;
+      settings.Hidden = "true";
+    };
+    AmneziaVPN = {
+      name = "Hidden";
+      exec = "true";
+      noDisplay = true;
+      settings.Hidden = "true";
+    };
   };
 
   home.file."vms/ubuntu/Vagrantfile".source = ./dots/vagrant/ubuntu/Vagrantfile;
+
+  systemd.user.services.container-window-reaper = {
+    Unit = {
+      Description = "Drop ghost Hyprland windows after isolated containers exit";
+      After = [ "graphical-session.target" ];
+      PartOf = [ "graphical-session.target" ];
+    };
+    Service = {
+      ExecStart = "${pkgs.python3}/bin/python3 ${config.home.homeDirectory}/.config/scripts/reap-container-windows.py watch";
+      Restart = "on-failure";
+      RestartSec = 2;
+    };
+    Install.WantedBy = [ "graphical-session.target" ];
+  };
+
+  systemd.user.services.telegram-link = {
+    Unit.Description = "Open a t.me or tg: link in Telegram 1";
+    Service = {
+      Type = "oneshot";
+      ExecStart = "${config.home.homeDirectory}/.config/scripts/telegram-link-dispatch.sh";
+    };
+  };
+
+  systemd.user.paths.telegram-link = {
+    Unit.Description = "Watch for Telegram links from browsers";
+    Path.PathChanged = [
+      "${config.home.homeDirectory}/programs/telegram-1/ipc/telegram.url"
+      "${config.home.homeDirectory}/programs/chrome-dd/ipc/telegram.url"
+      "${config.home.homeDirectory}/programs/chrome-az/ipc/telegram.url"
+      "${config.home.homeDirectory}/programs/chrome-hika/ipc/telegram.url"
+      "${config.home.homeDirectory}/programs/firefox/ipc/telegram.url"
+      "${config.home.homeDirectory}/programs/zen/ipc/telegram.url"
+      "${config.home.homeDirectory}/programs/ipc/telegram.url"
+    ];
+    Install.WantedBy = [ "default.target" ];
+  };
 }

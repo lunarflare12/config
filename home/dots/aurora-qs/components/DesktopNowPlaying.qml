@@ -107,9 +107,18 @@ Item {
                     fillColor: Core.Theme.foreground
                     startX: 4
                     startY: 1
-                    PathLine { x: 16; y: 8 }
-                    PathLine { x: 4; y: 15 }
-                    PathLine { x: 4; y: 1 }
+                    PathLine {
+                        x: 16
+                        y: 8
+                    }
+                    PathLine {
+                        x: 4
+                        y: 15
+                    }
+                    PathLine {
+                        x: 4
+                        y: 1
+                    }
                 }
             }
 
@@ -123,9 +132,18 @@ Item {
                     fillColor: Core.Theme.foreground
                     startX: 10
                     startY: 2
-                    PathLine { x: 2; y: 8 }
-                    PathLine { x: 10; y: 14 }
-                    PathLine { x: 10; y: 2 }
+                    PathLine {
+                        x: 2
+                        y: 8
+                    }
+                    PathLine {
+                        x: 10
+                        y: 14
+                    }
+                    PathLine {
+                        x: 10
+                        y: 2
+                    }
                 }
 
                 ShapePath {
@@ -133,9 +151,18 @@ Item {
                     fillColor: Core.Theme.foreground
                     startX: 18
                     startY: 2
-                    PathLine { x: 10; y: 8 }
-                    PathLine { x: 18; y: 14 }
-                    PathLine { x: 18; y: 2 }
+                    PathLine {
+                        x: 10
+                        y: 8
+                    }
+                    PathLine {
+                        x: 18
+                        y: 14
+                    }
+                    PathLine {
+                        x: 18
+                        y: 2
+                    }
                 }
             }
 
@@ -149,9 +176,18 @@ Item {
                     fillColor: Core.Theme.foreground
                     startX: 2
                     startY: 2
-                    PathLine { x: 10; y: 8 }
-                    PathLine { x: 2; y: 14 }
-                    PathLine { x: 2; y: 2 }
+                    PathLine {
+                        x: 10
+                        y: 8
+                    }
+                    PathLine {
+                        x: 2
+                        y: 14
+                    }
+                    PathLine {
+                        x: 2
+                        y: 2
+                    }
                 }
 
                 ShapePath {
@@ -159,9 +195,18 @@ Item {
                     fillColor: Core.Theme.foreground
                     startX: 10
                     startY: 2
-                    PathLine { x: 18; y: 8 }
-                    PathLine { x: 10; y: 14 }
-                    PathLine { x: 10; y: 2 }
+                    PathLine {
+                        x: 18
+                        y: 8
+                    }
+                    PathLine {
+                        x: 10
+                        y: 14
+                    }
+                    PathLine {
+                        x: 10
+                        y: 2
+                    }
                 }
             }
         }
@@ -368,6 +413,7 @@ Item {
                             anchors.verticalCenter: parent.verticalCenter
                             width: 34
                             text: root.svc.lengthSupported ? root.svc.formatTime(body.shownProgress * root.svc.length) : "--:--"
+
                             color: Core.Theme.foregroundFaint
                             font.family: Core.Theme.fontFamily
                             font.pixelSize: Core.Theme.fontSizeSmall

@@ -46,8 +46,7 @@ QtObject {
             const parsed = JSON.parse(raw);
             if (parsed && typeof parsed === "object" && Object.keys(parsed).length > 0)
                 return parsed;
-        } catch (e) {
-        }
+        } catch (e) {}
         return null;
     }
 

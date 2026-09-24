@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Stretch plugin is compositor-global. Keep it loaded only while
-# Overwatch is on the active workspace. Otherwise Steam (already open
-# on another desktop) gets a fake 2560x1440 buffer.
+# Stretch plugin is compositor-global. Keep it loaded while the
+# Overwatch client exists (not only while focused — alt-tab used to
+# unload it and DXGI fell back to 2560 pillarboxes). Matcher is
+# steam_app_2357570 only, so the Steam library is not stretched.
 set +e
 export PATH="/run/current-system/sw/bin:/etc/profiles/per-user/dd/bin:${PATH:-}"
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
@@ -63,74 +64,65 @@ plugin_loaded() {
   "$HYPRCTL" plugin list 2>/dev/null | grep -q 'csgo-vulkan-fix'
 }
 
-set_expand() {
-  local on="$1"
-  "$HYPRCTL" eval "hl.config({ render = { expand_undersized_textures = ${on} } })" >/dev/null 2>&1 || true
+# After unload, ignore load for a few seconds. Steam's shutdown windows
+# were reloading the plugin and Hyprland toasted a restart each time.
+UNLOAD_STAMP="${HOME}/.local/state/aurora-vkfix-unloaded"
+
+unload_cooling() {
+  local t now
+  [ -f "$UNLOAD_STAMP" ] || return 1
+  t=$(tr -d '[:space:]' <"$UNLOAD_STAMP" 2>/dev/null || echo 0)
+  now=$(date +%s)
+  [ $((now - ${t:-0})) -lt 8 ]
 }
 
 unload() {
-  set_expand false
-  plugin_loaded || true
-  local so cand
+  date +%s >"$UNLOAD_STAMP"
+  plugin_loaded || return 0
+  local so
   so=$(find_so || true)
   if [ -n "$so" ]; then
     "$HYPRCTL" plugin unload "$so" >/dev/null 2>&1 || true
   fi
-  if plugin_loaded; then
-    for cand in /nix/store/*csgo-vulkan-fix*/lib/libcsgo-vulkan-fix.so "$LOCAL_SO"; do
-      [ -f "$cand" ] && "$HYPRCTL" plugin unload "$cand" >/dev/null 2>&1 || true
-    done
-  fi
-  game_xwayland_restore
 }
 
 register() {
-  # fix_mouse must stay on: compositor window is 2560x1080, game surface
-  # is 2560x1440. The patched .so scales by res/box only.
+  # fix_mouse only. expand_undersized_textures is global and was redrawing
+  # the whole ultrawide every frame — that is the 3 FPS.
   "$HYPRCTL" eval '
 if hl.plugin and hl.plugin.csgo_vulkan_fix and hl.plugin.csgo_vulkan_fix.vkfix_app then
     pcall(function()
         hl.config({
             plugin = { csgo_vulkan_fix = { fix_mouse = true } },
-            render = { expand_undersized_textures = true },
+            render = { expand_undersized_textures = false },
         })
     end)
-    hl.plugin.csgo_vulkan_fix.vkfix_app({ app = "steam_app_2357570", w = 2560, h = 1440 })
-    hl.plugin.csgo_vulkan_fix.vkfix_app({ app = "overwatch.exe", w = 2560, h = 1440 })
-    hl.config({ render = { expand_undersized_textures = true } })
+    hl.plugin.csgo_vulkan_fix.vkfix_app({ app = "steam_app_2357570", w = 1920, h = 1080 })
+    hl.plugin.csgo_vulkan_fix.vkfix_app({ app = "overwatch.exe", w = 1920, h = 1080 })
 end
 ' >/dev/null 2>&1 || true
 }
 
 load() {
+  unload_cooling && return 0
+  plugin_loaded && return 0
   local so
   so=$(find_so || true)
   [ -n "$so" ] || return 0
   printf '%s\n' "$so" >"$STATE"
-  game_xwayland_ultrawide
-  if ! plugin_loaded; then
-    "$HYPRCTL" plugin load "$so" >/dev/null 2>&1 || true
-  fi
+  "$HYPRCTL" plugin load "$so" >/dev/null 2>&1 || true
   if plugin_loaded; then
     register
-  else
-    set_expand false
   fi
 }
 
-# Active window is the real Overwatch client. Title "Overwatch 2" on Steam
-# must not count — that used to keep the plugin loaded on the library.
-ow_focused() {
-  local w cls
-  w=$("$HYPRCTL" activewindow -j 2>/dev/null) || return 1
-  cls=$(printf '%s' "$w" | sed -n 's/.*"class": *"\([^"]*\)".*/\1/p' | head -1)
-  [ -n "$cls" ] || return 1
-  case "$cls" in
-    steam_app_2357570 | [Oo]verwatch.exe | [Oo]verwatch) return 0 ;;
-  esac
-  printf '%s' "$cls" | grep -qi 'overwatch' || return 1
-  printf '%s' "$cls" | grep -qi '^steam$' && return 1
-  return 0
+# Real Overwatch client only. Title "Overwatch 2" on Steam must not count.
+ow_running() {
+  local cls
+  cls=$("$HYPRCTL" clients -j 2>/dev/null | sed -n 's/.*"class": *"\([^"]*\)".*/\1/p')
+  printf '%s\n' "$cls" | grep -qx 'steam_app_2357570' && return 0
+  printf '%s\n' "$cls" | grep -qiE '^(overwatch\.exe|overwatch)$' && return 0
+  return 1
 }
 
 cmd="${1:-sync}"
@@ -142,7 +134,7 @@ case "$cmd" in
     load
     ;;
   sync | *)
-    if ow_focused; then
+    if ow_running; then
       load
     else
       unload

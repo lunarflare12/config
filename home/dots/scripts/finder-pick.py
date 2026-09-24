@@ -349,15 +349,10 @@ def main() -> int:
     apply_settings()
     load_css()
 
-    selected: list[str] = []
-    if opts["directory"] and not opts["save"]:
-        picked = finder_directory_pick(start_folder(opts["path"]))
-        if picked is None:
-            selected = gtk_file_chooser(opts)
-        else:
-            selected = picked
-    else:
-        selected = gtk_file_chooser(opts)
+    # Directory picks must be a real chooser (Select), not Finder/Thunar.
+    # Opening Thunar here left Cursor waiting on a file-manager window
+    # with no way to return a folder.
+    selected = gtk_file_chooser(opts)
 
     return write_out(opts["out"], selected)
 

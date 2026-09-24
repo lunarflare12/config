@@ -2,8 +2,6 @@ import QtQuick
 
 import "../core" as Core
 
-// VolumeSlider
-
 Item {
     id: root
 
@@ -11,7 +9,6 @@ Item {
     property real value: 0
 
     property bool muted: false
-    property bool enabled: true
 
     property color fillColor: Core.Theme.accent
 
@@ -137,8 +134,6 @@ Item {
         anchors.fill: parent
         anchors.topMargin: -6
         anchors.bottomMargin: -6
-
-        enabled: root.enabled
 
         hoverEnabled: true
 

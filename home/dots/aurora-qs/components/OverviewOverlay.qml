@@ -65,14 +65,16 @@ PanelWindow {
         const list = root.spaceLocals;
         spaceModel.clear();
         for (let i = 0; i < list.length; i++)
-            spaceModel.append({ "ws": list[i] });
+            spaceModel.append({
+                "ws": list[i]
+            });
     }
 
     Component.onCompleted: root.rebuildSpaces()
     readonly property bool canAddSpace: root.spaceLocals.length < root.count
     readonly property var previewWins: {
         const _ = (Hyprland.toplevels && Hyprland.toplevels.values) ? Hyprland.toplevels.values.length : 0;
-        return root.windowsOn(root.base + root.previewLocal);
+        return Core.Session.windowsOnWorkspace(root.base + root.previewLocal);
     }
     property bool spacesExpanded: false
     readonly property color spaceActive: "#0A84FF"
@@ -106,7 +108,7 @@ PanelWindow {
         let x = 0;
         for (let i = 0; i < n; i++) {
             const local = root.spaceLocals[i];
-            const w = root.compactLabelW(root.spaceLabel(i, local, root.windowsOn(root.base + local)));
+            const w = root.compactLabelW(root.spaceLabel(i, local, Core.Session.windowsOnWorkspace(root.base + local)));
             if (local === Core.Session.localId(root.activeGlobal))
                 return x + w / 2;
             x += w + root.compactGap;
@@ -199,36 +201,10 @@ PanelWindow {
         height: 0
     }
 
-    Item {
-        id: belowBar
-        anchors.fill: parent
-        anchors.topMargin: Core.Theme.barHeight
-    }
-
-    property Region belowBarMask: Region {
-        item: belowBar
-    }
-
     mask: {
         if (!(Core.Session.overviewOpen || root.intro > 0.01))
             return root.emptyMask;
         return null;
-    }
-
-    function windowsOn(globalId) {
-        const out = [];
-        const tops = (Hyprland.toplevels && Hyprland.toplevels.values) ? Hyprland.toplevels.values : [];
-        for (let i = 0; i < tops.length; i++) {
-            const t = tops[i];
-            const ipc = t.lastIpcObject || {};
-            if (ipc.mapped === false || ipc.hidden === true)
-                continue;
-            const id = t.workspace ? Number(t.workspace.id) : Number(ipc.workspace && ipc.workspace.id);
-            if (id !== globalId)
-                continue;
-            out.push(t);
-        }
-        return out;
     }
 
     function computeExpose(wins) {
@@ -308,14 +284,6 @@ PanelWindow {
         return Math.max(72, Math.min(360, String(text || "").length * 7.8 + 28));
     }
 
-    function monitorIndexLeft() {
-        return Core.Session.monitorIndex(root.monitorName) > 0;
-    }
-
-    function monitorIndexRight() {
-        return Core.Session.monitorIndex(root.monitorName) < Core.Session.monitorOrder.length - 1;
-    }
-
     function closeOverview() {
         Core.Session.overviewOpen = false;
     }
@@ -367,13 +335,6 @@ PanelWindow {
         if (x >= root.monitorX - 8)
             return [x - root.monitorX, y - root.monitorY];
         return [x, y];
-    }
-
-    function appClass(t) {
-        if (!t)
-            return "";
-        const ipc = t.lastIpcObject || {};
-        return String(ipc.class || ipc.initialClass || t.className || "");
     }
 
     function publishDrop() {
@@ -444,32 +405,54 @@ PanelWindow {
     function spaceTabW(i, local) {
         if (root.spacesExpanded)
             return root.thumbW;
-        return root.compactLabelW(root.spaceLabel(i, local, root.windowsOn(root.base + local)));
+        return root.compactLabelW(root.spaceLabel(i, local, Core.Session.windowsOnWorkspace(root.base + local)));
     }
 
     function spaceSlotAt(lx) {
         const n = root.spaceLocals.length;
         if (n <= 0)
-            return { "index": -1, "localWs": 0, "plus": false };
+            return {
+                "index": -1,
+                "localWs": 0,
+                "plus": false
+            };
         const gap = root.spacesExpanded ? root.thumbGap : root.compactGap;
         const tabs = [];
         let x = spacesRow.x;
         for (let i = 0; i < n; i++) {
             const local = root.spaceLocals[i];
             const w = root.spaceTabW(i, local);
-            tabs.push({ "index": i, "localWs": local, "x": x, "w": w, "mid": x + w / 2 });
+            tabs.push({
+                "index": i,
+                "localWs": local,
+                "x": x,
+                "w": w,
+                "mid": x + w / 2
+            });
             x += w + gap;
         }
         const plusX = addCard.visible ? addCard.x : root.plusX;
         if (root.canAddSpace && lx >= plusX - Math.max(8, gap))
-            return { "index": n, "localWs": 0, "plus": true };
+            return {
+                "index": n,
+                "localWs": 0,
+                "plus": true
+            };
         for (let i = 0; i < n; i++) {
             const left = i === 0 ? tabs[i].x : (tabs[i - 1].x + tabs[i - 1].w + tabs[i].x) / 2;
             const right = i < n - 1 ? (tabs[i].x + tabs[i].w + tabs[i + 1].x) / 2 : (root.canAddSpace ? (tabs[i].x + tabs[i].w + plusX) / 2 : tabs[i].x + tabs[i].w);
             if (lx >= left && lx < right)
-                return { "index": i, "localWs": tabs[i].localWs, "plus": false };
+                return {
+                    "index": i,
+                    "localWs": tabs[i].localWs,
+                    "plus": false
+                };
         }
-        return { "index": -1, "localWs": 0, "plus": false };
+        return {
+            "index": -1,
+            "localWs": 0,
+            "plus": false
+        };
     }
 
     function spaceDropAt(lx) {
@@ -492,7 +475,11 @@ PanelWindow {
             }
             x += w + gap;
         }
-        return { "index": best, "localWs": root.spaceLocals[best], "plus": false };
+        return {
+            "index": best,
+            "localWs": root.spaceLocals[best],
+            "plus": false
+        };
     }
 
     function hitAt(lx, ly) {
@@ -522,7 +509,7 @@ PanelWindow {
                 const gap = root.spacesExpanded ? root.thumbGap : root.compactGap;
                 for (let i = 0; i < slot.index; i++) {
                     const local = root.spaceLocals[i];
-                    const w = root.spacesExpanded ? root.thumbW : root.compactLabelW(root.spaceLabel(i, local, root.windowsOn(root.base + local)));
+                    const w = root.spacesExpanded ? root.thumbW : root.compactLabelW(root.spaceLabel(i, local, Core.Session.windowsOnWorkspace(root.base + local)));
                     sx += w + gap;
                 }
                 const close = root.spacesExpanded && n > 1 && lx >= sx + 2 && lx <= sx + 22 && ly >= deskY + 2 && ly <= deskY + 22;
@@ -626,7 +613,7 @@ PanelWindow {
                     readonly property bool draggingThis: Core.Session.overviewDrag && Core.Session.overviewDragKind === "space" && Core.Session.overviewDragFromMonitor === root.monitorName && Core.Session.overviewDragFromLocal === spaceCard.localWs
                     readonly property bool hovered: !grab.dragging && grab.hoverIndex === spaceCard.index && (grab.hoverKind === "space" || grab.hoverKind === "spaceClose")
                     readonly property bool closeHovered: !grab.dragging && grab.hoverKind === "spaceClose" && grab.hoverIndex === spaceCard.index
-                    readonly property var wins: root.windowsOn(spaceCard.workspace)
+                    readonly property var wins: Core.Session.windowsOnWorkspace(spaceCard.workspace)
 
                     readonly property string caption: root.spaceLabel(spaceCard.index, spaceCard.localWs, spaceCard.wins)
 

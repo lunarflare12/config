@@ -3,6 +3,7 @@ pragma Singleton
 import QtQuick
 
 import Quickshell
+import Quickshell.Io
 import Quickshell.Services.Mpris
 
 // MprisService
@@ -19,6 +20,26 @@ Singleton {
     // Players
 
     readonly property var players: (Mpris.players && Mpris.players.values) ? Mpris.players.values : []
+
+    readonly property string bridgeBin: (Quickshell.env("HOME") || "") + "/.config/scripts/mpris-bridge.py"
+
+    property var bridge: ({
+        "available": false,
+        "playing": false,
+        "title": "",
+        "artist": "",
+        "album": "",
+        "identity": "",
+        "desktopEntry": "",
+        "artUrl": "",
+        "length": 0,
+        "position": 0,
+        "canToggle": false,
+        "canNext": false,
+        "canPrevious": false,
+        "canSeek": false,
+        "canRaise": false
+    })
 
     // Active player
     //
@@ -47,23 +68,35 @@ Singleton {
         return list.length > 0 ? list[0] : null;
     }
 
-    readonly property bool available: root.active !== null
+    readonly property bool hostPlaying: root.active !== null && root.active.playbackState === MprisPlaybackState.Playing
 
-    readonly property bool playing: root.available && root.active.playbackState === MprisPlaybackState.Playing
+    readonly property bool useBridge: {
+        if (root.hostPlaying)
+            return false;
+        if (root.bridge && root.bridge.playing)
+            return true;
+        if (root.active && String(root.active.trackTitle || "") !== "")
+            return false;
+        return !!(root.bridge && root.bridge.available);
+    }
+
+    readonly property bool available: root.useBridge ? !!root.bridge.available : root.active !== null
+
+    readonly property bool playing: root.useBridge ? !!root.bridge.playing : root.hostPlaying
 
     // Track info
 
-    readonly property string title: root.available ? String(root.active.trackTitle || "") : ""
+    readonly property string title: root.useBridge ? String(root.bridge.title || "") : (root.active ? String(root.active.trackTitle || "") : "")
 
-    readonly property string artist: root.available ? String(root.active.trackArtist || "") : ""
+    readonly property string artist: root.useBridge ? String(root.bridge.artist || "") : (root.active ? String(root.active.trackArtist || "") : "")
 
-    readonly property string identity: root.available ? String(root.active.identity || "") : ""
+    readonly property string identity: root.useBridge ? String(root.bridge.identity || "") : (root.active ? String(root.active.identity || "") : "")
 
-    readonly property string album: root.available ? String(root.active.trackAlbum || "") : ""
+    readonly property string album: root.useBridge ? String(root.bridge.album || "") : (root.active ? String(root.active.trackAlbum || "") : "")
 
-    readonly property string desktopEntry: root.available ? String(root.active.desktopEntry || "") : ""
+    readonly property string desktopEntry: root.useBridge ? String(root.bridge.desktopEntry || "") : (root.active ? String(root.active.desktopEntry || "") : "")
 
-    readonly property string artUrl: root.available ? String(root.active.trackArtUrl || "") : ""
+    readonly property string artUrl: root.useBridge ? String(root.bridge.artUrl || "") : (root.active ? String(root.active.trackArtUrl || "") : "")
 
     readonly property string artSource: {
         const u = root.artUrl;
@@ -106,15 +139,19 @@ Singleton {
     property real position: 0
 
     readonly property real length: {
-        if (!root.available || !root.active.lengthSupported)
+        if (root.useBridge) {
+            const n = Number(root.bridge.length || 0);
+            return isFinite(n) && n > 0 ? n : 0;
+        }
+        if (!root.active || !root.active.lengthSupported)
             return 0;
         const n = Number(root.active.length);
         return isFinite(n) && n > 0 ? n : 0;
     }
 
-    readonly property bool positionSupported: root.available && root.active.positionSupported
+    readonly property bool positionSupported: root.useBridge ? root.length > 0 : (root.available && root.active && root.active.positionSupported)
 
-    readonly property bool lengthSupported: root.available && root.active.lengthSupported && root.length > 0
+    readonly property bool lengthSupported: root.length > 0
 
     readonly property real progress: root.length > 0 ? Math.max(0, Math.min(1, root.position / root.length)) : 0
 
@@ -123,18 +160,40 @@ Singleton {
     // Guarded individually: MPRIS compliance varies wildly by player, so the
     // canXyz flags are the only safe way to call any of this.
 
-    readonly property bool canToggle: root.available && root.active.canTogglePlaying
+    readonly property bool canToggle: root.useBridge ? !!root.bridge.canToggle : (root.available && root.active && root.active.canTogglePlaying)
 
-    readonly property bool canNext: root.available && root.active.canGoNext
+    readonly property bool canNext: root.useBridge ? !!root.bridge.canNext : (root.available && root.active && root.active.canGoNext)
 
-    readonly property bool canPrevious: root.available && root.active.canGoPrevious
+    readonly property bool canPrevious: root.useBridge ? !!root.bridge.canPrevious : (root.available && root.active && root.active.canGoPrevious)
 
-    readonly property bool canSeek: root.available && root.active.canSeek && root.lengthSupported
+    readonly property bool canSeek: root.useBridge ? !!root.bridge.canSeek && root.lengthSupported : (root.available && root.active && root.active.canSeek && root.lengthSupported)
 
-    readonly property bool canRaise: root.available && root.active.canRaise
+    readonly property bool canRaise: !root.useBridge && root.available && root.active && root.active.canRaise
+
+    function bridgeCtl(action, extra) {
+        const args = ["python3", root.bridgeBin, String(action)];
+        if (extra !== undefined && extra !== null && String(extra) !== "")
+            args.push(String(extra));
+        Quickshell.execDetached(args);
+    }
+
+    function ingestBridge(line) {
+        try {
+            const next = JSON.parse(line);
+            if (!next || typeof next !== "object")
+                return;
+            root.bridge = next;
+            if (root.useBridge)
+                root.position = Number(next.position || 0);
+        } catch (e) {}
+    }
 
     function pullPosition() {
-        if (!root.available || !root.active.positionSupported) {
+        if (root.useBridge) {
+            root.position = Number(root.bridge.position || 0);
+            return;
+        }
+        if (!root.available || !root.active || !root.active.positionSupported) {
             root.position = 0;
             return;
         }
@@ -162,17 +221,29 @@ Singleton {
     }
 
     function toggle() {
-        if (root.canToggle)
+        if (!root.canToggle)
+            return;
+        if (root.useBridge)
+            root.bridgeCtl("toggle");
+        else
             root.active.togglePlaying();
     }
 
     function next() {
-        if (root.canNext)
+        if (!root.canNext)
+            return;
+        if (root.useBridge)
+            root.bridgeCtl("next");
+        else
             root.active.next();
     }
 
     function previous() {
-        if (root.canPrevious)
+        if (!root.canPrevious)
+            return;
+        if (root.useBridge)
+            root.bridgeCtl("previous");
+        else
             root.active.previous();
     }
 
@@ -180,6 +251,11 @@ Singleton {
         if (!root.canSeek)
             return;
         const t = Math.max(0, Math.min(1, Number(ratio))) * root.length;
+        if (root.useBridge) {
+            root.bridgeCtl("seek", String(Math.max(0, Math.min(1, Number(ratio)))));
+            root.position = t;
+            return;
+        }
         root.active.position = t;
         root.position = t;
     }
@@ -227,8 +303,19 @@ Singleton {
 
     Timer {
         interval: 500
-        running: root.available && root.positionSupported
+        running: root.available && root.positionSupported && !root.useBridge
         repeat: true
         onTriggered: root.pullPosition()
+    }
+
+    Process {
+        running: true
+        command: ["python3", root.bridgeBin]
+        stdout: SplitParser {
+            splitMarker: "\n"
+            onRead: function (line) {
+                root.ingestBridge(line);
+            }
+        }
     }
 }

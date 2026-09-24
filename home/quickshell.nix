@@ -207,54 +207,54 @@ in
   };
 
   home.activation.auroraState = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    mkdir -p "${auroraQsDir}/assets"
-    ln -sfn ${emojiDatabase} "${auroraQsDir}/assets/emoji.json"
-    mkdir -p "$HOME/.local/state/aurora" "$HOME/.cache/aurora" "$HOME/Wallpapers" "$HOME/Pictures/Screenshots" "$HOME/.local/state"
+        mkdir -p "${auroraQsDir}/assets"
+        ln -sfn ${emojiDatabase} "${auroraQsDir}/assets/emoji.json"
+        mkdir -p "$HOME/.local/state/aurora" "$HOME/.cache/aurora" "$HOME/Wallpapers" "$HOME/Pictures/Screenshots" "$HOME/.local/state"
 
-    # Launchpad/dock pins — keep out of HM-managed ~/.config/aurora.
-    state_layout="$HOME/.local/state/aurora/app-layout.json"
-    state_backup="$HOME/.local/state/aurora/app-layout.backup.json"
-    if [ ! -s "$state_layout" ]; then
-      if [ -s "$HOME/.config/aurora/app-layout.json" ]; then
-        cp -f "$HOME/.config/aurora/app-layout.json" "$state_layout"
-      elif [ -s "$HOME/.cache/aurora/app-layout.json" ]; then
-        cp -f "$HOME/.cache/aurora/app-layout.json" "$state_layout"
-      fi
-    fi
-    if [ -s "$state_layout" ] && [ ! -s "$state_backup" ]; then
-      cp -f "$state_layout" "$state_backup"
-    fi
-    # If backup is richer (more folders), prefer it — sync races used to wipe pins.
-    if [ -s "$state_backup" ] && [ -s "$state_layout" ]; then
-      python3 - "$state_layout" "$state_backup" <<'PY' || true
-import json, sys
-def score(p):
-    try:
-        d = json.load(open(p))
-    except Exception:
-        return (-1, -1)
-    lp = d.get("launchpad") or []
-    folders = sum(1 for x in lp if isinstance(x, dict))
-    return (folders, len(lp))
-layout, backup = sys.argv[1], sys.argv[2]
-if score(backup) > score(layout):
-    open(layout, "w").write(open(backup).read())
-PY
-    fi
+        # Launchpad/dock pins — keep out of HM-managed ~/.config/aurora.
+        state_layout="$HOME/.local/state/aurora/app-layout.json"
+        state_backup="$HOME/.local/state/aurora/app-layout.backup.json"
+        if [ ! -s "$state_layout" ]; then
+          if [ -s "$HOME/.config/aurora/app-layout.json" ]; then
+            cp -f "$HOME/.config/aurora/app-layout.json" "$state_layout"
+          elif [ -s "$HOME/.cache/aurora/app-layout.json" ]; then
+            cp -f "$HOME/.cache/aurora/app-layout.json" "$state_layout"
+          fi
+        fi
+        if [ -s "$state_layout" ] && [ ! -s "$state_backup" ]; then
+          cp -f "$state_layout" "$state_backup"
+        fi
+        # If backup is richer (more folders), prefer it — sync races used to wipe pins.
+        if [ -s "$state_backup" ] && [ -s "$state_layout" ]; then
+          python3 - "$state_layout" "$state_backup" <<'PY' || true
+    import json, sys
+    def score(p):
+        try:
+            d = json.load(open(p))
+        except Exception:
+            return (-1, -1)
+        lp = d.get("launchpad") or []
+        folders = sum(1 for x in lp if isinstance(x, dict))
+        return (folders, len(lp))
+    layout, backup = sys.argv[1], sys.argv[2]
+    if score(backup) > score(layout):
+        open(layout, "w").write(open(backup).read())
+    PY
+        fi
 
-    if [ ! -f "$HOME/.local/state/monitor-brightness" ]; then
-      echo 100 > "$HOME/.local/state/monitor-brightness"
-    fi
+        if [ ! -f "$HOME/.local/state/monitor-brightness" ]; then
+          echo 100 > "$HOME/.local/state/monitor-brightness"
+        fi
 
-    if [ ! -s "$HOME/.local/state/aurora/wallpaper" ] && [ -s "$HOME/.cache/aurora/current-wallpaper" ]; then
-      cp -f "$HOME/.cache/aurora/current-wallpaper" "$HOME/.local/state/aurora/wallpaper"
-    fi
-    if [ ! -s "$HOME/.local/state/aurora/wallpaper" ]; then
-      first="$(find -L "$HOME/Wallpapers" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' \) ! -name '.*' 2>/dev/null | sort | head -n 1 || true)"
-      if [ -n "$first" ]; then
-        printf '%s\n' "$first" > "$HOME/.local/state/aurora/wallpaper"
-      fi
-    fi
+        if [ ! -s "$HOME/.local/state/aurora/wallpaper" ] && [ -s "$HOME/.cache/aurora/current-wallpaper" ]; then
+          cp -f "$HOME/.cache/aurora/current-wallpaper" "$HOME/.local/state/aurora/wallpaper"
+        fi
+        if [ ! -s "$HOME/.local/state/aurora/wallpaper" ]; then
+          first="$(find -L "$HOME/Wallpapers" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' \) ! -name '.*' 2>/dev/null | sort | head -n 1 || true)"
+          if [ -n "$first" ]; then
+            printf '%s\n' "$first" > "$HOME/.local/state/aurora/wallpaper"
+          fi
+        fi
   '';
 
   home.packages = [

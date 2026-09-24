@@ -40,25 +40,13 @@ info_one() {
 }
 
 preview_one() {
-  local p=$1 mime
-  mime=$(file --mime-type -b -- "$p" 2>/dev/null || echo "")
-  case $mime in
-    image/*)
-      if command -v imv >/dev/null; then exec imv -- "$p"; fi
-      ;;
-    video/* | audio/*)
-      if command -v mpv >/dev/null; then exec mpv --no-terminal -- "$p"; fi
-      if command -v vlc >/dev/null; then exec vlc --played-from-file -- "$p"; fi
-      ;;
-    application/pdf)
-      if command -v zathura >/dev/null; then exec zathura -- "$p"; fi
-      ;;
-    text/* | application/json | application/xml | inode/x-empty)
-      exec /run/current-system/sw/bin/kitty --class termfloat -e less -R -- "$p"
-      ;;
-  esac
-  if command -v sushi >/dev/null; then exec sushi -- "$p"; fi
-  xdg-open -- "$p"
+  local blob="" p qs
+  qs=$(command -v qs 2>/dev/null || true)
+  [[ -n $qs ]] || qs=/etc/profiles/per-user/${USER}/bin/qs
+  for p in "$@"; do
+    blob+="${p}"$'\n'
+  done
+  exec "$qs" ipc call preview toggle "$blob"
 }
 
 color_one() {
@@ -160,7 +148,7 @@ case $cmd in
     for p in "$@"; do alias_one "$p"; done
     ;;
   preview)
-    preview_one "$1"
+    preview_one "$@"
     ;;
   compress)
     exec file-roller --add "$@"

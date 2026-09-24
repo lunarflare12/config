@@ -2,8 +2,6 @@
   systemArch = "x86_64-linux";
   stateVersion = "26.05";
   userName = "dd";
-  # Git checkout of this flake, relative to $HOME. Hypr/QS/scripts are
-  # live-linked here so edits apply without copying into the Nix store.
   repo = "projects/config";
 
   users = {
@@ -13,6 +11,7 @@
         "wheel"
         "networkmanager"
         "video"
+        "wireshark"
       ];
     };
   };
@@ -40,22 +39,63 @@
     "claude-code"
     "python3"
     "ffmpeg"
-    "telegram-desktop"
-    "jetbrains.idea-oss"
-    "vscode"
     "code-cursor"
     "keymapp"
-    "obsidian"
     "kubectl"
     "k9s"
-    "openlens"
+    "kubernetes-helm"
+    "kustomize"
+    "kubectx"
+    "stern"
+    "fluxcd"
+    "argocd"
+    "dnsutils"
     "awscli2"
+    "cloudflare-cli"
+    "cloudflared"
+    "flarectl"
+    "jq"
+    "yq-go"
+    "burpsuite"
+    "zap"
+    "mitmproxy"
+    "nmap"
+    "rustscan"
+    "masscan"
+    "wireshark"
+    "tcpdump"
+    "termshark"
+    "nuclei"
+    "nikto"
+    "whatweb"
+    "ffuf"
+    "gobuster"
+    "feroxbuster"
+    "amass"
+    "subfinder"
+    "testssl"
+    "sslscan"
+    "trivy"
+    "grype"
+    "syft"
+    "gitleaks"
+    "trufflehog"
+    "semgrep"
+    "osv-scanner"
+    "checkov"
+    "kubescape"
+    "kube-score"
+    "kubeconform"
+    "dive"
+    "whois"
+    "mtr"
+    "socat"
+    "httpie"
     "btop"
     "vagrant"
     "vlc"
     "xournalpp"
     "prismlauncher"
-    "libreoffice-stable"
   ];
 
   monitors = [

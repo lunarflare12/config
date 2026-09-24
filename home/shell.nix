@@ -14,6 +14,7 @@
         "kubectl"
         "docker"
         "aws"
+        "helm"
       ];
     };
 

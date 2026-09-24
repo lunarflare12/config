@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Layouts
-import Quickshell
 
 import "../core" as Core
 import "../services" as Services

@@ -1,16 +1,71 @@
 #!/usr/bin/env bash
-# Steam CEF is XWayland. Session GBM_BACKEND=nvidia-drm makes that surface
-# black; GLX works if we drop GBM for this process tree. Software CEF at
-# 2560x1080@200Hz is the hitchy unmanageable window.
+# Host launcher: Steam (+ games) run inside containers/steam.
+# Desktop / steam:// links: ~/.config/scripts/steam.sh %U
 set -euo pipefail
-unset GBM_BACKEND
-unset NVD_BACKEND
-export GDK_BACKEND=x11
-export GDK_SCALE=1
-export GDK_DPI_SCALE=1
-export STEAM_FORCE_DESKTOPUI_SCALING=1
-export QT_AUTO_SCREEN_SCALE_FACTOR=0
-export QT_QPA_PLATFORM=xcb
-exec /run/current-system/sw/bin/steam \
-  -forcedesktopscaling 1 \
-  "$@"
+
+HOME="${HOME:-/home/dd}"
+COMPOSE="${HOME}/containers/steam/compose.yml"
+# shellcheck source=/dev/null
+. "${BASH_SOURCE[0]%/*}/space-lib.sh"
+
+if [ -x "${BASH_SOURCE[0]%/*}/protect-shader-caches.sh" ]; then
+  "${BASH_SOURCE[0]%/*}/protect-shader-caches.sh" >/dev/null 2>&1 || true
+fi
+
+# Host Steam must not hold the library while the container owns it.
+if [ -z "${STEAM_CONTAINER:-}" ]; then
+  if pgrep -f '/\.local/share/Steam/ubuntu12_32/steam' >/dev/null 2>&1; then
+    # Only kill host steam, not the containerized one (same binary path though).
+    if ! docker inspect -f '{{.State.Running}}' steam 2>/dev/null | grep -qx true; then
+      pkill -f '/\.local/share/Steam/ubuntu12_32/steam' >/dev/null 2>&1 || true
+      sleep 1
+    fi
+  fi
+fi
+
+uri="${1:-}"
+case "$uri" in
+  *105600*) exec "${BASH_SOURCE[0]%/*}/terraria.sh" ;;
+  *761890*) exec "${BASH_SOURCE[0]%/*}/albion.sh" ;;
+  *2357570*) exec "${BASH_SOURCE[0]%/*}/overwatch.sh" ;;
+esac
+
+mkdir -p "${HOME}/programs/steam"
+# A game box owns the library lock. Steam UI cannot share it.
+for box in overwatch terraria albion; do
+  if docker inspect -f '{{.State.Running}}' "$box" 2>/dev/null | grep -qx true; then
+    echo "steam.sh: stopping $box (library lock)" >&2
+    docker stop "$box" >/dev/null 2>&1 || true
+  fi
+done
+docker compose -f "$COMPOSE" up -d --build --no-deps steam
+
+# Wait until the container is up.
+for _ in $(seq 1 30); do
+  if docker inspect -f '{{.State.Running}}' steam 2>/dev/null | grep -qx true; then
+    break
+  fi
+  sleep 0.2
+done
+
+if [ "$#" -eq 0 ]; then
+  exit 0
+fi
+
+steam_bin="$(tr -d '\n' <"${HOME}/.local/share/aurora/steam-bin" 2>/dev/null || true)"
+if [ -z "$steam_bin" ] || [ ! -x "$steam_bin" ]; then
+  steam_bin="$(command -v steam-fhs 2>/dev/null || true)"
+fi
+if [ -z "$steam_bin" ] || [ ! -x "$steam_bin" ]; then
+  echo "steam.sh: missing ~/.local/share/aurora/steam-bin (rebuild system with modules/steam.nix)" >&2
+  exit 1
+fi
+
+# Forward steam:// / args into the running container Steam.
+# shellcheck disable=SC2046
+exec docker exec -u app \
+  -e DISPLAY="${DISPLAY:-:0}" \
+  -e STEAM_CONTAINER=1 \
+  $(space_docker_env) \
+  steam \
+  "$steam_bin" -forcedesktopscaling 1 "$@"

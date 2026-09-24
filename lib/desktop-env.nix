@@ -1,7 +1,9 @@
 {
+  # Session + portal dark preference. Spaces / containers reuse this via lib/space.nix.
   gtkQt = {
     GTK_THEME = "WhiteSur-Dark";
     GTK_APPLICATION_PREFER_DARK_THEME = "1";
+    GTK_ICON_THEME = "WhiteSur-dark";
     QT_QPA_PLATFORMTHEME = "qt6ct";
     QT_STYLE_OVERRIDE = "kvantum";
     QT_QUICK_CONTROLS_STYLE = "Fusion";

@@ -153,6 +153,8 @@ PanelWindow {
                     id: clockModule
                     reveal: 1
                 }
+
+                Modules.NotificationCenter {}
             }
         }
     }

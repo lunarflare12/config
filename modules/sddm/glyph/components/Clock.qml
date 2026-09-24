@@ -52,7 +52,8 @@ Item {
             } else {
                 var ap = hours >= 12 ? "PM" : "AM";
                 hours = hours % 12;
-                if (hours === 0) hours = 12;
+                if (hours === 0)
+                    hours = 12;
                 var mStr12 = minutes < 10 ? "0" + minutes : "" + minutes;
                 root.timeStr = hours + ":" + mStr12;
             }

@@ -5,6 +5,7 @@ final: prev: {
   finder-pick = final.callPackage ./finder-pick.nix {
     script = ../home/dots/scripts/finder-pick.py;
   };
+  aurora-cursors = final.callPackage ./aurora-cursors.nix { };
   thunar-unwrapped = prev.thunar-unwrapped.overrideAttrs (old: {
     patches = (old.patches or [ ]) ++ [
       ./patches/thunar-hide-pathbar-root.patch

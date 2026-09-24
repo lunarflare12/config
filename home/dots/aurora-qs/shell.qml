@@ -3,7 +3,6 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
-import Quickshell.Wayland
 
 import "components"
 import "core" as Core
@@ -26,6 +25,22 @@ Scope {
 
         function close(): void {
             Core.Session.overviewOpen = false;
+        }
+    }
+
+    IpcHandler {
+        target: "preview"
+
+        function toggle(paths: string): void {
+            Core.Session.togglePreview(paths);
+        }
+
+        function show(paths: string): void {
+            Core.Session.openPreview(paths);
+        }
+
+        function close(): void {
+            Core.Session.closePreview();
         }
     }
 
@@ -238,6 +253,12 @@ Scope {
     Variants {
         model: Quickshell.screens
 
+        QuickLook {}
+    }
+
+    Variants {
+        model: Quickshell.screens
+
         DesktopOverlay {}
     }
 
@@ -255,8 +276,6 @@ Scope {
 
     Lock {}
     NetworkPopup {}
-    CpuPopup {}
-    MemoryPopup {}
     AudioPopup {}
     BrightnessPopup {}
     CalendarPopup {}

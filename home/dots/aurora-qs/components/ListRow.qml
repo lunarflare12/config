@@ -30,6 +30,7 @@ Rectangle {
     // Right-click gives window-space coordinates for the menu
     signal activated
     signal contextRequested(real mx, real my)
+    signal hoverMoved(real mx, real my)
 
     implicitHeight: root.subtitle !== "" ? Core.Theme.rowHeight : 34
 
@@ -159,38 +160,12 @@ Rectangle {
         }
     }
 
-    // Busy spinner (replaces the icon)
-
-    Text {
+    Spinner {
         anchors.centerIn: iconText
-
-        text: "\udb81\udd1e"
-
-        font.family: Core.Theme.iconFont
-        font.pixelSize: Core.Theme.iconSize
-        font.hintingPreference: Font.PreferNoHinting
-        renderType: Text.QtRendering
-
+        width: 16
+        height: 16
+        running: root.busy
         color: Core.Theme.accent
-
-        opacity: root.busy ? 1.0 : 0.0
-
-        Behavior on opacity {
-            NumberAnimation {
-                duration: 120
-                easing.type: Easing.OutQuint
-            }
-        }
-
-        RotationAnimator on rotation {
-            running: root.busy
-            loops: Animation.Infinite
-
-            from: 0
-            to: 360
-
-            duration: 900
-        }
     }
 
     // Title + subtitle
@@ -305,6 +280,12 @@ Rectangle {
         cursorShape: Qt.PointingHandCursor
 
         acceptedButtons: Qt.LeftButton | Qt.RightButton
+
+        onEntered: root.hoverMoved(mouseX, mouseY)
+        onPositionChanged: function (event) {
+            if (containsMouse)
+                root.hoverMoved(event.x, event.y);
+        }
 
         onClicked: function (event) {
             if (event.button === Qt.RightButton) {

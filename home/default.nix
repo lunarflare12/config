@@ -7,6 +7,22 @@
 }:
 
 {
+  imports = [
+    ./hyprland.nix
+    ./hyprlock.nix
+    ./kitty.nix
+    ./theme.nix
+    ./shell.nix
+    ./apps.nix
+    ./quickshell.nix
+    ./obs.nix
+    ./git.nix
+    ./insta360.nix
+    ./libreoffice.nix
+    ./thunar.nix
+    ./cursors.nix
+  ];
+
   home.stateVersion = params.stateVersion;
 
   home.pointerCursor = {
@@ -38,6 +54,9 @@
         "x-scheme-handler/https" = "${params.browser}.desktop";
         "x-scheme-handler/about" = "${params.browser}.desktop";
         "x-scheme-handler/unknown" = "${params.browser}.desktop";
+        "x-scheme-handler/tg" = "telegram-1.desktop";
+        "x-scheme-handler/telegram" = "telegram-1.desktop";
+        "x-scheme-handler/tonsite" = "telegram-1.desktop";
         "application/pdf" = "org.pwmt.zathura.desktop";
         "application/epub+zip" = "org.pwmt.zathura.desktop";
         "application/msword" = "libreoffice-writer.desktop";
@@ -63,7 +82,7 @@
     rm -f "$configHome/hypr/ow-vkfix-dir" "$configHome/hypr/ow-vkfix-dir.prev"
 
     wantsDir="$configHome/systemd/user/graphical-session.target.wants"
-    for name in opencluely.service obs-tray.service insta360-hold.service; do
+    for name in opencluely.service obs-tray.service insta360-hold.service telegram-link.service telegram-link.path; do
       rm -f "$wantsDir/$name"
       unit="$configHome/systemd/user/$name"
       if [ -e "$unit" ] && [ ! -L "$unit" ]; then
@@ -73,27 +92,17 @@
 
     # Hand-copied / old-generation desktops shadow HM wrappers (cursor.sh, idea-ultimate.sh).
     apps="$HOME/.local/share/applications"
-    for name in cursor.desktop idea-ultimate.desktop com.obsproject.Studio.desktop; do
+    for name in cursor.desktop idea-ultimate.desktop idea-oss.desktop com.obsproject.Studio.desktop steam.desktop \
+      google-chrome.desktop com.google.Chrome.desktop chrome-az.desktop chrome-hika.desktop \
+      firefox.desktop zen.desktop code.desktop code-url-handler.desktop obsidian.desktop \
+      openlens.desktop spotify.desktop telegram-1.desktop telegram-2.desktop \
+      libreoffice-startcenter.desktop libreoffice-writer.desktop libreoffice-calc.desktop \
+      libreoffice-impress.desktop libreoffice-draw.desktop; do
       target="$apps/$name"
       if [ -e "$target" ] && [ ! -L "$target" ]; then
         rm -f "$target"
       fi
     done
-  ''
-
-  imports = [
-    ./hyprland.nix
-    ./hyprlock.nix
-    ./kitty.nix
-    ./theme.nix
-    ./shell.nix
-    ./apps.nix
-    ./quickshell.nix
-    ./obs.nix
-    ./git.nix
-    ./insta360.nix
-    ./libreoffice.nix
-    ./thunar.nix
-    ./spicetify.nix
-  ];
+    rm -f "$apps"/*.desktop.hm.bak "$apps"/*.desktop.hm.bak.prev
+  '';
 }

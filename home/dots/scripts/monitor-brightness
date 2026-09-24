@@ -48,11 +48,62 @@ def run(cmd: list[str], timeout: float = 4.0) -> str:
     return out if out else err
 
 
-def ddcutil_run(args: list[str], timeout: float = 4.0) -> str:
+def i2c_name(bus: int) -> str:
+    path = f"/sys/bus/i2c/devices/i2c-{bus}/name"
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return fh.read().strip()
+    except OSError:
+        return ""
+
+
+def skip_buses(state: dict) -> list[int]:
+    skip: set[int] = set()
+    for raw in state.get("ddc_skip") or []:
+        try:
+            skip.add(int(raw))
+        except (TypeError, ValueError):
+            continue
+    sys_i2c = "/sys/bus/i2c/devices"
+    try:
+        entries = os.listdir(sys_i2c)
+    except OSError:
+        entries = []
+    for ent in entries:
+        if not ent.startswith("i2c-"):
+            continue
+        try:
+            bus = int(ent.split("-", 1)[1])
+        except ValueError:
+            continue
+        name = i2c_name(bus)
+        if re.search(r"SMBus|DesignWare|aux hw", name, re.I):
+            skip.add(bus)
+    return sorted(skip)
+
+
+def remember_skip(state: dict, buses: list[int], extra: str = "") -> None:
+    skip = set(skip_buses(state))
+    for bus in buses:
+        skip.add(int(bus))
+    for match in re.finditer(r"/dev/i2c-(\d+)", extra or ""):
+        skip.add(int(match.group(1)))
+    state["ddc_skip"] = sorted(skip)
+
+
+def ddcutil_cmd(args: list[str], state: dict | None = None) -> list[str]:
+    cmd = ["ddcutil", "--noconfig", "--disable-flock"]
+    for bus in skip_buses(state or {}):
+        cmd.extend(["--ignore-bus", str(bus)])
+    cmd.extend(args)
+    return cmd
+
+
+def ddcutil_run(args: list[str], timeout: float = 4.0, state: dict | None = None) -> str:
     os.makedirs(os.path.dirname(LOCK_PATH), exist_ok=True)
     with open(LOCK_PATH, "a+", encoding="utf-8") as lock:
         fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
-        return run(["ddcutil", *args], timeout=timeout)
+        return run(ddcutil_cmd(args, state), timeout=timeout)
 
 
 def load_state() -> dict:
@@ -153,15 +204,18 @@ def friendly_label(name: str, description: str) -> str:
     return " ".join(kept) if kept else name
 
 
-def parse_ddc_detect(text: str) -> dict[str, int | None]:
-    mapping: dict[str, int | None] = {}
+def parse_ddc_detect(text: str) -> tuple[dict[str, int], list[int]]:
+    mapping: dict[str, int] = {}
+    invalid: list[int] = []
     bus: int | None = None
     connector: str | None = None
     valid = False
 
     def commit() -> None:
-        if connector:
-            mapping[connector] = bus if valid and bus is not None else None
+        if valid and connector and bus is not None:
+            mapping[connector] = bus
+        elif bus is not None:
+            invalid.append(bus)
 
     for raw in text.splitlines():
         line = raw.strip()
@@ -178,34 +232,40 @@ def parse_ddc_detect(text: str) -> dict[str, int | None]:
         if match:
             connector = match.group(1).strip()
     commit()
-    return mapping
+    return mapping, invalid
 
 
-def discover_ddc(state: dict) -> dict:
-    text = ddcutil_run(["detect", "--brief"], timeout=16.0)
-    mapping = parse_ddc_detect(text)
+def discover_ddc(state: dict, force: bool = False) -> dict:
+    checked = int(state.get("ddc_checked") or 0)
+    cached = state.get("ddc") or {}
+    if not force and cached and time.time() - checked < 3600:
+        return state
+
+    text = ddcutil_run(["detect", "--brief", "--sleep-multiplier", ".15"], timeout=8.0, state=state)
+    mapping, invalid = parse_ddc_detect(text)
+    remember_skip(state, invalid)
     ddc = {}
     for name, bus in mapping.items():
-        if bus is None:
+        current = read_ddc(bus, state)
+        if current is None:
+            remember_skip(state, [bus])
             continue
-        current = read_ddc(bus)
         ddc[name] = {"bus": int(bus)}
         displays = state.setdefault("displays", {})
         entry = displays.get(name) or {}
-        if current is not None:
-            entry["percent"] = current
-        elif "percent" not in entry:
-            entry["percent"] = 100
+        entry["percent"] = current
         entry["backend"] = "ddc"
         displays[name] = entry
     state["ddc"] = ddc
+    state["ddc_checked"] = int(time.time())
     return state
 
 
-def read_ddc(bus: int) -> int | None:
+def read_ddc(bus: int, state: dict | None = None) -> int | None:
     text = ddcutil_run(
         ["--bus", str(bus), "--brief", "--sleep-multiplier", ".2", "getvcp", "10"],
         timeout=5.0,
+        state=state,
     )
     match = re.search(r"VCP\s+10\s+\S+\s+(\d+)\s+(\d+)", text)
     if not match:
@@ -215,7 +275,7 @@ def read_ddc(bus: int) -> int | None:
     return clamp(round(cur * 100 / maximum), DDC_MIN, DDC_MAX)
 
 
-def set_ddc(bus: int, percent: int) -> None:
+def set_ddc(bus: int, percent: int, state: dict | None = None) -> None:
     value = clamp(percent, DDC_MIN, DDC_MAX)
     ddcutil_run(
         [
@@ -230,6 +290,7 @@ def set_ddc(bus: int, percent: int) -> None:
             str(value),
         ],
         timeout=5.0,
+        state=state,
     )
 
 
@@ -337,7 +398,7 @@ def apply_percent(state: dict, name: str, percent: int, persist: bool = True) ->
     # Never touch hyprsunset here: gamma is global and blacks out every monitor.
     # Per-output dim is drawn by Aurora (BrightnessDim). DDC is best-effort.
     if kind == "ddc" and bus is not None:
-        set_ddc(bus, value)
+        set_ddc(bus, value, state)
         stored[name] = {"percent": value, "backend": "ddc"}
     else:
         stored[name] = {"percent": value, "backend": "gamma"}

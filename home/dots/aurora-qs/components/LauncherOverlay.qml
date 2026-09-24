@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 
 import Quickshell
 import Quickshell.Wayland
@@ -141,12 +142,23 @@ PanelWindow {
             cache: true
             mipmap: true
             smooth: true
-            visible: status === Image.Ready
+            visible: false
+        }
+
+        MultiEffect {
+            anchors.fill: parent
+            source: wallImage
+            visible: wallImage.status === Image.Ready
+            autoPaddingEnabled: false
+            blurEnabled: true
+            blurMax: 72
+            blur: 1.0
+            saturation: 0.9
         }
 
         Rectangle {
             anchors.fill: parent
-            color: Qt.rgba(0.04, 0.04, 0.06, wallImage.status === Image.Ready ? 0.28 : 0)
+            color: Qt.rgba(0.04, 0.04, 0.06, wallImage.status === Image.Ready ? 0.34 : 0)
         }
     }
 

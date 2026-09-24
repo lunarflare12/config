@@ -175,8 +175,9 @@ in
         <icon>view-fullscreen</icon>
         <name>Quick Look</name>
         <unique-id>aurora-finder-preview</unique-id>
-        <command>${finderAction} preview %f</command>
+        <command>${finderAction} preview %F</command>
         <description>Preview the selected item</description>
+        <shortcut>space</shortcut>
         <patterns>*</patterns>
         <directories/>
         <audio-files/>
@@ -492,5 +493,22 @@ in
     menu separator {
       margin: 5px 10px;
     }
+  '';
+
+  home.activation.finderQuickLookAccel = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+    accels="${config.xdg.configHome}/Thunar/accels.scm"
+    mkdir -p "$(dirname "$accels")"
+    touch "$accels"
+    bind_line() {
+      local path=$1
+      if grep -qF "$path" "$accels"; then
+        sed -i "s|;\\? *(gtk_accel_path \"$path\".*|(gtk_accel_path \"$path\" \"space\")|" "$accels"
+      else
+        printf '(gtk_accel_path "%s" "space")\n' "$path" >> "$accels"
+      fi
+    }
+    bind_line "<Actions>/ThunarActionManager/uca-action-aurora-finder-preview"
+    bind_line "<Actions>/ThunarStandardView/uca-action-aurora-finder-preview"
+    bind_line "<Actions>/ThunarWindow/uca-action-aurora-finder-preview"
   '';
 }

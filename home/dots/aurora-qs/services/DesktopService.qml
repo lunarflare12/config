@@ -73,11 +73,7 @@ QtObject {
     }
 
     function gameIcon(item) {
-        const blob = [
-            item && item.name ? item.name : "",
-            item && item.desktopIcon ? item.desktopIcon : "",
-            item && item.path ? item.path : ""
-        ].join(" ").toLowerCase();
+        const blob = [item && item.name ? item.name : "", item && item.desktopIcon ? item.desktopIcon : "", item && item.path ? item.path : ""].join(" ").toLowerCase();
 
         if (blob.indexOf("terraria") !== -1 || blob.indexOf("105600") !== -1)
             return "file://" + Quickshell.shellDir + "/assets/games/terraria.png";
@@ -242,21 +238,13 @@ QtObject {
     readonly property string trashIcon: Quickshell.iconPath(root.trashFull ? "user-trash-full" : "user-trash", "user-trash")
 
     function openTrash() {
-        Quickshell.execDetached([
-            "sh",
-            "-c",
-            "mkdir -p \"$HOME/.local/share/Trash/files\" \"$HOME/.local/share/Trash/info\"; fm=\"$HOME/.config/scripts/finder.sh\"; if gio list trash:// >/dev/null 2>&1; then exec \"$fm\" trash:///; fi; exec \"$fm\" \"$HOME/.local/share/Trash/files\""
-        ]);
+        Quickshell.execDetached(["sh", "-c", "mkdir -p \"$HOME/.local/share/Trash/files\" \"$HOME/.local/share/Trash/info\"; fm=\"$HOME/.config/scripts/finder.sh\"; if gio list trash:// >/dev/null 2>&1; then exec \"$fm\" trash:///; fi; exec \"$fm\" \"$HOME/.local/share/Trash/files\""]);
     }
 
     function emptyTrash() {
         if (!root.trashFull)
             return;
-        Quickshell.execDetached([
-            "sh",
-            "-c",
-            "if gio trash --empty >/dev/null 2>&1; then exit 0; fi; rm -rf \"$HOME/.local/share/Trash/files\" \"$HOME/.local/share/Trash/info\"; mkdir -p \"$HOME/.local/share/Trash/files\" \"$HOME/.local/share/Trash/info\""
-        ]);
+        Quickshell.execDetached(["sh", "-c", "if gio trash --empty >/dev/null 2>&1; then exit 0; fi; rm -rf \"$HOME/.local/share/Trash/files\" \"$HOME/.local/share/Trash/info\"; mkdir -p \"$HOME/.local/share/Trash/files\" \"$HOME/.local/share/Trash/info\""]);
         root.trashFull = false;
         trashTimer.restart();
     }
@@ -333,13 +321,7 @@ QtObject {
     }
 
     property Process scanProcess: Process {
-        command: [
-            "sh",
-            "-c",
-            "mkdir -p \"$1\" && find \"$1\" -mindepth 1 -maxdepth 1 ! -name '.*' -print0 | while IFS= read -r -d '' p; do n=${p##*/}; if [ -d \"$p\" ]; then printf 'd\\t%s\\t%s\\t\\t\\n' \"$n\" \"$p\"; else icon=; exec=; case \"$n\" in *.desktop) icon=$(awk -F= '/^Icon=/{print substr($0, index($0, \"=\")+1); exit}' \"$p\"); exec=$(awk -F= '/^Exec=/{print substr($0, index($0, \"=\")+1); exit}' \"$p\");; esac; printf 'f\\t%s\\t%s\\t%s\\t%s\\n' \"$n\" \"$p\" \"$icon\" \"$exec\"; fi; done | LC_ALL=C sort -f",
-            "sh",
-            root.desktopPath
-        ]
+        command: ["sh", "-c", "mkdir -p \"$1\" && find \"$1\" -mindepth 1 -maxdepth 1 ! -name '.*' -print0 | while IFS= read -r -d '' p; do n=${p##*/}; if [ -d \"$p\" ]; then printf 'd\\t%s\\t%s\\t\\t\\n' \"$n\" \"$p\"; else icon=; exec=; case \"$n\" in *.desktop) icon=$(awk -F= '/^Icon=/{print substr($0, index($0, \"=\")+1); exit}' \"$p\"); exec=$(awk -F= '/^Exec=/{print substr($0, index($0, \"=\")+1); exit}' \"$p\");; esac; printf 'f\\t%s\\t%s\\t%s\\t%s\\n' \"$n\" \"$p\" \"$icon\" \"$exec\"; fi; done | LC_ALL=C sort -f", "sh", root.desktopPath]
 
         stdout: StdioCollector {
             onStreamFinished: root.ingest(this.text)
@@ -375,11 +357,7 @@ QtObject {
     }
 
     property Process trashProc: Process {
-        command: [
-            "sh",
-            "-c",
-            "test -n \"$(ls -A \"$HOME/.local/share/Trash/files\" 2>/dev/null)\" && echo 1 || echo 0"
-        ]
+        command: ["sh", "-c", "test -n \"$(ls -A \"$HOME/.local/share/Trash/files\" 2>/dev/null)\" && echo 1 || echo 0"]
         stdout: StdioCollector {
             onStreamFinished: root.trashFull = this.text.trim() === "1"
         }

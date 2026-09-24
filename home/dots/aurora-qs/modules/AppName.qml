@@ -1,5 +1,4 @@
 import QtQuick
-import Quickshell
 import Quickshell.Hyprland
 
 import "../core" as Core
@@ -14,24 +13,16 @@ Item {
     clip: true
 
     readonly property string appTitle: {
+        const _ = Core.Session.fsTick;
+        const liveClass = Core.Session.activeWindowClass;
+        const liveTitle = Core.Session.activeWindowTitle;
         const t = Hyprland.activeToplevel;
-        if (!t)
-            return "Finder";
-        const ipc = t.lastIpcObject || {};
-        const cls = String(ipc.class || ipc.initialClass || "");
-        const entries = Services.AppsService.entries || [];
-        const needle = cls.toLowerCase();
-        if (needle.length) {
-            for (let i = 0; i < entries.length; i++) {
-                const e = entries[i];
-                const id = String(e.id || "").toLowerCase();
-                const start = String(e.startupClass || "").toLowerCase();
-                const name = String(e.name || "");
-                if ((start.length && needle.indexOf(start) !== -1) || id.indexOf(needle) !== -1)
-                    return name;
-            }
-        }
-        const title = String(t.title || ipc.title || "");
+        const ipc = t && t.lastIpcObject ? t.lastIpcObject : {};
+        const cls = String(liveClass || ipc.class || ipc.initialClass || "");
+        const named = Services.AppsService.nameForClass(cls, "");
+        if (named && named !== cls)
+            return named;
+        const title = String(liveTitle || (t && t.title) || ipc.title || "");
         if (title.length)
             return title;
         if (cls.length)

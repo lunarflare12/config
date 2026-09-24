@@ -1,3 +1,6 @@
-disabled = [
-  "repeated_keys"
-]
+# repeated_keys wants `xdg = { configFile.a = ...; configFile.b = ...; }` in
+# place of repeated `xdg.configFile.a` paths. Dotted paths are the idiom this
+# repo and home-manager use throughout, and the lint also fires on the
+# generated hardware-configuration.nix, so it is off. Every other lint is on.
+disabled = ["repeated_keys"]
+ignore = [".direnv", ".git"]

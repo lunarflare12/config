@@ -1,4 +1,5 @@
 {
+  config,
   lib,
   pkgs,
   host,
@@ -8,6 +9,32 @@
 let
   shaderCacheDir = "/home/${host.userName}/.cache/steam-shadercache";
   dxvkCacheDir = "/home/${host.userName}/.cache/dxvk";
+  scripts = "/home/${host.userName}/.config/scripts";
+  steamBinFile = "/home/${host.userName}/.local/share/aurora/steam-bin";
+
+  # Host PATH must not expose the real Steam client — only the container launcher.
+  steamHostShim = (pkgs.writeShellScriptBin "steam" ''
+    exec ${scripts}/steam.sh "$@"
+  '').overrideAttrs (old: {
+    meta = (old.meta or { }) // {
+      priority = 0;
+    };
+  });
+
+  # Hide vendor steam.desktop from /run/current-system (HM owns the real entry).
+  steamDesktopHide = pkgs.runCommand "steam-desktop-nodisplay" {
+    meta.priority = 0;
+  } ''
+    mkdir -p "$out/share/applications"
+    cat >"$out/share/applications/steam.desktop" <<'EOF'
+    [Desktop Entry]
+    Name=Steam
+    Type=Application
+    NoDisplay=true
+    Hidden=true
+    Exec=true
+    EOF
+  '';
 in
 lib.mkIf (host.enabled "steam") {
   users.groups.steam = { };
@@ -38,6 +65,7 @@ lib.mkIf (host.enabled "steam") {
         export __GL_VRR_ALLOWED=0
         export __GL_SYNC_TO_VBLANK=0
         export __GL_SHADER_DISK_CACHE=1
+        # Never let the NVIDIA driver cull the disk cache on its own.
         export __GL_SHADER_DISK_CACHE_SKIP_CLEANUP=1
         export __GL_SHADER_DISK_CACHE_SIZE=34359738368
         # Session GBM_BACKEND=nvidia-drm breaks Steam CEF on XWayland (black window).
@@ -47,6 +75,23 @@ lib.mkIf (host.enabled "steam") {
       '';
     };
   };
+
+  # steam-fhs → real client; `steam` → container shim (priority 0 beats programs.steam).
+  environment.systemPackages = [
+    steamHostShim
+    steamDesktopHide
+    (pkgs.runCommand "steam-fhs-bin" { } ''
+      mkdir -p "$out/bin"
+      ln -s ${lib.getExe config.programs.steam.package} "$out/bin/steam-fhs"
+    '')
+  ];
+
+  # Absolute FHS path for containers/steam (never the host shim).
+  system.activationScripts.aurora-steam-bin = ''
+    mkdir -p /home/${host.userName}/.local/share/aurora
+    printf '%s\n' ${lib.escapeShellArg (lib.getExe config.programs.steam.package)} > ${steamBinFile}
+    chown ${host.userName}:users ${steamBinFile} /home/${host.userName}/.local/share/aurora
+  '';
 
   # Steam treats a library as read-only if any mount of that block device
   # is ro (/nix/store on the root disk). Overlay gives /steam a new device
@@ -85,5 +130,10 @@ lib.mkIf (host.enabled "steam") {
     "d /var/lib/steam-work 0700 root root -"
     "d ${shaderCacheDir} 0755 ${host.userName} users -"
     "d ${dxvkCacheDir} 0755 ${host.userName} users -"
+    # Exclude from systemd-tmpfiles-clean. Never age-delete shader/DXVK caches.
+    "x ${shaderCacheDir}"
+    "x ${shaderCacheDir}/*"
+    "x ${dxvkCacheDir}"
+    "x ${dxvkCacheDir}/*"
   ];
 }

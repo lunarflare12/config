@@ -100,8 +100,7 @@ QtObject {
             root.downloadPercent = Number(data.downloadPercent) || 0;
             root.error = data.error || "";
             root.checkedAt = Number(data.checkedAt) || 0;
-        } catch (e) {
-        }
+        } catch (e) {}
     }
 
     function refresh() {

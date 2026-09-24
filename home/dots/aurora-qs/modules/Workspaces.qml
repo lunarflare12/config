@@ -1,11 +1,9 @@
 import QtQuick
-
-import Quickshell
 import Quickshell.Hyprland
 
+import "../components" as Components
 import "../core" as Core
 import "../services" as Services
-import "../components" as Components
 
 Item {
     id: root
@@ -139,27 +137,12 @@ Item {
         }
     }
 
-    function windowsOn(globalId) {
-        const out = [];
-        const tops = (Hyprland.toplevels && Hyprland.toplevels.values) ? Hyprland.toplevels.values : [];
-        for (let i = 0; i < tops.length; i++) {
-            const t = tops[i];
-            const ipc = t.lastIpcObject || {};
-            if (ipc.mapped === false || ipc.hidden === true)
-                continue;
-            const id = t.workspace ? Number(t.workspace.id) : Number(ipc.workspace && ipc.workspace.id);
-            if (id !== globalId)
-                continue;
-            out.push(t);
-        }
-        return out;
-    }
-
     function occupiedAt(localWs) {
         if (localWs < 1 || localWs > root.count)
             return false;
         const _ = (Hyprland.toplevels && Hyprland.toplevels.values) ? Hyprland.toplevels.values.length : 0;
-        return root.windowsOn(root.base + localWs).length > 0;
+        const __ = Core.Session.clientsTick;
+        return Core.Session.windowsOnWorkspace(root.base + localWs).length > 0;
     }
 
     function iconToplevel(wins) {
@@ -252,7 +235,7 @@ Item {
                 readonly property int workspace: root.base + cell.localWs
                 readonly property var windows: {
                     const _ = (Hyprland.toplevels && Hyprland.toplevels.values) ? Hyprland.toplevels.values.length : 0;
-                    return root.windowsOn(cell.workspace);
+                    return Core.Session.windowsOnWorkspace(cell.workspace);
                 }
                 readonly property bool occupied: cell.windows.length > 0
                 readonly property bool focused: root.activeGlobal === cell.workspace

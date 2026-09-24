@@ -1,10 +1,8 @@
 import QtQuick
 
-import Quickshell
-
+import "../components" as Components
 import "../core" as Core
 import "../services" as Services
-import "../components" as Components
 
 // AudioPopup
 
@@ -129,7 +127,7 @@ Components.PopupSurface {
 
                             anchors.left: parent.left
                             anchors.verticalCenter: parent.verticalCenter
-            name: popup.svc.iconName
+                            name: popup.svc.iconName
 
                             onNameChanged: outPop.restart()
 
@@ -395,7 +393,7 @@ Components.PopupSurface {
 
                             anchors.left: parent.left
                             anchors.verticalCenter: parent.verticalCenter
-            name: popup.svc.micIconName
+                            name: popup.svc.micIconName
 
                             MouseArea {
                                 anchors.fill: parent

@@ -20,6 +20,9 @@ Singleton {
     property bool interacting: false
     property bool dragging: false
 
+    // Displays waiting for a debounced ddcutil write.
+    property var pendingTargets: []
+
     readonly property int stepSize: 5
     readonly property bool popupOpen: Core.PopupManager.isOpen("brightness")
     readonly property bool available: root.displayList.length > 0
@@ -101,10 +104,12 @@ Singleton {
         root.markInteraction();
         Core.OsdController.show("brightness", clamped / 100, false);
 
-        applyDebounce.targets = [{
-            name: target,
-            percent: clamped
-        }];
+        root.pendingTargets = [
+            {
+                name: target,
+                percent: clamped
+            }
+        ];
         if (commit)
             root.flushDdc();
         else
@@ -132,7 +137,7 @@ Singleton {
         root.markInteraction();
         Core.OsdController.show("brightness", clamped / 100, false);
 
-        applyDebounce.targets = targets;
+        root.pendingTargets = targets;
         if (commit)
             root.flushDdc();
         else
@@ -178,18 +183,12 @@ Singleton {
 
     function flushDdc() {
         applyDebounce.stop();
-        const targets = applyDebounce.targets || [];
+        const targets = root.pendingTargets;
         for (let i = 0; i < targets.length; i++) {
             const t = targets[i];
             if (!t || !t.name)
                 continue;
-            Quickshell.execDetached([
-                root.ctl,
-                "-d",
-                t.name,
-                "set",
-                String(t.percent) + "%"
-            ]);
+            Quickshell.execDetached([root.ctl, "-d", t.name, "set", String(t.percent) + "%"]);
         }
         persistDebounce.restart();
     }
@@ -250,8 +249,7 @@ Singleton {
             return;
         try {
             root.ingest(JSON.parse(raw.split("\n")[0]));
-        } catch (e) {
-        }
+        } catch (e) {}
     }
 
     function persist() {
@@ -271,7 +269,7 @@ Singleton {
         }
         stateFile.setText(JSON.stringify({
             selected: root.selectedName,
-            gamma: 100,
+            gamma: 140,
             displays: displays,
             ddc: ddc
         }));
@@ -292,7 +290,6 @@ Singleton {
     }
 
     property Timer applyDebounce: Timer {
-        property var targets: []
         interval: 80
         repeat: false
         onTriggered: root.flushDdc()
@@ -314,7 +311,7 @@ Singleton {
     }
 
     Component.onCompleted: {
-        Quickshell.execDetached(["hyprctl", "hyprsunset", "gamma", "100"]);
+        Quickshell.execDetached(["hyprctl", "hyprsunset", "gamma", "140"]);
         discoverProc.running = true;
     }
 }

@@ -55,37 +55,11 @@
       fontSizeSmall = 11;
       fontSizeLarge = 15;
 
-      # Opaque panels — no wallpaper showing through the bar or popups.
-
-      glassOpacity = 1.0;
-      surfaceOpacity = 1.0;
-      glassLuminosity = 0.05;
-      glassGradientOpacity = 0.0;
-      glassGrainOpacity = 0.0;
-
-      # Flat glass.
-      glassSpecularOpacity = 0.0;
-      glassLensOpacity = 0.0;
-      glassDepthOpacity = 0.0;
-      glassRimOpacity = 0.0;
-      glassClarity = 0.0;
-
-      shadowOpacity = 0.40;
-
-      windowOpacity = 0.96;
-
       terminalOpacity = 0.78;
-
-      editorFloatBlend = 12;
 
       # CLOCK
 
-      clock = {
-        hour = "foreground";
-        separator = "foreground";
-        minute = "foreground";
-        second = "foregroundFaint";
-      };
+      clock.hour = "foreground";
     };
   };
 
@@ -106,11 +80,9 @@
       colors = {
 
         background = "#1C1C1E";
-        backgroundDark = "#000000";
 
         surface = "#2C2C2E";
         surfaceHover = "#3A3A3C";
-        surfaceActive = "#48484A";
 
         border = "#545458";
         borderFocus = "#0A84FF";
@@ -165,12 +137,10 @@
 
         # Base
         background = "#1E1E2E";
-        backgroundDark = "#181825";
 
         # Surfaces
         surface = "#313244";
         surfaceHover = "#45475A";
-        surfaceActive = "#585B70";
 
         # Borders
         border = "#45475A";
@@ -230,12 +200,10 @@
 
         # Base
         background = "#1A1B26";
-        backgroundDark = "#16161E";
 
         # Surfaces
         surface = "#24283B";
         surfaceHover = "#292E42";
-        surfaceActive = "#3B4261";
 
         # Borders
         border = "#3B4261";

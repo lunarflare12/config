@@ -8,6 +8,7 @@ FocusScope {
     id: picker
 
     readonly property bool open: Core.PopupManager.isOpen("wallpaper") || Core.PopupManager.isOpen("theme") || Core.PopupManager.isOpen("cursor")
+
     property bool hosted: false
     property int cardWidth: 0
     property int viewHeight: 0
@@ -42,8 +43,8 @@ FocusScope {
             Core.PopupManager.close();
     }
 
-    function shade(palette, key, fallback) {
-        const value = palette ? palette[key] : "";
+    function shade(colors, key, fallback) {
+        const value = colors ? colors[key] : "";
         return (value && String(value).length > 0) ? value : fallback;
     }
 
@@ -434,7 +435,7 @@ FocusScope {
                 required property int index
                 readonly property bool selected: cell.index === picker.selectedIndex
                 readonly property bool applied: picker.isApplied(cell.modelData)
-                readonly property var palette: cell.modelData && cell.modelData.colors ? cell.modelData.colors : ({})
+                readonly property var swatch: cell.modelData && cell.modelData.colors ? cell.modelData.colors : ({})
 
                 width: picker.tileW
                 height: picker.tileH + 26
@@ -446,7 +447,7 @@ FocusScope {
                     anchors.top: parent.top
                     radius: 8
                     clip: true
-                    color: picker.showingThemes ? picker.shade(cell.palette, "background", "#1c1c1e") : Qt.rgba(0.08, 0.08, 0.1, 0.72)
+                    color: picker.showingThemes ? picker.shade(cell.swatch, "background", "#1c1c1e") : Qt.rgba(0.08, 0.08, 0.1, 0.72)
                     border.width: (cell.selected || cell.applied) ? 2 : 0
                     border.color: cell.selected ? picker.accent : Qt.rgba(1, 1, 1, 0.35)
 
@@ -497,7 +498,7 @@ FocusScope {
                             anchors.right: parent.right
                             anchors.top: parent.top
                             height: 20
-                            color: picker.shade(cell.palette, "surface", "#2c2c2e")
+                            color: picker.shade(cell.swatch, "surface", "#2c2c2e")
 
                             Rectangle {
                                 anchors.left: parent.left
@@ -506,7 +507,7 @@ FocusScope {
                                 width: 24
                                 height: 7
                                 radius: 3
-                                color: picker.shade(cell.palette, "accent", picker.accent)
+                                color: picker.shade(cell.swatch, "accent", picker.accent)
                             }
                         }
 
@@ -521,14 +522,14 @@ FocusScope {
                                 width: 68
                                 height: 5
                                 radius: 3
-                                color: picker.shade(cell.palette, "text", "#f5f5f7")
+                                color: picker.shade(cell.swatch, "text", "#f5f5f7")
                             }
 
                             Rectangle {
                                 width: 44
                                 height: 5
                                 radius: 3
-                                color: picker.shade(cell.palette, "textMuted", "#98989d")
+                                color: picker.shade(cell.swatch, "textMuted", "#98989d")
                             }
                         }
 
@@ -547,7 +548,7 @@ FocusScope {
                                     width: 9
                                     height: 9
                                     radius: 5
-                                    color: picker.shade(cell.palette, modelData, "#3a3a3c")
+                                    color: picker.shade(cell.swatch, modelData, "#3a3a3c")
                                 }
                             }
                         }

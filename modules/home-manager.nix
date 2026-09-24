@@ -4,6 +4,7 @@
   inputs,
   host,
   desktopEnv,
+  space,
   ...
 }:
 
@@ -19,6 +20,7 @@
         inputs
         host
         desktopEnv
+        space
         ;
     };
     users = lib.mapAttrs (_: _: import ../home) params.users;

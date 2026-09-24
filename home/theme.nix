@@ -14,6 +14,20 @@ let
   env = desktopEnv;
   defaultTheme = themeData.global.activeTheme;
   cursor = themeData.global.cursor;
+  # WhiteSur inherited breeze/hicolor only — breeze icons were never
+  # installed, so GTK4/libadwaita apps (Satty, etc.) drew empty buttons.
+  whitesurIcons = pkgs.whitesur-icon-theme.overrideAttrs (old: {
+    postFixup = (old.postFixup or "") + ''
+      for t in "$out"/share/icons/WhiteSur*; do
+        [ -f "$t/index.theme" ] || continue
+        if grep -q '^Inherits=' "$t/index.theme"; then
+          sed -i 's/^Inherits=.*/Inherits=Adwaita,breeze,hicolor/' "$t/index.theme"
+        else
+          printf '\nInherits=Adwaita,breeze,hicolor\n' >> "$t/index.theme"
+        fi
+      done
+    '';
+  });
 
   themePayload =
     themeId:
@@ -288,7 +302,7 @@ in
     };
     iconTheme = {
       name = "WhiteSur-dark";
-      package = pkgs.whitesur-icon-theme;
+      package = whitesurIcons;
     };
     cursorTheme = {
       inherit (cursor) name;
@@ -317,6 +331,12 @@ in
       @import url("${config.home.homeDirectory}/.config/aurora/gtk-colors.css");
     '';
   };
+
+  home.packages = [
+    pkgs.adwaita-icon-theme
+    pkgs.kdePackages.breeze-icons
+  ]
+  ++ lib.optional (pkgs ? adwaita-icon-theme-legacy) pkgs.adwaita-icon-theme-legacy;
 
   home.sessionVariables = env.gtkQt // {
     XCURSOR_THEME = cursor.name;

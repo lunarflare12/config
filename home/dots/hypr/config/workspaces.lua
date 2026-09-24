@@ -1,4 +1,4 @@
-local WS_PER = 10
+local WS_PER = 6
 local MONITORS = { "DP-1", "HDMI-A-1" }
 
 for i, name in ipairs(MONITORS) do
@@ -7,7 +7,7 @@ for i, name in ipairs(MONITORS) do
         hl.workspace_rule({
             workspace = tostring(base + n),
             monitor = name,
-            persistent = false,
+            persistent = true,
             default = n == 1,
         })
     end

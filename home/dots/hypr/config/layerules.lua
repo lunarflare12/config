@@ -87,6 +87,13 @@ hl.layer_rule({
 })
 
 hl.layer_rule({
+    name = "aurora-preview",
+    match = { namespace = "^aurora-preview$" },
+    blur = false,
+    order = 17,
+})
+
+hl.layer_rule({
     name = "aurora-shaders",
     match = { namespace = "^aurora-shaders$" },
     blur = false,

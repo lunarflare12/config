@@ -8,7 +8,7 @@ if not ok_programs or type(programs) ~= "table" then
     }
 end
 local mod = "SUPER"
-local WS_PER = 10
+local WS_PER = 6
 local MONITORS = { "DP-1", "HDMI-A-1" }
 
 local function cursor_monitor()
@@ -73,9 +73,7 @@ hl.bind(mod .. " + RIGHT", function()
     local local_n = ((id - 1) % WS_PER)
     go_workspace(base + ((local_n + 1) % WS_PER) + 1)
 end)
-hl.bind("PRINT", hl.dsp.exec_cmd(programs.scripts .. "/screenshot.sh output"))
-hl.bind(mod .. " + SHIFT + S", hl.dsp.exec_cmd(programs.scripts .. "/screenshot.sh region"))
-hl.bind(mod .. " + PRINT", hl.dsp.exec_cmd(programs.scripts .. "/screenshot.sh region"))
+hl.bind(mod .. " + S", hl.dsp.exec_cmd("qs ipc call screenshot toggle"))
 hl.bind(mod .. " + P", hl.dsp.exec_cmd("hyprpicker --autocopy"))
 hl.bind(mod .. " + Q", hl.dsp.window.close())
 hl.bind(mod .. " + SHIFT + Q", hl.dsp.window.kill())

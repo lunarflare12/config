@@ -159,9 +159,9 @@ PanelWindow {
 
                 anchors.margins: Core.Theme.padding
 
-                implicitHeight: contentLoader.item ? contentLoader.item.implicitHeight : 0
+                implicitHeight: contentLoader.item ? (contentLoader.item as Item).implicitHeight : 0
 
-                height: implicitHeight
+                height: contentHost.implicitHeight
 
                 opacity: root.open ? 1.0 : 0.0
 

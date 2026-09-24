@@ -16,23 +16,17 @@ PanelWindow {
     anchors.bottom: true
     anchors.right: true
 
-    margins.bottom: Core.Theme.dockReserve + 8
-    margins.right: 6
+    margins.bottom: 8
+    margins.right: 16
 
-    readonly property var toasts: Services.NotificationServer.toasts
+    readonly property var toastModel: Services.NotificationServer.toastModel
 
-    readonly property int toastWidth: 360
+    readonly property int toastWidth: 380
 
     readonly property int toastGutter: 4
 
-    readonly property int toastSpacing: 6
+    readonly property int toastSpacing: 8
 
-    // Headroom for maxVisible cards at their tallest. A card carrying action
-    // buttons and an open reply field is roughly twice the height of a bare one,
-    // and at 640 the fourth card in a full stack was clipped off the top.
-    //
-    // Costs nothing: the window is transparent and its input is masked to the
-    // card stack, so the unused area is neither drawn nor clickable.
     readonly property int maxHeight: 900
 
     implicitWidth: root.toastWidth + root.toastGutter * 2 + 14
@@ -44,23 +38,75 @@ PanelWindow {
     WlrLayershell.namespace: "aurora-notifications"
     WlrLayershell.layer: WlrLayer.Overlay
 
-    // A toast must never steal keyboard focus from whatever you are typing in.
-    //
-    // The one exception is a reply field the user explicitly opened, and even then
-    // it is OnDemand rather than Exclusive: focus moves when the field is clicked,
-    // never because a notification arrived.
     WlrLayershell.keyboardFocus: Services.NotificationServer.replyTarget !== null ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
 
     exclusionMode: ExclusionMode.Ignore
 
-    // Deliberately not gated on do-not-disturb. Suppression happens in
-    // NotificationServer.showToast, which lets critical alerts through, and
-    // hiding the whole layer here would override that and silence them.
-    visible: root.toasts.length > 0 && !Core.PopupManager.isOpen("notifications")
+    visible: root.toastModel.count > 0 && !Core.PopupManager.isOpen("notifications")
 
-    // Only the actual toast stack receives input.
     mask: Region {
         item: column
+    }
+
+    function toneOf(n, critical) {
+        if (critical)
+            return "error";
+        let text = "";
+        try {
+            text = String(n.summary || "") + " " + String(n.body || "");
+        } catch (e) {}
+        text = text.toLowerCase();
+        if (/fail|error|couldn't|could not|denied/.test(text))
+            return "error";
+        if (/warn|attention|review/.test(text))
+            return "warning";
+        if (/stop|start|restart|removed|resumed|paused|completed|saved|success|toggled/.test(text))
+            return "success";
+        return "info";
+    }
+
+    function palette(tone) {
+        if (tone === "error")
+            return {
+                track: "#1A0C0E",
+                fill: "#3B1518",
+                ink: "#FFD5D8",
+                muted: "#E7A8AE",
+                icon: "#FF7F96"
+            };
+        if (tone === "warning")
+            return {
+                track: "#1A1608",
+                fill: "#3A3010",
+                ink: "#FFE7B0",
+                muted: "#E0C47A",
+                icon: "#FFD479"
+            };
+        if (tone === "success")
+            return {
+                track: "#0C1610",
+                fill: "#16351F",
+                ink: "#D8F3DE",
+                muted: "#9FD4AB",
+                icon: "#8FE3A5"
+            };
+        return {
+            track: "#0C1420",
+            fill: "#16304A",
+            ink: "#D7E6FF",
+            muted: "#9BB6DB",
+            icon: "#8FB8FF"
+        };
+    }
+
+    function toneIcon(tone) {
+        if (tone === "error")
+            return Core.Icons.closeCircle;
+        if (tone === "warning")
+            return Core.Icons.alertCircle;
+        if (tone === "success")
+            return Core.Icons.checkCircle;
+        return Core.Icons.info;
     }
 
     Column {
@@ -76,9 +122,7 @@ PanelWindow {
         move: Transition {
             NumberAnimation {
                 property: "y"
-
                 duration: 180
-
                 easing.type: Easing.OutQuint
             }
         }
@@ -86,12 +130,14 @@ PanelWindow {
         Repeater {
             id: repeater
 
-            model: root.toasts
+            model: root.toastModel
 
             delegate: Item {
                 id: wrapper
 
-                required property var modelData
+                required property var nid
+
+                readonly property var modelData: Services.NotificationServer.toastById(wrapper.nid)
 
                 readonly property bool critical: Services.NotificationServer.isCritical(wrapper.modelData)
 
@@ -101,27 +147,22 @@ PanelWindow {
 
                 readonly property bool replying: Services.NotificationServer.isReplying(wrapper.modelData)
 
-                property real remaining: wrapper.lifetime
+                readonly property string tone: root.toneOf(wrapper.modelData, wrapper.critical)
+
+                readonly property var colors: root.palette(wrapper.tone)
+
+                property real progress: 1.0
 
                 property bool dismissing: false
 
-                // Transform-driven animation.
-                //
-                // 0 = visible
-                // 1 = completely offscreen
                 property real slide: 1.0
 
-                // 1 = normal height
-                // 0 = collapsed
                 property real collapse: 1.0
 
-                // Animation-driven only. Binding opacity to slide while the exit
-                // animation also wrote to it broke the binding mid-flight.
                 property real fade: 0.0
 
                 width: root.toastWidth + root.toastGutter * 2
 
-                // Positioned by the parent Column, which measures every card rather than assuming a fixed height.
                 height: Math.max(0, (wrapper.cardHeight + root.toastGutter * 2) * wrapper.collapse)
 
                 opacity: wrapper.fade
@@ -130,14 +171,24 @@ PanelWindow {
 
                 Component.onCompleted: {
                     enterAnim.start();
+                    wrapper.syncDrain();
                 }
 
-                // Toast lifecycle
+                function syncDrain() {
+                    if (wrapper.lifetime <= 0 || wrapper.dismissing)
+                        return;
+                    drainAnim.stop();
+                    wrapper.progress = Services.NotificationServer.progressOf(wrapper.modelData);
+                    drainAnim.from = wrapper.progress;
+                    drainAnim.duration = Math.max(1, Services.NotificationServer.remainingOf(wrapper.modelData));
+                    drainAnim.start();
+                }
 
                 function hide() {
                     if (wrapper.dismissing)
                         return;
                     wrapper.dismissing = true;
+                    drainAnim.stop();
                     exitAnim.start();
                 }
 
@@ -145,54 +196,30 @@ PanelWindow {
                     if (wrapper.dismissing)
                         return;
                     wrapper.dismissing = true;
-
+                    drainAnim.stop();
                     Services.NotificationServer.dismiss(wrapper.modelData);
                 }
 
-                // Clicking the card body triggers the sender's "default" action,
-                // which is the convention for "open the thing this is about".
-                //
-                // If there is no default action the card is only dismissed. It is
-                // NOT destroyed: any named actions it carries are rendered as
-                // buttons below, and throwing the entry away would take those with
-                // it before they could be used from the centre.
                 function activate() {
-                    const n = wrapper.modelData;
-
-                    var invoked = false;
-
-                    try {
-                        const acts = n.actions;
-
-                        if (acts && acts.length > 0) {
-                            for (var i = 0; i < acts.length; i++) {
-                                var actionId = "";
-
-                                try {
-                                    if (acts[i].identifier !== undefined)
-                                        actionId = String(acts[i].identifier);
-                                } catch (e) {
-                                    actionId = "";
-                                }
-
-                                if (actionId === "default") {
-                                    // invokeAction handles closing; a second
-                                    // dismiss here would hit a destroyed object.
-                                    Services.NotificationServer.invokeAction(n, acts[i]);
-                                    invoked = true;
-                                    break;
-                                }
-                            }
-                        }
-                    } catch (e) {
-                        // No usable action.
-                    }
-
-                    if (!invoked)
+                    Services.NotificationServer.activate(wrapper.modelData, false);
+                    if (wrapper.modelData)
                         wrapper.hide();
                 }
 
-                // Entrance
+                NumberAnimation {
+                    id: drainAnim
+
+                    target: wrapper
+                    property: "progress"
+                    from: 1.0
+                    to: 0.0
+                    duration: Math.max(1, Services.NotificationServer.remainingOf(wrapper.modelData))
+                    easing.type: Easing.Linear
+                    onFinished: {
+                        if (!wrapper.dismissing && wrapper.lifetime > 0)
+                            wrapper.hide();
+                    }
+                }
 
                 ParallelAnimation {
                     id: enterAnim
@@ -200,95 +227,53 @@ PanelWindow {
                     NumberAnimation {
                         target: wrapper
                         property: "slide"
-
                         from: 1.0
                         to: 0.0
-
                         duration: 170
-
                         easing.type: Easing.OutQuint
                     }
 
                     NumberAnimation {
                         target: wrapper
                         property: "fade"
-
                         from: 0.0
                         to: 1.0
-
                         duration: 140
-
                         easing.type: Easing.OutQuint
                     }
                 }
-
-                // Exit
 
                 SequentialAnimation {
                     id: exitAnim
 
                     ParallelAnimation {
-
                         NumberAnimation {
                             target: wrapper
                             property: "slide"
-
                             to: 1.0
-
                             duration: 150
-
                             easing.type: Easing.InQuint
                         }
 
                         NumberAnimation {
                             target: wrapper
                             property: "collapse"
-
                             to: 0.0
-
                             duration: 170
-
                             easing.type: Easing.InQuint
                         }
 
                         NumberAnimation {
                             target: wrapper
                             property: "fade"
-
                             to: 0.0
-
                             duration: 130
-
                             easing.type: Easing.InQuint
                         }
                     }
 
                     ScriptAction {
-                        // expireToast, not hideToast: a notification the sender
-                        // marked transient is discarded here instead of being
-                        // filed in the centre, which is what transient means.
                         script: Services.NotificationServer.expireToast(wrapper.modelData)
-                    }
-                }
-
-                Timer {
-                    id: tick
-
-                    interval: 250
-                    repeat: true
-
-                    // Also paused while a reply is being typed into this card, and
-                    // while the notification centre is up. In the latter case the
-                    // whole overlay is hidden, so a running timer would burn the
-                    // card's lifetime somewhere the user cannot see it and it would
-                    // be gone by the time they closed the panel.
-                    running: wrapper.lifetime > 0 && !cardHover.hovered && !wrapper.dismissing && !wrapper.replying && !Core.PopupManager.isOpen("notifications")
-
-                    onTriggered: {
-                        wrapper.remaining -= interval;
-
-                        if (wrapper.remaining <= 0)
-                            wrapper.hide();
                     }
                 }
 
@@ -301,23 +286,52 @@ PanelWindow {
                     anchors.leftMargin: root.toastGutter
                     anchors.rightMargin: root.toastGutter
                     anchors.topMargin: root.toastGutter
-                    implicitHeight: Math.max(64, contentRow.implicitHeight + 24)
+                    implicitHeight: Math.max(68, contentRow.implicitHeight + 24)
                     height: implicitHeight
 
                     transform: Translate {
                         x: wrapper.slide * 44
                     }
 
-                    Components.MinecraftPanel {
+                    clip: true
+
+                    Rectangle {
                         anchors.fill: parent
-                        critical: wrapper.critical
+                        radius: 16
+                        color: wrapper.colors.track
+                    }
+
+                    Rectangle {
+                        id: timerFill
+
+                        anchors.left: parent.left
+                        anchors.top: parent.top
+                        anchors.bottom: parent.bottom
+                        width: parent.width * Math.max(0, Math.min(1, wrapper.progress))
+                        radius: 16
+                        color: wrapper.colors.fill
+                    }
+
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: 16
+                        color: "transparent"
+                        border.width: 1
+                        border.color: Qt.alpha(wrapper.colors.icon, 0.22)
                     }
 
                     HoverHandler {
                         id: cardHover
                         onHoveredChanged: {
-                            if (cardHover.hovered)
-                                wrapper.remaining = wrapper.lifetime;
+                            if (wrapper.lifetime <= 0 || wrapper.dismissing)
+                                return;
+                            if (cardHover.hovered) {
+                                drainAnim.pause();
+                                Services.NotificationServer.pauseToast(wrapper.modelData);
+                            } else {
+                                Services.NotificationServer.resumeToast(wrapper.modelData);
+                                wrapper.syncDrain();
+                            }
                         }
                     }
 
@@ -344,55 +358,24 @@ PanelWindow {
                         id: contentRow
                         anchors.left: parent.left
                         anchors.right: parent.right
-                        anchors.top: parent.top
-                        anchors.leftMargin: 12
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.leftMargin: 14
                         anchors.rightMargin: 12
-                        anchors.topMargin: 12
-                        spacing: 12
+                        spacing: 10
 
-                        Item {
+                        Text {
                             Layout.alignment: Qt.AlignTop
-                            Layout.preferredWidth: 40
-                            Layout.preferredHeight: 40
-
-                            readonly property string resolvedIcon: Services.NotificationServer.iconFor(wrapper.modelData)
-
-                            Rectangle {
-                                anchors.fill: parent
-                                radius: 10
-                                color: Qt.rgba(1, 1, 1, 0.08)
-                                border.width: 1
-                                border.color: Qt.rgba(1, 1, 1, 0.10)
-                            }
-
-                            Image {
-                                id: notificationIcon
-                                anchors.centerIn: parent
-                                width: 28
-                                height: 28
-                                source: parent.resolvedIcon
-                                visible: status === Image.Ready && source !== ""
-                                asynchronous: true
-                                cache: true
-                                smooth: true
-                                mipmap: true
-                                fillMode: Image.PreserveAspectFit
-                            }
-
-                            Text {
-                                anchors.centerIn: parent
-                                visible: !notificationIcon.visible
-                                text: Core.Icons.forApp(Services.NotificationServer.appLabel(wrapper.modelData))
-                                font.family: Core.Theme.iconFont
-                                font.pixelSize: 18
-                                color: Core.Theme.foreground
-                                renderType: Text.QtRendering
-                            }
+                            Layout.topMargin: 1
+                            text: root.toneIcon(wrapper.tone)
+                            font.family: Core.Theme.iconFont
+                            font.pixelSize: 18
+                            color: wrapper.colors.icon
+                            renderType: Text.QtRendering
                         }
 
                         ColumnLayout {
                             Layout.fillWidth: true
-                            spacing: 3
+                            spacing: 2
 
                             Text {
                                 Layout.fillWidth: true
@@ -401,48 +384,36 @@ PanelWindow {
                                     try {
                                         if (n.summary)
                                             return n.summary;
-                                    } catch (e) {
-                                    }
+                                    } catch (e) {}
                                     return Services.NotificationServer.appLabel(wrapper.modelData);
                                 }
                                 font.family: Core.Theme.fontFamily
                                 font.pixelSize: 13
                                 font.weight: Font.DemiBold
-                                color: wrapper.critical ? Core.Theme.danger : Core.Theme.foreground
+                                color: wrapper.colors.ink
                                 elide: Text.ElideRight
+                                wrapMode: Text.NoWrap
                                 renderType: Text.QtRendering
                             }
 
                             Text {
-                                id: bodyText
                                 Layout.fillWidth: true
                                 visible: text !== ""
                                 text: {
                                     const n = wrapper.modelData;
-                                    let summary = "";
-                                    let body = "";
                                     try {
-                                        summary = n.summary || "";
-                                    } catch (e) {
-                                    }
-                                    try {
-                                        body = n.body || "";
-                                    } catch (e) {
-                                    }
-                                    if (body)
-                                        return body;
-                                    if (summary)
-                                        return Services.NotificationServer.appLabel(wrapper.modelData);
+                                        return n.body || "";
+                                    } catch (e) {}
                                     return "";
                                 }
                                 font.family: Core.Theme.fontFamily
                                 font.pixelSize: 12
-                                color: Qt.rgba(1, 1, 1, 0.72)
+                                color: wrapper.colors.muted
                                 wrapMode: Text.Wrap
                                 maximumLineCount: 3
                                 elide: Text.ElideRight
                                 textFormat: Text.StyledText
-                                linkColor: Core.Theme.accent
+                                linkColor: wrapper.colors.icon
                                 renderType: Text.QtRendering
                                 onLinkActivated: function (link) {
                                     Quickshell.execDetached(["xdg-open", link]);
@@ -453,6 +424,22 @@ PanelWindow {
                                 Layout.fillWidth: true
                                 Layout.topMargin: visible ? 6 : 0
                                 notification: wrapper.modelData
+                            }
+                        }
+
+                        Text {
+                            Layout.alignment: Qt.AlignTop
+                            text: Core.Icons.close
+                            font.family: Core.Theme.iconFont
+                            font.pixelSize: 14
+                            color: Qt.alpha(wrapper.colors.ink, 0.45)
+                            renderType: Text.QtRendering
+
+                            MouseArea {
+                                anchors.fill: parent
+                                anchors.margins: -6
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: wrapper.dismissFully()
                             }
                         }
                     }

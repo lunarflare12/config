@@ -1,6 +1,7 @@
 pragma Singleton
 
 import QtQuick
+import QtQml.Models
 import Quickshell
 
 // The alias is load-bearing.
@@ -14,11 +15,11 @@ Singleton {
     id: root
 
     // On-screen lifetime used when an app asks for the server default (expire_timeout of -1).
-    readonly property int defaultTimeout: 3500
+    readonly property int defaultTimeout: 8000
 
     // Apps are allowed to request a longer life, but not forever;
     // a 5-minute toast is always a bug in the sending app.
-    readonly property int maxTimeout: 10000
+    readonly property int maxTimeout: 16000
 
     // Older toasts are pushed out once this many are stacked.
     readonly property int maxVisible: 4
@@ -31,6 +32,17 @@ Singleton {
     property alias notifications: server.trackedNotifications
 
     property var toasts: []
+
+    // Repeater identity. Replacing `toasts` with a new array remakes every
+    // delegate and restarts the first card's timer; this model only appends/removes.
+    readonly property alias toastModel: toastModel
+
+    ListModel {
+        id: toastModel
+    }
+
+    // Per-toast clock so remaining time survives a remake and hover pause.
+    property var toastClock: ({})
 
     // The notification whose reply field is currently open, or null.
     //
@@ -153,14 +165,12 @@ Singleton {
         let desktop = "";
         try {
             desktop = String(n.desktopEntry || "").toLowerCase();
-        } catch (e) {
-        }
+        } catch (e) {}
         let appIcon = "";
         try {
             if (n.appIcon !== undefined && n.appIcon !== null)
                 appIcon = String(n.appIcon);
-        } catch (e) {
-        }
+        } catch (e) {}
 
         const hay = label + " " + desktop + " " + appIcon.toLowerCase();
         if (hay.indexOf("satty") !== -1 || hay.indexOf("screenshot") !== -1)
@@ -175,8 +185,7 @@ Singleton {
         try {
             if (n.image !== undefined && n.image !== null && String(n.image) !== "")
                 return String(n.image);
-        } catch (e) {
-        }
+        } catch (e) {}
 
         return "";
     }
@@ -258,7 +267,102 @@ Singleton {
         if (isNaN(t) || t <= 0)
             return root.defaultTimeout;
 
-        return Math.min(t, root.maxTimeout);
+        return Math.min(Math.max(t, root.defaultTimeout), root.maxTimeout);
+    }
+
+    function safeId(n) {
+        try {
+            if (n !== null && n !== undefined && n.id !== undefined && n.id !== null)
+                return Number(n.id);
+        } catch (e) {}
+        return -1;
+    }
+
+    function toastById(id) {
+        const want = Number(id);
+        for (var i = 0; i < root.toasts.length; i++) {
+            if (root.safeId(root.toasts[i]) === want)
+                return root.toasts[i];
+        }
+        return null;
+    }
+
+    function hasToast(n) {
+        const id = root.safeId(n);
+        if (id === -1)
+            return false;
+        for (var i = 0; i < toastModel.count; i++) {
+            if (Number(toastModel.get(i).nid) === id)
+                return true;
+        }
+        return false;
+    }
+
+    function removeToastRow(n) {
+        const id = root.safeId(n);
+        if (id === -1)
+            return;
+        for (var i = 0; i < toastModel.count; i++) {
+            if (Number(toastModel.get(i).nid) === id) {
+                toastModel.remove(i);
+                return;
+            }
+        }
+    }
+
+    function armToast(n) {
+        const id = root.safeId(n);
+        if (id === -1 || root.toastClock[id])
+            return;
+        root.toastClock[id] = {
+            "born": Date.now(),
+            "pausedAt": 0,
+            "pausedTotal": 0
+        };
+    }
+
+    function disarmToast(n) {
+        const id = root.safeId(n);
+        if (id === -1 || !root.toastClock[id])
+            return;
+        delete root.toastClock[id];
+    }
+
+    function pauseToast(n) {
+        const c = root.toastClock[root.safeId(n)];
+        if (!c || c.pausedAt)
+            return;
+        c.pausedAt = Date.now();
+    }
+
+    function resumeToast(n) {
+        const c = root.toastClock[root.safeId(n)];
+        if (!c || !c.pausedAt)
+            return;
+        c.pausedTotal += Date.now() - c.pausedAt;
+        c.pausedAt = 0;
+    }
+
+    function elapsedOf(n) {
+        const c = root.toastClock[root.safeId(n)];
+        if (!c)
+            return 0;
+        const now = c.pausedAt || Date.now();
+        return Math.max(0, now - c.born - c.pausedTotal);
+    }
+
+    function remainingOf(n) {
+        const life = root.lifetimeFor(n);
+        if (life <= 0)
+            return 0;
+        return Math.max(0, life - root.elapsedOf(n));
+    }
+
+    function progressOf(n) {
+        const life = root.lifetimeFor(n);
+        if (life <= 0)
+            return 1;
+        return Math.max(0, Math.min(1, 1 - root.elapsedOf(n) / life));
     }
 
     function showToast(n) {
@@ -267,26 +371,41 @@ Singleton {
         // Everything else still reaches history, so nothing is actually lost.
         if (Core.PopupManager.dnd && !root.isCritical(n))
             return;
+        if (root.hasToast(n))
+            return;
+
+        root.armToast(n);
         const next = root.toasts.slice();
         next.push(n);
-
-        while (next.length > root.maxVisible)
-            next.shift();
-
         root.toasts = next;
+        toastModel.append({
+            "nid": root.safeId(n)
+        });
+
+        while (toastModel.count > root.maxVisible) {
+            const dropped = root.toastById(toastModel.get(0).nid);
+            if (dropped)
+                root.hideToast(dropped);
+            else
+                toastModel.remove(0);
+        }
     }
 
     // Removes the card from the overlay but leaves the history entry alone.
     function hideToast(n) {
         const next = [];
+        const id = root.safeId(n);
 
         for (var i = 0; i < root.toasts.length; i++) {
-            if (root.toasts[i] !== n)
+            if (root.toasts[i] !== n && root.safeId(root.toasts[i]) !== id)
                 next.push(root.toasts[i]);
         }
 
         if (next.length !== root.toasts.length)
             root.toasts = next;
+
+        root.removeToastRow(n);
+        root.disarmToast(n);
 
         // The reply field went with the card, so the overlay must be allowed to
         // give keyboard focus back.
@@ -310,7 +429,9 @@ Singleton {
     function clearToasts() {
         if (root.toasts.length > 0)
             root.toasts = [];
-
+        if (toastModel.count > 0)
+            toastModel.clear();
+        root.toastClock = {};
         root.replyTarget = null;
     }
 
@@ -328,6 +449,78 @@ Singleton {
                 // when the sender closes it.
             }
         }
+    }
+
+    function senderApp(n) {
+        let desktop = "";
+        let name = "";
+        let icon = "";
+        try {
+            desktop = String(n.desktopEntry || "");
+        } catch (e) {}
+        try {
+            name = String(n.appName || "");
+        } catch (e) {}
+        try {
+            icon = String(n.appIcon || "");
+        } catch (e) {}
+        return {
+            "id": desktop,
+            "name": name,
+            "icon": icon
+        };
+    }
+
+    function focusSender(n) {
+        if (!n)
+            return false;
+        const app = root.senderApp(n);
+        const needles = LaunchSplash.needlesOf(app);
+        const t = LaunchSplash.findWindow(app, needles, null, true);
+        if (t) {
+            Core.Session.focusWindow(t);
+            return true;
+        }
+        if (!needles.length)
+            return false;
+        const cmd = [Quickshell.env("HOME") + "/.config/scripts/activate-existing"];
+        for (let i = 0; i < needles.length; i++)
+            cmd.push(String(needles[i]));
+        Quickshell.execDetached(cmd);
+        return true;
+    }
+
+    // Click the card: raise the already-open window, then fire "default"
+    // if the sender attached one (open the chat, etc.).
+    function activate(n, closeEntry) {
+        if (!n)
+            return;
+        root.focusSender(n);
+        var invoked = false;
+        try {
+            const acts = n.actions;
+            if (acts && acts.length > 0) {
+                for (var i = 0; i < acts.length; i++) {
+                    var actionId = "";
+                    try {
+                        if (acts[i].identifier !== undefined)
+                            actionId = String(acts[i].identifier);
+                    } catch (e) {
+                        actionId = "";
+                    }
+                    if (actionId === "default") {
+                        root.invokeAction(n, acts[i]);
+                        invoked = true;
+                        break;
+                    }
+                }
+            }
+        } catch (e) {}
+        if (invoked)
+            return;
+        root.hideToast(n);
+        if (closeEntry && !root.isResident(n))
+            root.dismiss(n);
     }
 
     // Invoking an action already closes the notification unless the sender marked
@@ -478,15 +671,15 @@ Singleton {
                 return;
 
             // Criticals stay: they are not what do-not-disturb is for.
-            const kept = [];
+            const drop = [];
 
             for (var i = 0; i < root.toasts.length; i++) {
-                if (root.isCritical(root.toasts[i]))
-                    kept.push(root.toasts[i]);
+                if (!root.isCritical(root.toasts[i]))
+                    drop.push(root.toasts[i]);
             }
 
-            if (kept.length !== root.toasts.length)
-                root.toasts = kept;
+            for (var j = 0; j < drop.length; j++)
+                root.hideToast(drop[j]);
         }
     }
 }

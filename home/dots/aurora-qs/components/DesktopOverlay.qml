@@ -18,6 +18,14 @@ PanelWindow {
     readonly property bool shown: !root.gameFullscreen && !Core.Session.overviewOpen
     readonly property bool desktopHost: Core.Session.isDesktopMonitor(root.monitorName)
 
+    // Stagger widget trees across frames; other monitors never instantiate them.
+    property int widgetGate: 0
+
+    onDesktopHostChanged: {
+        if (!root.desktopHost)
+            root.widgetGate = 0;
+    }
+
     readonly property int cellW: root.grid.cellWFor(width)
     readonly property int cellH: root.grid.cellHFor(height)
     readonly property int cols: root.grid.colsFor(width)
@@ -297,6 +305,11 @@ PanelWindow {
             if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && root.svc.selected.length === 1) {
                 root.svc.open(root.svc.selected[0]);
                 event.accepted = true;
+                return;
+            }
+            if (event.key === Qt.Key_Space && !event.modifiers && !root.svc.renaming && root.svc.selected.length) {
+                Core.Session.togglePreview(root.svc.selected);
+                event.accepted = true;
             }
         }
 
@@ -307,6 +320,10 @@ PanelWindow {
             z: 0
 
             onPressed: function (mouse) {
+                if (Core.Session.sattyOpen) {
+                    Core.Session.dismissScreenshot();
+                    return;
+                }
                 stage.forceActiveFocus();
                 root.closeMenu();
                 if (mouse.button === Qt.RightButton) {
@@ -367,28 +384,75 @@ PanelWindow {
             }
         }
 
-        DesktopClock {
-            host: root
-            modelData: root.modelData
-            z: 6
+        Timer {
+            interval: 16
+            repeat: true
+            running: root.desktopHost && root.widgetGate < 4
+            onTriggered: root.widgetGate += 1
         }
 
-        DesktopMetrics {
-            host: root
-            modelData: root.modelData
-            z: 6
+        Component {
+            id: clockComp
+            DesktopClock {
+                host: root
+                modelData: root.modelData
+                z: 6
+            }
         }
 
-        DesktopLabs {
-            host: root
-            modelData: root.modelData
-            z: 6
+        Component {
+            id: metricsComp
+            DesktopMetrics {
+                host: root
+                modelData: root.modelData
+                z: 6
+            }
         }
 
-        DesktopNowPlaying {
-            host: root
-            modelData: root.modelData
-            z: 6
+        Component {
+            id: labsComp
+            DesktopLabs {
+                host: root
+                modelData: root.modelData
+                z: 6
+            }
+        }
+
+        Component {
+            id: nowPlayingComp
+            DesktopNowPlaying {
+                host: root
+                modelData: root.modelData
+                z: 6
+            }
+        }
+
+        Loader {
+            anchors.fill: parent
+            active: root.widgetGate >= 1
+            asynchronous: true
+            sourceComponent: clockComp
+        }
+
+        Loader {
+            anchors.fill: parent
+            active: root.widgetGate >= 2
+            asynchronous: true
+            sourceComponent: metricsComp
+        }
+
+        Loader {
+            anchors.fill: parent
+            active: root.widgetGate >= 3
+            asynchronous: true
+            sourceComponent: labsComp
+        }
+
+        Loader {
+            anchors.fill: parent
+            active: root.widgetGate >= 4
+            asynchronous: true
+            sourceComponent: nowPlayingComp
         }
 
         Repeater {
@@ -647,15 +711,38 @@ PanelWindow {
 
                 Repeater {
                     model: root.menuOnIcon ? [
-                        { "label": "Open", "icon": Core.Icons.folder },
-                        { "label": "Rename", "icon": Core.Icons.file },
-                        { "sep": true },
-                        { "label": "Move to Trash", "icon": Core.Icons.power, "danger": true }
+                        {
+                            "label": "Open",
+                            "icon": Core.Icons.folder
+                        },
+                        {
+                            "label": "Rename",
+                            "icon": Core.Icons.file
+                        },
+                        {
+                            "sep": true
+                        },
+                        {
+                            "label": "Move to Trash",
+                            "icon": Core.Icons.power,
+                            "danger": true
+                        }
                     ] : [
-                        { "label": "New Folder", "icon": Core.Icons.folderPlus },
-                        { "label": "New File", "icon": Core.Icons.filePlus },
-                        { "sep": true },
-                        { "label": "Open Desktop", "icon": Core.Icons.folder }
+                        {
+                            "label": "New Folder",
+                            "icon": Core.Icons.folderPlus
+                        },
+                        {
+                            "label": "New File",
+                            "icon": Core.Icons.filePlus
+                        },
+                        {
+                            "sep": true
+                        },
+                        {
+                            "label": "Open Desktop",
+                            "icon": Core.Icons.folder
+                        }
                     ]
 
                     Loader {

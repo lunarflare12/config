@@ -64,9 +64,7 @@ Singleton {
     }
 
     function syncLinkNotification() {
-        const now = root.ethConnected
-            ? "eth:" + (root.ethConnection !== "" ? root.ethConnection : "Ethernet")
-            : (root.ethAvailable ? "none" : "missing");
+        const now = root.ethConnected ? "eth:" + (root.ethConnection !== "" ? root.ethConnection : "Ethernet") : (root.ethAvailable ? "none" : "missing");
 
         if (now === root.lastLink)
             return;
@@ -231,11 +229,7 @@ Singleton {
     }
 
     function openEditor() {
-        Quickshell.execDetached([
-            "sh",
-            "-c",
-            "command -v nm-connection-editor >/dev/null && exec nm-connection-editor; exec kitty --class termfloat -e nmtui"
-        ]);
+        Quickshell.execDetached(["sh", "-c", "command -v nm-connection-editor >/dev/null && exec nm-connection-editor; exec kitty --class termfloat -e nmtui"]);
     }
 
     function refresh() {

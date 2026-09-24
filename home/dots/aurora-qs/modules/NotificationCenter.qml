@@ -1,12 +1,11 @@
 import QtQuick
 
-import Quickshell
-
+import "../components" as Components
 import "../core" as Core
 import "../services" as Services
-import "../components" as Components
 
-// Notification center bar module (leftmost slot)
+// Notification bell in the bar's right cluster. Left click opens the centre,
+// right click clears every notification, middle click toggles do-not-disturb.
 
 Item {
     id: root

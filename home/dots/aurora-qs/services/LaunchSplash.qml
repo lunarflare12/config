@@ -290,6 +290,11 @@ Singleton {
 
     function isGenericToken(s) {
         const n = String(s || "");
+        if (!n || n.length < 3)
+            return true;
+        const homeUser = String(Quickshell.env("HOME") || "").split("/").pop().toLowerCase();
+        if (homeUser && n === homeUser)
+            return true;
         return n === "desktop" || n === "org" || n === "com" || n === "io" || n === "net" || n === "app" || n === "www" || n === "gtk" || n === "gnome" || n === "kde" || n === "qt" || n === "bin" || n === "usr" || n === "status" || n === "icon" || n === "tray" || n === "item" || n === "force" || n === "dark" || n === "mode" || n === "wayland" || n === "ozone" || n === "platform" || n === "disable" || n === "enable" || n === "gpu" || n === "features" || n === "sandbox" || n === "scripts" || n === "config" || n === "home" || n === "nix" || n === "store";
     }
 
@@ -322,7 +327,7 @@ Singleton {
     function clsHits(cls, needle) {
         const c = String(cls || "").toLowerCase();
         const n = String(needle || "").toLowerCase().replace(/\.desktop$/, "");
-        if (!c || !n || n.length < 2 || root.isGenericToken(n))
+        if (!c || !n || n.length < 3 || root.isGenericToken(n))
             return false;
         if (c === n)
             return true;
@@ -456,9 +461,8 @@ Singleton {
         if (steamId)
             add("steam_app_" + steamId);
         const name = String(app.name || "").toLowerCase();
-        const exec = String(app.execString || app.exec || "").toLowerCase();
-        const icon = String(app.icon || "").toLowerCase();
-        const blob = name + " " + exec + " " + icon + " " + String(app.id || "").toLowerCase();
+        const icon = String(app.icon || "").toLowerCase().split("/").pop();
+        const blob = name + " " + icon + " " + String(app.id || "").toLowerCase();
         const parts = blob.split(/[^a-z0-9]+/);
         for (let i = 0; i < parts.length; i++)
             add(parts[i]);
@@ -553,7 +557,8 @@ Singleton {
     }
 
     property Timer showDelay: Timer {
-        interval: 90
+        // Fast apps map in <50ms; keep this low so skeleton rarely flashes.
+        interval: 140
         repeat: false
         onTriggered: {
             if (!root.active)
@@ -567,13 +572,14 @@ Singleton {
                 root.clear();
                 return;
             }
+            // Still nothing after the grace window — only then show skeleton.
             root.shown = true;
             root.shownAt = Date.now();
         }
     }
 
     property Timer poll: Timer {
-        interval: 50
+        interval: 32
         repeat: true
         onTriggered: root.tick()
     }

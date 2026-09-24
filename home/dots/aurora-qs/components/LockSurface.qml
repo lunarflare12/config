@@ -209,66 +209,66 @@ WlSessionLockSurface {
                                 width: 54
                                 height: 54
 
-                            Rectangle {
-                                anchors.fill: parent
-                                radius: 27
-                                color: Qt.rgba(255, 255, 255, 0.08)
-                                border.color: Qt.rgba(255, 255, 255, 0.25)
-                                border.width: 1.5
+                                Rectangle {
+                                    anchors.fill: parent
+                                    radius: 27
+                                    color: Qt.rgba(255, 255, 255, 0.08)
+                                    border.color: Qt.rgba(255, 255, 255, 0.25)
+                                    border.width: 1.5
 
-                                Text {
-                                    anchors.centerIn: parent
-                                    anchors.verticalCenterOffset: 3
-                                    text: (surface.session.userName || "?").charAt(0).toUpperCase()
-                                    color: surface.textColor
-                                    font.pixelSize: 26
-                                    font.family: surface.fontName
-                                    visible: avatarImage.status !== Image.Ready
+                                    Text {
+                                        anchors.centerIn: parent
+                                        anchors.verticalCenterOffset: 3
+                                        text: (surface.session.userName || "?").charAt(0).toUpperCase()
+                                        color: surface.textColor
+                                        font.pixelSize: 26
+                                        font.family: surface.fontName
+                                        visible: avatarImage.status !== Image.Ready
+                                    }
+                                }
+
+                                Canvas {
+                                    id: avatarCanvas
+                                    anchors.fill: parent
+                                    visible: avatarImage.status === Image.Ready
+
+                                    onPaint: {
+                                        const ctx = getContext("2d");
+                                        ctx.reset();
+                                        ctx.beginPath();
+                                        ctx.arc(width / 2, height / 2, width / 2, 0, 2 * Math.PI);
+                                        ctx.closePath();
+                                        ctx.clip();
+                                        ctx.drawImage(avatarImage, 0, 0, width, height);
+                                    }
+                                }
+
+                                Image {
+                                    id: avatarImage
+                                    source: surface.avatar
+                                    width: 54
+                                    height: 54
+                                    fillMode: Image.PreserveAspectCrop
+                                    visible: false
+                                    asynchronous: true
+                                    onStatusChanged: if (status === Image.Ready)
+                                        avatarCanvas.requestPaint()
                                 }
                             }
 
-                            Canvas {
-                                id: avatarCanvas
-                                anchors.fill: parent
-                                visible: avatarImage.status === Image.Ready
-
-                                onPaint: {
-                                    const ctx = getContext("2d");
-                                    ctx.reset();
-                                    ctx.beginPath();
-                                    ctx.arc(width / 2, height / 2, width / 2, 0, 2 * Math.PI);
-                                    ctx.closePath();
-                                    ctx.clip();
-                                    ctx.drawImage(avatarImage, 0, 0, width, height);
-                                }
+                            Text {
+                                text: surface.session.userName
+                                color: surface.textColor
+                                font.pixelSize: 18
+                                font.family: surface.fontName
                             }
 
-                            Image {
-                                id: avatarImage
-                                source: surface.avatar
-                                width: 54
-                                height: 54
-                                fillMode: Image.PreserveAspectCrop
-                                visible: false
-                                asynchronous: true
-                                onStatusChanged: if (status === Image.Ready)
-                                    avatarCanvas.requestPaint()
+                            Text {
+                                text: "▾"
+                                color: surface.textColor
+                                font.pixelSize: 14
+                                opacity: 0.5
                             }
-                        }
-
-                        Text {
-                            text: surface.session.userName
-                            color: surface.textColor
-                            font.pixelSize: 18
-                            font.family: surface.fontName
-                        }
-
-                        Text {
-                            text: "▾"
-                            color: surface.textColor
-                            font.pixelSize: 14
-                            opacity: 0.5
-                        }
                         }
                     }
 

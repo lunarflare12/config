@@ -178,11 +178,9 @@ CRegion hkWLSurfaceDamage(Desktop::View::CWLSurface* thisptr) {
 
         if (CONFIG) {
             thisptr->m_fillIgnoreSmall = true;
-            const auto PMONITOR        = WINDOW->m_monitor.lock();
-            if (PMONITOR)
-                g_pHyprRenderer->damageMonitor(PMONITOR);
-            else
-                g_pHyprRenderer->damageWindow(WINDOW);
+            // damageMonitor redrew the whole ultrawide every OW frame and
+            // hitch'd 1% lows at 200Hz. Window damage is enough for stretch.
+            g_pHyprRenderer->damageWindow(WINDOW);
         }
     }
 
@@ -228,6 +226,13 @@ int vkfixAppLua(lua_State* L) {
         config.res.y = lua_tointeger(L, -1);
     }
 
+    const auto want = lowerCopy(config.szClass);
+    for (auto& ac : g_appConfigs) {
+        if (lowerCopy(ac.szClass) == want) {
+            ac = std::move(config);
+            return 0;
+        }
+    }
     g_appConfigs.emplace_back(std::move(config));
 
     return 0;

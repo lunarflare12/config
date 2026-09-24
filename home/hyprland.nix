@@ -30,21 +30,21 @@ let
 
   monitorLua =
     let
-      applyBody = lib.concatMapStrings (
+      dp = lib.findFirst (m: (m.output or "") == "DP-1") null params.monitors;
+      hdmi = lib.findFirst (m: (m.output or "") == "HDMI-A-1") null params.monitors;
+      fmt =
         monitor:
         let
-          output = ''output = "${monitor.output or ""}", '';
           transform = lib.optionalString (monitor ? transform) "transform = ${toString monitor.transform}, ";
           bitdepth = lib.optionalString (monitor ? bitdepth) "bitdepth = ${toString monitor.bitdepth}, ";
         in
-        ''
-          hl.monitor({ ${output}mode = "${monitor.mode}", position = "${monitor.position}", scale = ${toString monitor.scale}, ${bitdepth}${transform}})
-        ''
-      ) params.monitors;
+        ''hl.monitor({ output = "${monitor.output}", mode = "${monitor.mode}", position = "${monitor.position}", scale = ${toString monitor.scale}, ${bitdepth}${transform}})'';
     in
     ''
       local function apply_monitors()
-      ${applyBody}end
+        ${if dp != null then fmt dp else ""}
+        ${if hdmi != null then fmt hdmi else ""}
+      end
       apply_monitors()
       hl.on("monitor.added", apply_monitors)
       hl.on("config.reloaded", apply_monitors)

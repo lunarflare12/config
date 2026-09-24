@@ -9,7 +9,7 @@ hl.config({
         -- Keep desktop chrome even if aurora-game is left behind. Games already
         -- get border_size 0 + fullscreen via window rules.
         gaps_in = 4,
-        gaps_out = { top = 0, right = 10, bottom = 10, left = 0 },
+        gaps_out = { top = 10, right = 10, bottom = 10, left = 10 },
         border_size = 4,
         resize_on_border = false,
         allow_tearing = true,
@@ -71,7 +71,7 @@ hl.config({
         -- and the second monitor stopped taking focus until the game quit.
         mouse_move_focuses_monitor = true,
         -- Xiaomi DP-1 is not VRR-capable. vrr=2 waits on a signal that
-        -- never comes and hitchs a 205 FPS cap.
+        -- never comes and hitchs a high FPS cap.
         vrr = 0,
         render_unfocused_fps = 15,
     },

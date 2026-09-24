@@ -208,6 +208,10 @@ QtObject {
 
     readonly property string close: "\udb80\udd56"
 
+    readonly property string pin: "\udb81\udc12"
+
+    readonly property string pinOff: "\udb81\udc13"
+
     readonly property string checkCircle: "\udb80\udd34"
 
     readonly property string closeCircle: "\udb80\udd59"

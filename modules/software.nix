@@ -22,6 +22,10 @@ let
 in
 {
   hardware.keyboard.zsa.enable = lib.elem "keymapp" params.packages;
+  programs.wireshark = lib.mkIf (lib.elem "wireshark" params.packages) {
+    enable = true;
+    package = pkgs.wireshark;
+  };
   virtualisation.docker = lib.mkIf (host.enabled "docker") {
     enable = true;
     daemon.settings.features.cdi = true;

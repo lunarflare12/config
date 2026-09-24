@@ -13,11 +13,10 @@ let
     hash = "sha256-ZAltAS/U/xh4kCT7vQ+NHAzWV7z0uE5GMQICHKSdj8k=";
   };
   appimageContents = appimageTools.extract { inherit pname version src; };
-in
-appimageTools.wrapType2 {
-  inherit pname version src;
+  wrapped = appimageTools.wrapType2 {
+    inherit pname version src;
 
-  nativeBuildInputs = [ makeWrapper ];
+    nativeBuildInputs = [ makeWrapper ];
 
   extraInstallCommands = ''
     wrapProgram $out/bin/${pname} \
@@ -38,4 +37,10 @@ appimageTools.wrapType2 {
     sourceProvenance = with lib.sourceTypes; [ binaryNativeCode ];
     platforms = [ "x86_64-linux" ];
   };
-}
+};
+in
+wrapped.overrideAttrs (old: {
+  passthru = (old.passthru or { }) // {
+    extracted = appimageContents;
+  };
+})

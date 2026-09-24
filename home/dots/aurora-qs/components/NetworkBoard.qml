@@ -18,58 +18,58 @@ Rectangle {
     readonly property var timestamps: Services.SystemMonitor.networkTimestamps
     property int hoverIndex: -1
     readonly property real maxMbit: {
-        let maximum = 1
+        let maximum = 1;
         for (let i = 0; i < downloads.length; i++)
-            maximum = Math.max(maximum, Services.SystemMonitor.toMbit(downloads[i]), Services.SystemMonitor.toMbit(uploads[i] || 0))
+            maximum = Math.max(maximum, Services.SystemMonitor.toMbit(downloads[i]), Services.SystemMonitor.toMbit(uploads[i] || 0));
         if (maximum <= 1)
-            return 1
+            return 1;
         if (maximum <= 5)
-            return 5
+            return 5;
         if (maximum <= 10)
-            return 10
+            return 10;
         if (maximum <= 25)
-            return 25
+            return 25;
         if (maximum <= 50)
-            return 50
+            return 50;
         if (maximum <= 100)
-            return 100
+            return 100;
         if (maximum <= 200)
-            return 200
+            return 200;
         if (maximum <= 500)
-            return 500
+            return 500;
         if (maximum <= 1000)
-            return 1000
-        return Math.ceil(maximum / 100) * 100
+            return 1000;
+        return Math.ceil(maximum / 100) * 100;
     }
 
     function formatClock(ms) {
         if (!ms)
-            return "--:--:--"
-        const date = new Date(ms)
-        const pad = value => String(value).padStart(2, "0")
-        return pad(date.getHours()) + ":" + pad(date.getMinutes()) + ":" + pad(date.getSeconds())
+            return "--:--:--";
+        const date = new Date(ms);
+        const pad = value => String(value).padStart(2, "0");
+        return pad(date.getHours()) + ":" + pad(date.getMinutes()) + ":" + pad(date.getSeconds());
     }
 
     function pointCount() {
-        return Math.max(downloads.length, uploads.length)
+        return Math.max(downloads.length, uploads.length);
     }
 
     function indexAtX(x, width) {
-        const count = pointCount()
+        const count = pointCount();
         if (count < 1)
-            return -1
+            return -1;
         if (count === 1)
-            return 0
-        const ratio = Math.max(0, Math.min(1, x / Math.max(width, 1)))
-        return Math.round(ratio * (count - 1))
+            return 0;
+        const ratio = Math.max(0, Math.min(1, x / Math.max(width, 1)));
+        return Math.round(ratio * (count - 1));
     }
 
     function yForKib(kib, height) {
-        const padTop = 4
-        const padBottom = 4
-        const chartHeight = height - padTop - padBottom
-        const maxValue = Math.max(board.maxMbit, 0.001)
-        return padTop + chartHeight - (Services.SystemMonitor.toMbit(kib) / maxValue) * chartHeight
+        const padTop = 4;
+        const padBottom = 4;
+        const chartHeight = height - padTop - padBottom;
+        const maxValue = Math.max(board.maxMbit, 0.001);
+        return padTop + chartHeight - (Services.SystemMonitor.toMbit(kib) / maxValue) * chartHeight;
     }
 
     Item {
@@ -139,104 +139,112 @@ Rectangle {
             anchors.fill: parent
 
             onPaint: {
-                const context = getContext("2d")
-                context.clearRect(0, 0, width, height)
+                const context = getContext("2d");
+                context.clearRect(0, 0, width, height);
 
-                const padTop = 4
-                const padBottom = 4
-                const chartHeight = height - padTop - padBottom
-                const downloads = board.downloads.length >= 2 ? board.downloads : [Services.SystemMonitor.download, Services.SystemMonitor.download]
-                const uploads = board.uploads.length >= 2 ? board.uploads : [Services.SystemMonitor.upload, Services.SystemMonitor.upload]
-                const points = Math.max(downloads.length, uploads.length)
+                const padTop = 4;
+                const padBottom = 4;
+                const chartHeight = height - padTop - padBottom;
+                const downloads = board.downloads.length >= 2 ? board.downloads : [Services.SystemMonitor.download, Services.SystemMonitor.download];
+                const uploads = board.uploads.length >= 2 ? board.uploads : [Services.SystemMonitor.upload, Services.SystemMonitor.upload];
+                const points = Math.max(downloads.length, uploads.length);
 
-                const maxValue = Math.max(board.maxMbit, 0.001)
-                const xAt = index => index * (width - 1) / (points - 1)
-                const yAt = kib => padTop + chartHeight - (Services.SystemMonitor.toMbit(kib) / maxValue) * chartHeight
+                const maxValue = Math.max(board.maxMbit, 0.001);
+                const xAt = index => index * (width - 1) / (points - 1);
+                const yAt = kib => padTop + chartHeight - (Services.SystemMonitor.toMbit(kib) / maxValue) * chartHeight;
 
-                const step = 7
-                context.fillStyle = "rgba(255, 255, 255, 0.16)"
+                const step = 7;
+                context.fillStyle = "rgba(255, 255, 255, 0.16)";
                 for (let y = padTop; y <= height - padBottom; y += step) {
                     for (let x = 1; x <= width - 1; x += step)
-                        context.fillRect(x, y, 1.25, 1.25)
+                        context.fillRect(x, y, 1.25, 1.25);
                 }
 
-                context.beginPath()
-                context.moveTo(xAt(0), height - padBottom)
+                context.beginPath();
+                context.moveTo(xAt(0), height - padBottom);
                 for (let i = 0; i < downloads.length; i++)
-                    context.lineTo(xAt(i), yAt(downloads[i]))
-                context.lineTo(xAt(downloads.length - 1), height - padBottom)
-                context.closePath()
-                context.fillStyle = "rgba(98, 160, 234, 0.16)"
-                context.fill()
+                    context.lineTo(xAt(i), yAt(downloads[i]));
+                context.lineTo(xAt(downloads.length - 1), height - padBottom);
+                context.closePath();
+                context.fillStyle = "rgba(98, 160, 234, 0.16)";
+                context.fill();
 
-                context.beginPath()
+                context.beginPath();
                 for (let i = 0; i < downloads.length; i++) {
-                    const x = xAt(i)
-                    const y = yAt(downloads[i])
+                    const x = xAt(i);
+                    const y = yAt(downloads[i]);
                     if (i === 0)
-                        context.moveTo(x, y)
+                        context.moveTo(x, y);
                     else
-                        context.lineTo(x, y)
+                        context.lineTo(x, y);
                 }
-                context.strokeStyle = board.downloadColor
-                context.lineWidth = 1.5
-                context.stroke()
+                context.strokeStyle = board.downloadColor;
+                context.lineWidth = 1.5;
+                context.stroke();
 
-                context.beginPath()
+                context.beginPath();
                 for (let i = 0; i < uploads.length; i++) {
-                    const x = xAt(i)
-                    const y = yAt(uploads[i])
+                    const x = xAt(i);
+                    const y = yAt(uploads[i]);
                     if (i === 0)
-                        context.moveTo(x, y)
+                        context.moveTo(x, y);
                     else
-                        context.lineTo(x, y)
+                        context.lineTo(x, y);
                 }
-                context.strokeStyle = board.uploadColor
-                context.lineWidth = 2
-                context.stroke()
+                context.strokeStyle = board.uploadColor;
+                context.lineWidth = 2;
+                context.stroke();
 
                 if (board.hoverIndex >= 0 && board.hoverIndex < points) {
-                    const hx = xAt(board.hoverIndex)
-                    context.strokeStyle = "rgba(255, 255, 255, 0.7)"
-                    context.lineWidth = 1
-                    context.setLineDash([3, 3])
-                    context.beginPath()
-                    context.moveTo(hx, 0)
-                    context.lineTo(hx, height)
-                    context.stroke()
-                    context.setLineDash([])
+                    const hx = xAt(board.hoverIndex);
+                    context.strokeStyle = "rgba(255, 255, 255, 0.7)";
+                    context.lineWidth = 1;
+                    context.setLineDash([3, 3]);
+                    context.beginPath();
+                    context.moveTo(hx, 0);
+                    context.lineTo(hx, height);
+                    context.stroke();
+                    context.setLineDash([]);
 
-                    const dy = yAt(downloads[board.hoverIndex] || 0)
-                    const uy = yAt(uploads[board.hoverIndex] || 0)
+                    const dy = yAt(downloads[board.hoverIndex] || 0);
+                    const uy = yAt(uploads[board.hoverIndex] || 0);
 
-                    context.fillStyle = board.downloadColor
-                    context.beginPath()
-                    context.arc(hx, dy, 4, 0, Math.PI * 2)
-                    context.fill()
-                    context.strokeStyle = "#FFFFFF"
-                    context.lineWidth = 1.5
-                    context.stroke()
+                    context.fillStyle = board.downloadColor;
+                    context.beginPath();
+                    context.arc(hx, dy, 4, 0, Math.PI * 2);
+                    context.fill();
+                    context.strokeStyle = "#FFFFFF";
+                    context.lineWidth = 1.5;
+                    context.stroke();
 
-                    context.fillStyle = board.uploadColor
-                    context.beginPath()
-                    context.arc(hx, uy, 4, 0, Math.PI * 2)
-                    context.fill()
-                    context.strokeStyle = "#FFFFFF"
-                    context.lineWidth = 1.5
-                    context.stroke()
+                    context.fillStyle = board.uploadColor;
+                    context.beginPath();
+                    context.arc(hx, uy, 4, 0, Math.PI * 2);
+                    context.fill();
+                    context.strokeStyle = "#FFFFFF";
+                    context.lineWidth = 1.5;
+                    context.stroke();
                 }
             }
 
             Connections {
                 target: Services.SystemMonitor
-                function onDownloadHistoryChanged() { graph.requestPaint() }
-                function onUploadHistoryChanged() { graph.requestPaint() }
+                function onDownloadHistoryChanged() {
+                    graph.requestPaint();
+                }
+                function onUploadHistoryChanged() {
+                    graph.requestPaint();
+                }
             }
 
             Connections {
                 target: board
-                function onHoverIndexChanged() { graph.requestPaint() }
-                function onMaxMbitChanged() { graph.requestPaint() }
+                function onHoverIndexChanged() {
+                    graph.requestPaint();
+                }
+                function onMaxMbitChanged() {
+                    graph.requestPaint();
+                }
             }
 
             onWidthChanged: requestPaint()
@@ -252,10 +260,10 @@ Rectangle {
             cursorShape: Qt.CrossCursor
 
             onPositionChanged: mouse => {
-                board.hoverIndex = board.indexAtX(mouse.x, width)
+                board.hoverIndex = board.indexAtX(mouse.x, width);
             }
             onEntered: {
-                board.hoverIndex = board.indexAtX(mouseX, width)
+                board.hoverIndex = board.indexAtX(mouseX, width);
             }
             onExited: board.hoverIndex = -1
         }
@@ -272,17 +280,17 @@ Rectangle {
             z: 10
 
             readonly property real markerX: {
-                const count = board.pointCount()
+                const count = board.pointCount();
                 if (count < 2)
-                    return graphArea.width / 2
-                return board.hoverIndex * (graphArea.width - 1) / (count - 1)
+                    return graphArea.width / 2;
+                return board.hoverIndex * (graphArea.width - 1) / (count - 1);
             }
 
             x: {
-                const preferred = markerX + 12
+                const preferred = markerX + 12;
                 if (preferred + width > graphArea.width)
-                    return Math.max(0, markerX - width - 12)
-                return preferred
+                    return Math.max(0, markerX - width - 12);
+                return preferred;
             }
             y: 6
 
@@ -393,7 +401,13 @@ Rectangle {
 
             Row {
                 spacing: 6
-                Rectangle { width: 8; height: 8; radius: 4; color: board.downloadColor; anchors.verticalCenter: parent.verticalCenter }
+                Rectangle {
+                    width: 8
+                    height: 8
+                    radius: 4
+                    color: board.downloadColor
+                    anchors.verticalCenter: parent.verticalCenter
+                }
                 Text {
                     text: "Download: " + Services.SystemMonitor.formatMbit(Services.SystemMonitor.download)
                     color: Core.Theme.foreground
@@ -406,7 +420,13 @@ Rectangle {
 
             Row {
                 spacing: 6
-                Rectangle { width: 8; height: 8; radius: 4; color: board.uploadColor; anchors.verticalCenter: parent.verticalCenter }
+                Rectangle {
+                    width: 8
+                    height: 8
+                    radius: 4
+                    color: board.uploadColor
+                    anchors.verticalCenter: parent.verticalCenter
+                }
                 Text {
                     text: "Upload: " + Services.SystemMonitor.formatMbit(Services.SystemMonitor.upload)
                     color: Core.Theme.foreground

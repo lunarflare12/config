@@ -55,121 +55,121 @@ QtObject {
     readonly property int defaultSize: 24
 
     readonly property string activeId: {
-        const raw = root.stateFile.text()
+        const raw = root.stateFile.text();
         if (!raw)
-            return root.defaultId
-        const trimmed = raw.trim()
-        return trimmed.length > 0 ? trimmed : root.defaultId
+            return root.defaultId;
+        const trimmed = raw.trim();
+        return trimmed.length > 0 ? trimmed : root.defaultId;
     }
 
     readonly property int activeSize: {
-        const raw = root.sizeFile.text()
-        const parsed = raw ? parseInt(String(raw).trim(), 10) : root.defaultSize
+        const raw = root.sizeFile.text();
+        const parsed = raw ? parseInt(String(raw).trim(), 10) : root.defaultSize;
         if (isNaN(parsed))
-            return root.defaultSize
-        return Math.max(root.minSize, Math.min(root.maxSize, parsed))
+            return root.defaultSize;
+        return Math.max(root.minSize, Math.min(root.maxSize, parsed));
     }
 
     readonly property int count: root.cursors.length
 
     function ingest() {
-        const raw = root.catalogueFile.text()
-        let list = []
+        const raw = root.catalogueFile.text();
+        let list = [];
         if (raw) {
             try {
-                const parsed = JSON.parse(raw)
+                const parsed = JSON.parse(raw);
                 if (parsed && parsed.length)
-                    list = parsed
+                    list = parsed;
                 else if (parsed && parsed.cursors)
-                    list = parsed.cursors
+                    list = parsed.cursors;
             } catch (e) {
-                list = []
+                list = [];
             }
         }
 
-        const out = []
+        const out = [];
         for (let i = 0; i < list.length; i++) {
-            const item = list[i]
+            const item = list[i];
             if (!item || !item.id)
-                continue
-            const thumbName = item.thumb || (item.id + ".png")
+                continue;
+            const thumbName = item.thumb || (item.id + ".png");
             out.push({
                 "id": item.id,
                 "name": item.name || item.id,
                 "theme": item.theme || item.id,
                 "animated": !!item.animated,
                 "thumb": root.previewDir + "/" + thumbName
-            })
+            });
         }
-        root.cursors = out
+        root.cursors = out;
     }
 
     function filtered(kind) {
-        const want = kind && kind.length > 0 ? kind : root.kindFilter
-        const list = root.cursors
+        const want = kind && kind.length > 0 ? kind : root.kindFilter;
+        const list = root.cursors;
         if (want !== "static" && want !== "animated")
-            return list
-        const animated = want === "animated"
-        const out = []
+            return list;
+        const animated = want === "animated";
+        const out = [];
         for (let i = 0; i < list.length; i++) {
             if (!!list[i].animated === animated)
-                out.push(list[i])
+                out.push(list[i]);
         }
-        return out
+        return out;
     }
 
     function itemById(id) {
-        const list = root.cursors
+        const list = root.cursors;
         for (let i = 0; i < list.length; i++) {
             if (list[i].id === id)
-                return list[i]
+                return list[i];
         }
-        return null
+        return null;
     }
 
     function clampSize(size) {
-        const n = Math.round(Number(size))
+        const n = Math.round(Number(size));
         if (isNaN(n))
-            return root.defaultSize
-        const steps = root.sizeSteps
-        let best = steps[0]
-        let dist = Math.abs(n - best)
+            return root.defaultSize;
+        const steps = root.sizeSteps;
+        let best = steps[0];
+        let dist = Math.abs(n - best);
         for (let i = 1; i < steps.length; i++) {
-            const d = Math.abs(n - steps[i])
+            const d = Math.abs(n - steps[i]);
             if (d < dist) {
-                best = steps[i]
-                dist = d
+                best = steps[i];
+                dist = d;
             }
         }
-        return best
+        return best;
     }
 
     function hypr(args) {
-        Quickshell.execDetached(["hyprctl"].concat(args))
+        Quickshell.execDetached(["hyprctl"].concat(args));
     }
 
     function apply(id, size) {
-        const item = root.itemById(id)
-        const key = id && id.length > 0 ? id : root.activeId
+        const item = root.itemById(id);
+        const key = id && id.length > 0 ? id : root.activeId;
         if (!key)
-            return
-        const theme = ((item && item.theme) ? item.theme : key).replace(/'/g, "")
-        const px = root.clampSize(size === undefined ? root.activeSize : size)
-        root.hypr(["eval", "hl.env('HYPRCURSOR_THEME', '" + theme + "')"])
-        root.hypr(["eval", "hl.env('HYPRCURSOR_SIZE', '" + px + "')"])
-        root.hypr(["eval", "hl.env('XCURSOR_THEME', '" + theme + "')"])
-        root.hypr(["eval", "hl.env('XCURSOR_SIZE', '" + px + "')"])
-        root.hypr(["eval", "hl.config({ cursor = { enable_hyprcursor = true, no_hardware_cursors = true, use_cpu_buffer = false, hide_on_key_press = false, default_monitor = 'DP-1' } })"])
-        root.hypr(["setcursor", theme, String(px)])
-        Quickshell.execDetached([root.applyScript, key, String(px), theme])
+            return;
+        const theme = ((item && item.theme) ? item.theme : key).replace(/'/g, "");
+        const px = root.clampSize(size === undefined ? root.activeSize : size);
+        root.hypr(["eval", "hl.env('HYPRCURSOR_THEME', '" + theme + "')"]);
+        root.hypr(["eval", "hl.env('HYPRCURSOR_SIZE', '" + px + "')"]);
+        root.hypr(["eval", "hl.env('XCURSOR_THEME', '" + theme + "')"]);
+        root.hypr(["eval", "hl.env('XCURSOR_SIZE', '" + px + "')"]);
+        root.hypr(["eval", "hl.config({ cursor = { enable_hyprcursor = true, no_hardware_cursors = true, use_cpu_buffer = false, hide_on_key_press = false, default_monitor = 'DP-1' } })"]);
+        root.hypr(["setcursor", theme, String(px)]);
+        Quickshell.execDetached([root.applyScript, key, String(px), theme]);
     }
 
     function applySize(size) {
-        const px = root.clampSize(Math.round(Number(size) / 2) * 2)
+        const px = root.clampSize(Math.round(Number(size) / 2) * 2);
         if (px === root.activeSize && px === root.pendingSize)
-            return
-        root.pendingSize = px
-        root.apply(root.activeId, px)
+            return;
+        root.pendingSize = px;
+        root.apply(root.activeId, px);
     }
 
     Component.onCompleted: root.ingest()

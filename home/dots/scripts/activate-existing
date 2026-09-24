@@ -11,6 +11,7 @@ import subprocess
 import sys
 
 WEAK = {
+    os.path.basename(os.environ.get("HOME", "")).lower(),
     "a",
     "app",
     "applicationstatus",
@@ -94,7 +95,7 @@ def tokens_of(*parts: str) -> set[str]:
 def token_hit(needle: str, hay: str) -> bool:
     n = strip_wrap(needle)
     h = strip_wrap(hay)
-    if not n or not h or n in WEAK:
+    if not n or not h or n in WEAK or len(n) < 3:
         return False
     if n == h:
         return True
@@ -274,7 +275,7 @@ def bounded_hit(hay: str, needle: str) -> bool:
 def class_hit(cls: str, needle: str) -> bool:
     c = strip_wrap(cls)
     n = strip_wrap(needle)
-    if not c or not n or n in WEAK or len(n) < 2:
+    if not c or not n or n in WEAK or len(n) < 3:
         return False
     if c == n or bounded_hit(c, n):
         return True
@@ -350,18 +351,25 @@ def hypr_focus(needles: set[str], probe: bool = False) -> bool:
         return False
     if probe:
         return True
-    # Hyprland 0.56+ Lua dispatcher.
-    out = run(
-        [
-            "hyprctl",
-            "dispatch",
-            f'hl.dsp.focus({{ window = "address:{best_addr}" }})',
-        ]
-    )
-    if out.returncode == 0 and "window not found" not in (out.stderr or ""):
+    lua = (
+        '(function() local w = hl.get_window("address:%s"); '
+        "if not w then return false end; "
+        "hl.dispatch(hl.dsp.focus({ window = w })); return true end)()"
+    ) % best_addr
+    try:
+        out = subprocess.run(
+            ["hyprctl", "eval", lua],
+            capture_output=True,
+            text=True,
+            timeout=0.6,
+        )
+    except Exception:
+        out = subprocess.CompletedProcess(["hyprctl", "eval"], 1, "", "")
+    text = ((out.stdout or "") + (out.stderr or "")).lower()
+    if out.returncode == 0 and "false" not in text and "not found" not in text:
         return True
-    # Fallback focus by class of the matched client.
-    return False
+    out = run(["hyprctl", "dispatch", "focuswindow", f"address:{best_addr}"])
+    return out.returncode == 0
 
 
 def main() -> int:

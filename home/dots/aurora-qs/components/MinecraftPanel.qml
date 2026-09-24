@@ -1,7 +1,5 @@
 import QtQuick
 
-import "../core" as Core
-
 // Frosted toast chrome — shared by overlay cards and the notification centre.
 Item {
     id: panel

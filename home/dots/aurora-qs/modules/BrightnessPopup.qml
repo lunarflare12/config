@@ -1,10 +1,8 @@
 import QtQuick
 
-import Quickshell
-
+import "../components" as Components
 import "../core" as Core
 import "../services" as Services
-import "../components" as Components
 
 Components.PopupSurface {
     id: popup
@@ -90,8 +88,6 @@ Components.PopupSurface {
                         Components.VolumeSlider {
                             width: parent.width
                             value: card.monPercent / 100
-                            enabled: true
-                            opacity: 1
                             fillColor: Core.Theme.accent
                             onMoved: function (v) {
                                 popup.svc.dragging = true;

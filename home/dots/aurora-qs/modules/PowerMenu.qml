@@ -1,6 +1,6 @@
 import QtQuick
 import Quickshell
-import Quickshell.Io
+
 import "../components" as Components
 import "../core" as Core
 

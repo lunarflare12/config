@@ -1,7 +1,5 @@
 import QtQuick
 
-import "../core" as Core
-
 // macOS-style hover: a quiet rounded wash, no gloss, no border, no bounce.
 Item {
     id: root

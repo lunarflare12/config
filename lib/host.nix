@@ -5,10 +5,6 @@
 
   userName = params.userName or (lib.head (lib.attrNames params.users));
 
-  repoRel = params.repo or "projects/config";
-
-  repoPath = home: "${home}/${params.repo or "projects/config"}";
-
   enabled = name: params.features.${name} or false;
 
   resolve =

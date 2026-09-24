@@ -16,7 +16,7 @@ Item {
     readonly property var pinned: Services.AppsService.dockTiles || []
     readonly property int toplevelCount: (Hyprland.toplevels && Hyprland.toplevels.values) ? Hyprland.toplevels.values.length : 0
     readonly property var runningTiles: {
-        const _ = tray.toplevelCount;
+        const _ = tray.toplevelCount + Core.Session.clientsTick;
         return tray.collectRunning();
     }
     readonly property var tiles: tray.pinned.concat(tray.runningTiles)
@@ -30,6 +30,9 @@ Item {
     property real dragY: 0
     property bool holding: false
     property bool menuOpen: false
+    property bool appMenuOpen: false
+    property var menuTile: null
+    property real menuY: 0
     property int hoverIndex: -1
     property bool trashHover: false
     readonly property bool folderOpen: !!(tray.openFolder && Core.PopupManager.launchpadIntro < 0.01)
@@ -55,16 +58,72 @@ Item {
 
     onIntroChanged: {
         if (tray.intro < 0.5)
-            tray.menuOpen = false;
+            tray.closeMenus();
     }
 
-    onMenuOpenChanged: Core.PopupManager.contextMenuOpen = tray.menuOpen
+    onMenuOpenChanged: Core.PopupManager.contextMenuOpen = tray.menuOpen || tray.appMenuOpen
+    onAppMenuOpenChanged: Core.PopupManager.contextMenuOpen = tray.menuOpen || tray.appMenuOpen
+
+    function closeMenus() {
+        tray.menuOpen = false;
+        tray.appMenuOpen = false;
+        tray.menuTile = null;
+    }
+
+    function openAppMenu(tile, y) {
+        if (!tile || tile.type === "folder")
+            return;
+        tray.menuOpen = false;
+        tray.menuTile = tile;
+        tray.menuY = y;
+        tray.appMenuOpen = true;
+    }
+
+    function tilePinned(tile) {
+        if (!tile || tile.transient)
+            return false;
+        const id = String(tile.id || "");
+        if (!id)
+            return false;
+        return (Services.AppsService.dockOrder || []).indexOf(id) >= 0;
+    }
+
+    function runTile(tile) {
+        if (!tile)
+            return;
+        const top = tray.toplevelFor(tile);
+        if (top) {
+            const here = Core.Session.activeWorkspaceOnMonitor(Core.Session.focusedMonitorName());
+            Core.Session.bringWindow(top, here);
+            return;
+        }
+        if (tray.tileIsRunning(tile)) {
+            const cls = String(tile.runningClass || (tile.entry && (tile.entry.startupWmClass || tile.entry.startupClass)) || tile.id || "");
+            if (cls)
+                Core.Session.focusClass(cls);
+            return;
+        }
+        Services.AppsService.launch(tile);
+        tray.launched();
+    }
+
+    function closeTile(tile) {
+        if (!tile)
+            return;
+        const top = tray.toplevelFor(tile);
+        if (top)
+            Core.Session.closeWindow(top);
+        const needles = Services.AppsService.entryNeedles(tile.entry || tile);
+        if (tile.runningClass && needles.indexOf(tile.runningClass) < 0)
+            needles.push(tile.runningClass);
+        Core.Session.closeClasses(needles);
+    }
 
     Connections {
         target: Core.PopupManager
         function onContextMenuOpenChanged() {
             if (!Core.PopupManager.contextMenuOpen)
-                tray.menuOpen = false;
+                tray.closeMenus();
         }
     }
 
@@ -118,7 +177,27 @@ Item {
 
     function classOfTop(t) {
         const ipc = t && t.lastIpcObject ? t.lastIpcObject : {};
-        return String(ipc.class || ipc.initialClass || ipc.initial_class || (t && t.class) || "").toLowerCase();
+        let c = String(ipc.class || ipc.initialClass || ipc.initial_class || (t && t.class) || "").toLowerCase();
+        if (c)
+            return c;
+        const addr = String((t && (t.address || ipc.address)) || "");
+        const snap = Core.Session.openClasses || [];
+        if (addr && snap.length)
+            return c;
+        return c;
+    }
+
+    function tileIsRunning(tile) {
+        if (!tile)
+            return false;
+        if (tray.toplevelFor(tile))
+            return true;
+        const entry = tile.entry || tile;
+        if (entry && Services.AppsService.entryIsRunning(entry, Core.Session.openClasses))
+            return true;
+        const cls = String(tile.runningClass || "").toLowerCase();
+        const open = Core.Session.openClasses || [];
+        return cls && open.indexOf(cls) !== -1;
     }
 
     function toplevelFor(tile) {
@@ -135,8 +214,10 @@ Item {
             const t = tops[i];
             const ipc = t.lastIpcObject || {};
             const c = tray.classOfTop(t);
-            if (tray.skipDockClass(c))
+            if (c && tray.skipDockClass(c))
                 continue;
+            if (entry && c && Services.AppsService.classMatchesEntry(c, entry))
+                return t;
             const title = String(t.title || ipc.title || "").toLowerCase();
             if (cls && (c === cls || c.indexOf(cls) >= 0 || cls.indexOf(c) >= 0))
                 return t;
@@ -156,39 +237,52 @@ Item {
             const key = tray.tileKey(pinned[i]);
             if (key)
                 seen[key] = true;
-            const entry = pinned[i] && pinned[i].entry;
-            const cls = String(entry && (entry.startupWmClass || entry.startupClass || "") || "").toLowerCase();
-            if (cls)
-                seen["cls:" + cls] = true;
+            const entry = pinned[i] && (pinned[i].entry || pinned[i]);
+            const needles = Services.AppsService.entryNeedles(entry);
+            for (let n = 0; n < needles.length; n++)
+                seen["cls:" + needles[n]] = true;
         }
         const out = [];
-        for (let i = 0; i < tops.length; i++) {
-            const t = tops[i];
-            const ipc = t.lastIpcObject || {};
-            const cls = tray.classOfTop(t);
+        const pushTile = function (cls, t, title) {
             if (tray.skipDockClass(cls))
-                continue;
-            const ws = ipc.workspace || {};
-            if (String(ws.name || "").indexOf("special") === 0)
-                continue;
+                return;
             const steamId = Services.AppsService.steamIdFromClass(cls);
             const entry = steamId ? Services.AppsService.entryForSteamId(steamId) : Services.AppsService.entryForClass(cls);
             const id = entry && entry.id ? String(entry.id) : cls;
             const key = id.toLowerCase();
-            if (seen[key] || seen["cls:" + cls])
-                continue;
+            const aliases = Services.AppsService.classAliases(cls);
+            if (seen[key])
+                return;
+            for (let a = 0; a < aliases.length; a++) {
+                if (seen["cls:" + aliases[a]])
+                    return;
+            }
             seen[key] = true;
             seen["cls:" + cls] = true;
             out.push({
                 "type": "app",
                 "id": id,
-                "name": Services.AppsService.nameForClass(cls, ipc.title || cls),
+                "name": Services.AppsService.nameForClass(cls, title || cls),
                 "entry": entry,
                 "apps": [],
-                "runningWindow": t,
+                "runningWindow": t || null,
+                "runningClass": cls,
                 "transient": true
             });
+        };
+        for (let i = 0; i < tops.length; i++) {
+            const t = tops[i];
+            const ipc = t.lastIpcObject || {};
+            const cls = tray.classOfTop(t);
+            const ws = ipc.workspace || {};
+            if (String(ws.name || "").indexOf("special") === 0)
+                continue;
+            if (cls)
+                pushTile(cls, t, t.title || ipc.title || cls);
         }
+        const classes = Core.Session.openClasses || [];
+        for (let j = 0; j < classes.length; j++)
+            pushTile(classes[j], null, classes[j]);
         return out;
     }
 
@@ -231,7 +325,8 @@ Item {
         id: hit
         anchors.left: parent.left
         anchors.verticalCenter: parent.verticalCenter
-        width: 74 + (tray.menuOpen || folderMenu.folderIntro > 0.01 ? Math.max(trashMenu.width, folderMenu.width) + 10 : 0)
+        width: 74 + (tray.menuOpen || tray.appMenuOpen || folderMenu.folderIntro > 0.01 ? Math.max(trashMenu.width, appMenu.width, folderMenu.width) + 10 : 0)
+
         height: dockBody.height
 
         Item {
@@ -365,13 +460,14 @@ Item {
                             }
 
                             readonly property var runningTop: tray.toplevelFor(slot.modelData)
-                            readonly property bool running: !!slot.runningTop
+                            readonly property bool running: tray.tileIsRunning(slot.modelData)
 
                             MouseArea {
                                 id: iconMouse
                                 anchors.fill: parent
                                 enabled: tray.interactive
                                 hoverEnabled: tray.interactive
+                                acceptedButtons: Qt.LeftButton | Qt.RightButton
                                 cursorShape: tray.dragging ? Qt.ClosedHandCursor : Qt.PointingHandCursor
                                 property real pressX: 0
                                 property real pressY: 0
@@ -386,6 +482,8 @@ Item {
                                         tray.hoverIndex = -1;
                                 }
                                 onPressed: function (mouse) {
+                                    if (mouse.button === Qt.RightButton)
+                                        return;
                                     pressX = mouse.x;
                                     pressY = mouse.y;
                                     dragged = false;
@@ -411,7 +509,17 @@ Item {
                                     const idx = Math.max(0, Math.min(n - 1, Math.round(r.y / 40)));
                                     tray.hoverSlot = idx;
                                 }
+                                onClicked: function (mouse) {
+                                    if (mouse.button !== Qt.RightButton)
+                                        return;
+                                    tray.resetPointer();
+                                    const p = iconMouse.mapToItem(dockBody, 0, slot.height / 2);
+                                    tray.openAppMenu(slot.modelData, p.y);
+                                }
+
                                 onReleased: function (mouse) {
+                                    if (mouse.button === Qt.RightButton)
+                                        return;
                                     if (dragged && tray.dragFrom >= 0) {
                                         const p = iconMouse.mapToItem(dockBody, mouse.x, mouse.y);
                                         const from = tray.dragFrom;
@@ -435,13 +543,7 @@ Item {
                                         Services.AppsService.toggleFolder(slot.modelData.id);
                                         return;
                                     }
-                                    if (slot.runningTop) {
-                                        const here = Core.Session.activeWorkspaceOnMonitor(Core.Session.focusedMonitorName());
-                                        Core.Session.bringWindow(slot.runningTop, here);
-                                        return;
-                                    }
-                                    Services.AppsService.launch(slot.modelData);
-                                    tray.launched();
+                                    tray.runTile(slot.modelData);
                                 }
                                 onCanceled: {
                                     dragged = false;
@@ -521,6 +623,7 @@ Item {
                         onExited: tray.trashHover = false
                         onClicked: function (mouse) {
                             if (mouse.button === Qt.RightButton) {
+                                tray.appMenuOpen = false;
                                 tray.menuOpen = true;
                                 return;
                             }
@@ -564,6 +667,123 @@ Item {
         }
 
         Rectangle {
+            id: appMenu
+            visible: tray.appMenuOpen && tray.menuTile
+            z: 41
+            width: 196
+            height: appMenuCol.implicitHeight + 10
+            anchors.left: dockBody.right
+            anchors.leftMargin: 8
+            y: Math.max(8, Math.min(dockBody.height - height - 8, tray.menuY - height / 2))
+            radius: Core.Theme.radiusMenu
+            color: "transparent"
+            border.width: Core.Theme.borderWidth
+            border.color: Core.Theme.borderActive
+            antialiasing: true
+
+            readonly property bool running: tray.tileIsRunning(tray.menuTile)
+            readonly property bool pinned: tray.tilePinned(tray.menuTile)
+
+            Glass {
+                anchors.fill: parent
+                radius: parent.radius
+                strength: 1.0
+            }
+
+            Column {
+                id: appMenuCol
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: 5
+                spacing: 1
+
+                Repeater {
+                    model: [
+                        {
+                            "label": appMenu.running ? "Close" : "Open",
+                            "icon": appMenu.running ? Core.Icons.close : Core.Icons.folder,
+                            "action": appMenu.running ? "close" : "open",
+                            "danger": appMenu.running
+                        },
+                        {
+                            "label": appMenu.pinned ? "Unpin" : "Pin",
+                            "icon": appMenu.pinned ? Core.Icons.pinOff : Core.Icons.pin,
+                            "action": appMenu.pinned ? "unpin" : "pin",
+                            "danger": false
+                        }
+                    ]
+
+                    Rectangle {
+                        id: appRow
+                        required property var modelData
+                        width: appMenuCol.width
+                        height: 30
+                        radius: Core.Theme.radiusRow
+                        color: "transparent"
+
+                        Tactile {
+                            anchors.fill: parent
+                            radius: Core.Theme.radiusRow
+                            hovered: appRowMouse.containsMouse
+                            pressed: appRowMouse.pressed
+                            hoverScale: 1.03
+                            pressScale: 0.94
+                        }
+
+                        Row {
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            anchors.leftMargin: 10
+                            anchors.rightMargin: 10
+                            spacing: 9
+
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                width: 16
+                                text: appRow.modelData.icon
+                                font.family: Core.Theme.iconFont
+                                font.pixelSize: Core.Theme.iconSizeSmall
+                                color: appRow.modelData.danger ? Core.Theme.danger : Core.Theme.foregroundMuted
+                            }
+
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: appRow.modelData.label
+                                font.family: Core.Theme.fontFamily
+                                font.pixelSize: Core.Theme.fontSize
+                                color: appRow.modelData.danger ? Core.Theme.danger : Core.Theme.foreground
+                            }
+                        }
+
+                        MouseArea {
+                            id: appRowMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                const tile = tray.menuTile;
+                                const action = appRow.modelData.action;
+                                tray.closeMenus();
+                                if (!tile)
+                                    return;
+                                if (action === "open")
+                                    tray.runTile(tile);
+                                else if (action === "close")
+                                    tray.closeTile(tile);
+                                else if (action === "pin")
+                                    Services.AppsService.pinDock(tile.id);
+                                else if (action === "unpin")
+                                    Services.AppsService.unpinDock(tile.id);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Rectangle {
             id: trashMenu
             visible: tray.menuOpen
             z: 40
@@ -594,8 +814,20 @@ Item {
 
                 Repeater {
                     model: [
-                        { "label": "Open", "icon": Core.Icons.folder, "action": "open", "enabled": true, "danger": false },
-                        { "label": "Empty Trash", "icon": Core.Icons.trash, "action": "empty", "enabled": Services.DesktopService.trashFull, "danger": true }
+                        {
+                            "label": "Open",
+                            "icon": Core.Icons.folder,
+                            "action": "open",
+                            "enabled": true,
+                            "danger": false
+                        },
+                        {
+                            "label": "Empty Trash",
+                            "icon": Core.Icons.trash,
+                            "action": "empty",
+                            "enabled": Services.DesktopService.trashFull,
+                            "danger": true
+                        }
                     ]
 
                     Rectangle {

@@ -27,11 +27,11 @@ Item {
     readonly property int cellH: root.host && root.host.cellH > 0 ? root.host.cellH : root.grid.cellH
     readonly property bool editing: Core.Session.desktopEdit
     readonly property real contentW: {
-        const item = contentLoader.item;
+        const item = contentLoader.item as Item;
         return item && item.implicitWidth > 0 ? item.implicitWidth : 0;
     }
     readonly property real contentH: {
-        const item = contentLoader.item;
+        const item = contentLoader.item as Item;
         return item && item.implicitHeight > 0 ? item.implicitHeight : 0;
     }
     readonly property int usedSpanW: {
@@ -164,13 +164,18 @@ Item {
 
             Loader {
                 id: contentLoader
-                anchors.top: parent.top
+                // fitContent pins the content top-centre at its implicit size;
+                // otherwise it stretches to the whole widget body.
+                anchors.fill: root.fitContent ? undefined : parent
+                anchors.top: root.fitContent ? parent.top : undefined
                 anchors.horizontalCenter: root.fitContent ? parent.horizontalCenter : undefined
-                anchors.left: root.fitContent ? undefined : parent.left
-                anchors.right: root.fitContent ? undefined : parent.right
-                anchors.bottom: root.fitContent ? undefined : parent.bottom
-                active: true
+                active: root.onDesktop
+                asynchronous: true
                 sourceComponent: root.contentComponent
+                onLoaded: {
+                    if (root.fitContent)
+                        Qt.callLater(root.applySavedOrDefault);
+                }
             }
         }
 

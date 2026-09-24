@@ -1,20 +1,29 @@
 #!/usr/bin/env bash
-# Memory Saver + one renderer per site. Disk shader cache is unrelated.
 set -euo pipefail
+# shellcheck disable=SC1091
+source "${HOME}/.config/scripts/space-lib.sh"
 
-bin="${HOME:+/etc/profiles/per-user/${USER}/bin/google-chrome}"
-if [ ! -x "$bin" ]; then
-  bin="$(command -v google-chrome || true)"
+space_load_apps_env
+compose="${HOME}/containers/apps/compose.yml"
+chrome="${CHROME_BIN:?CHROME_BIN missing in containers/apps/.env}"
+docker compose -f "$compose" up -d --no-build chrome-dd
+if [ "$#" -gt 0 ]; then
+  # shellcheck disable=SC2046
+  docker exec -u app \
+    $(space_display_env) \
+    $(space_docker_env) \
+    chrome-dd \
+    "$chrome" \
+    --user-data-dir=/home/app/.config/google-chrome \
+    --profile-directory=Default \
+    --class=chrome-dd \
+    --ozone-platform=wayland \
+    --force-dark-mode \
+    --ignore-gpu-blocklist \
+    --enable-gpu-rasterization \
+    --enable-zero-copy \
+    --disable-setuid-sandbox \
+    --no-sandbox \
+    --disable-features=MemorySaverMode \
+    "$@"
 fi
-if [ -z "$bin" ] || [ ! -x "$bin" ]; then
-  echo "google-chrome not found" >&2
-  exit 127
-fi
-
-exec "$bin" \
-  --force-dark-mode \
-  --enable-features=WebUIDarkMode,MemorySaverMode \
-  --disable-features=SpareRendererForSitePerProcess \
-  --process-per-site \
-  --renderer-process-limit=8 \
-  "$@"

@@ -15,6 +15,7 @@ let
       pkgs.wireguard-tools
       pkgs.amneziawg-tools
       pkgs.amneziawg-go
+      pkgs.sing-box
     ];
     text = ''
       exec python3 /home/${host.userName}/.config/scripts/lab-ctl.py "$@"
@@ -42,15 +43,16 @@ in
     pkgs.wireguard-tools
     pkgs.amneziawg-tools
     pkgs.amneziawg-go
-    pkgs.amnezia-vpn
     pkgs.openconnect
     pkgs.networkmanager-openconnect
+    pkgs.sing-box
     vpnCtl
   ];
 
   systemd.tmpfiles.rules = [
     "d /etc/wireguard 0750 root wheel -"
     "d /etc/amnesia 0750 root wheel -"
+    "d /etc/amnesia/vless 0750 root wheel -"
   ];
 
   security.polkit.extraConfig = ''

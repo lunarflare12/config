@@ -434,7 +434,8 @@ Components.PopupSurface {
 
                             onClicked: function (event) {
                                 if (event.button === Qt.LeftButton) {
-                                    popup.dismiss(noteRow.modelData);
+                                    Services.NotificationServer.activate(noteRow.modelData, true);
+                                    Core.PopupManager.close();
                                     return;
                                 }
 

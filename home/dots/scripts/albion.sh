@@ -8,6 +8,24 @@ set -euo pipefail
 # shellcheck source=/dev/null
 . "${BASH_SOURCE[0]%/*}/game-lib.sh"
 
+in_box=0
+if [ -n "${STEAM_CONTAINER:-}" ] || [ -f /.dockerenv ]; then
+  in_box=1
+fi
+
+# Host: own container. Inside the box this file is the Steam launch wrapper.
+if [ "$in_box" -eq 0 ]; then
+  HOME="${HOME:-/home/dd}"
+  COMPOSE="${HOME}/containers/steam/compose.yml"
+  if [ -x "${BASH_SOURCE[0]%/*}/protect-shader-caches.sh" ]; then
+    "${BASH_SOURCE[0]%/*}/protect-shader-caches.sh" >/dev/null 2>&1 || true
+  fi
+  game_ensure_xwayland
+  game_stop_other_boxes albion
+  mkdir -p "${HOME}/programs/steam"
+  exec docker compose -f "$COMPOSE" run --rm --name albion albion
+fi
+
 game_strip_overlay
 game_low_latency
 game_xwayland_ultrawide
