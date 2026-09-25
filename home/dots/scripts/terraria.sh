@@ -19,4 +19,5 @@ fi
 game_ensure_xwayland
 game_stop_other_boxes terraria
 mkdir -p "${HOME}/programs/steam"
-exec docker compose -f "$COMPOSE" run --rm --name terraria terraria
+game_ensure_steam
+exec docker exec steam /usr/local/bin/game-session.sh 105600 Terraria.bin Terraria.exe

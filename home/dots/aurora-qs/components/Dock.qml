@@ -23,10 +23,19 @@ PanelWindow {
 
     readonly property string monitorName: Core.Session.monitorNameForScreen(root.screen)
     readonly property bool onMain: Core.Session.isDesktopMonitor(root.monitorName)
-    readonly property bool hidden: Core.Session.gameFullscreenOnScreen(root.screen)
+    property bool hidden: false
+    property int fsWatch: Core.Session.fsTick
+    property bool ipcWatch: Core.Session.ipcReady
+    onFsWatchChanged: Qt.callLater(root.syncHidden)
+    onIpcWatchChanged: Qt.callLater(root.syncHidden)
+    function syncHidden() {
+        const next = root.ipcWatch && Core.Session.gameFullscreenOnScreen(root.screen);
+        if (root.hidden !== next)
+            root.hidden = next;
+    }
+    Component.onCompleted: root.syncHidden()
     readonly property bool launchpadHere: Core.PopupManager.launchpadIntro > 0.01 && root.onMain && Core.Session.focusedMonitorName() === root.monitorName
     property bool hideHold: false
-
     onHiddenChanged: {
         if (root.hidden) {
             dockShowDelay.stop();

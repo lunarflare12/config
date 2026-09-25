@@ -151,12 +151,25 @@ in
       # Hyprland also kicks this unit. Without --no-duplicate a second
       # process starts and draws a second bar on the same monitor.
       ExecStart = "${lib.getExe pkgs.quickshell} --no-duplicate";
+      # Drop leftover helpers from a previous crash (KillMode=process keeps them).
+      ExecStartPre = "-${config.home.homeDirectory}/.config/scripts/aurora-kill-qs-helpers.sh";
       # Dock-launched apps inherit this cgroup. control-group would kill
-      # Chrome/Cursor/games when the bar dies or reloads.
+      # Chrome/Cursor/games when the bar dies or reloads. AppsService uses
+      # systemd-run --scope for real launches; helpers are cleaned above.
       KillMode = "process";
       Restart = "on-failure";
       RestartSec = 2;
       Slice = "session.slice";
+      # qs is a layer-shell, not a portal app. The leftover helper
+      # processes from KillMode=process make Qt re-register the same id.
+      Environment = [
+        "QT_QPA_PLATFORM=wayland"
+        "QT_NO_XDG_DESKTOP_PORTAL=1"
+        "QML_IMPORT_PATH=${pkgs.qt6.qtmultimedia}/lib/qt-6/qml"
+        # Prepend multimedia plugins; keep qtwayland/qtdeclarative from the qs wrap.
+        "QT_PLUGIN_PATH=${pkgs.qt6.qtmultimedia}/lib/qt-6/plugins:${pkgs.qt6.qtwayland}/lib/qt-6/plugins:${pkgs.qt6.qtdeclarative}/lib/qt-6/plugins:${pkgs.qt6.qtsvg}/lib/qt-6/plugins"
+        "QT_MEDIA_BACKEND=ffmpeg"
+      ];
     };
     Install.WantedBy = [ "graphical-session.target" ];
   };
@@ -186,7 +199,7 @@ in
       ConditionEnvironment = "WAYLAND_DISPLAY";
     };
     Service = {
-      ExecStart = "${pkgs.awww}/bin/awww-daemon";
+      ExecStart = "${config.home.homeDirectory}/.config/scripts/wallpaper-daemon.sh";
       ExecStartPost = "${pkgs.writeShellScript "awww-ready" ''
         export PATH="${
           lib.makeBinPath [
@@ -209,7 +222,7 @@ in
   home.activation.auroraState = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         mkdir -p "${auroraQsDir}/assets"
         ln -sfn ${emojiDatabase} "${auroraQsDir}/assets/emoji.json"
-        mkdir -p "$HOME/.local/state/aurora" "$HOME/.cache/aurora" "$HOME/Wallpapers" "$HOME/Pictures/Screenshots" "$HOME/.local/state"
+        mkdir -p "$HOME/.local/state/aurora" "$HOME/.cache/aurora" "$HOME/Pictures/Wallpapers" "$HOME/Pictures/Screenshots" "$HOME/.local/state"
 
         # Launchpad/dock pins — keep out of HM-managed ~/.config/aurora.
         state_layout="$HOME/.local/state/aurora/app-layout.json"
@@ -250,7 +263,7 @@ in
           cp -f "$HOME/.cache/aurora/current-wallpaper" "$HOME/.local/state/aurora/wallpaper"
         fi
         if [ ! -s "$HOME/.local/state/aurora/wallpaper" ]; then
-          first="$(find -L "$HOME/Wallpapers" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' \) ! -name '.*' 2>/dev/null | sort | head -n 1 || true)"
+          first="$(find -L "$HOME/Pictures/Wallpapers" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' \) ! -name '.*' 2>/dev/null | sort | head -n 1 || true)"
           if [ -n "$first" ]; then
             printf '%s\n' "$first" > "$HOME/.local/state/aurora/wallpaper"
           fi
@@ -263,10 +276,13 @@ in
   ]
   ++ (with pkgs; [
     quickshell
+    # Dock trash / DesktopService need `gio trash` on qs PATH.
+    glib.bin
     cava
     wtype
     satty
     awww
+    mpvpaper
     hyprsunset
     hyprpicker
     hyprpolkitagent

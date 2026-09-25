@@ -66,7 +66,10 @@ link_larger() {
   if [ -f "$dst" ]; then
     db=$(wc -c <"$dst" 2>/dev/null || echo 0)
   fi
-  if [ -f "${ow_nv_keep}/.frozen" ] && [ "${db:-0}" -ge 1073741824 ]; then
+  # A real file stays. Replacing it is how a Steam rebuild used to wipe
+  # a cache that was still growing. Only a missing file or a tiny stub
+  # may be filled.
+  if [ "${db:-0}" -ge 4096 ]; then
     return 0
   fi
   if [ "${sb:-0}" -le "${db:-0}" ]; then
@@ -77,12 +80,15 @@ link_larger() {
 
 # Mirror a GLCache tree into the durable directory. Never delete either side.
 keep_nvidia() {
-  local src=$1
+  local src=$1 dest_root=$2
   [ -d "$src" ] || return 0
+  mkdir -p "$dest_root"
+  printf 'frozen\n' >"${dest_root}/.frozen"
+  printf 'protected\n' >"${dest_root}/.aurora-no-delete"
   local f rel dst
   while IFS= read -r -d '' f; do
     rel="${f#"$src"/}"
-    dst="${ow_nv_keep}/${rel}"
+    dst="${dest_root}/${rel}"
     link_larger "$f" "$dst"
   done < <(find "$src" -type f -print0 2>/dev/null)
 }
@@ -131,16 +137,23 @@ nvidia_cache_ok() {
 
 sync_dxvk_hardlink
 seed_nvidia_if_empty
-keep_nvidia "$ow_nv"
+keep_nvidia "$ow_nv" "$ow_nv_keep"
 if [ -d "$steam_nv" ] && ! [ "$steam_nv" -ef "$ow_nv" ]; then
-  keep_nvidia "$steam_nv"
+  keep_nvidia "$steam_nv" "$ow_nv_keep"
 fi
+# Same rule for the other boxes. Their bins must not be replaced either.
+keep_nvidia "${shader_root}/105600/nvidiav1" "${XDG_CACHE_HOME}/nvidia/terraria"
+keep_nvidia "${shader_root}/761890/nvidiav1" "${XDG_CACHE_HOME}/nvidia/albion"
+keep_nvidia "/steam/steamapps/shadercache/105600/nvidiav1" "${XDG_CACHE_HOME}/nvidia/terraria"
+keep_nvidia "/steam/steamapps/shadercache/761890/nvidiav1" "${XDG_CACHE_HOME}/nvidia/albion"
 
 # Stamp: tools must not rm -rf these trees.
 printf 'protected\n' >"${shader_root}/.aurora-no-delete"
 printf 'protected\n' >"${dxvk_root}/.aurora-no-delete"
 printf 'protected\n' >"${ow_nv}/.aurora-no-delete"
 printf 'protected\n' >"${ow_nv_keep}/.aurora-no-delete"
+printf 'protected\n' >"${XDG_CACHE_HOME}/nvidia/terraria/.aurora-no-delete"
+printf 'protected\n' >"${XDG_CACHE_HOME}/nvidia/albion/.aurora-no-delete"
 
 nv_bytes=0
 if [ -d "$ow_nv" ]; then

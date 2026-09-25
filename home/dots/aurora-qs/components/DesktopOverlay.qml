@@ -14,15 +14,26 @@ PanelWindow {
     readonly property var grid: Services.DesktopGrid
     readonly property var svc: Services.DesktopService
     readonly property string monitorName: Core.Session.monitorNameForScreen(root.screen)
-    readonly property bool gameFullscreen: Core.Session.gameFullscreenOnScreen(root.screen)
+    property bool gameFullscreen: false
+    property int fsWatch: Core.Session.fsTick
+    property bool ipcWatch: Core.Session.ipcReady
+    onFsWatchChanged: Qt.callLater(root.syncGameFullscreen)
+    onIpcWatchChanged: Qt.callLater(root.syncGameFullscreen)
+    function syncGameFullscreen() {
+        const next = root.ipcWatch && Core.Session.gameFullscreenOnScreen(root.screen);
+        if (root.gameFullscreen !== next)
+            root.gameFullscreen = next;
+    }
+    Component.onCompleted: root.syncGameFullscreen()
     readonly property bool shown: !root.gameFullscreen && !Core.Session.overviewOpen
     readonly property bool desktopHost: Core.Session.isDesktopMonitor(root.monitorName)
+    readonly property bool widgetHost: Core.Session.isWidgetMonitor(root.monitorName)
 
     // Stagger widget trees across frames; other monitors never instantiate them.
     property int widgetGate: 0
 
-    onDesktopHostChanged: {
-        if (!root.desktopHost)
+    onWidgetHostChanged: {
+        if (!root.widgetHost)
             root.widgetGate = 0;
     }
 
@@ -363,7 +374,7 @@ PanelWindow {
         }
 
         Repeater {
-            model: (root.editing && root.desktopHost) ? root.cols * root.rows : 0
+            model: (root.editing && (root.desktopHost || root.widgetHost)) ? root.cols * root.rows : 0
 
             Rectangle {
                 required property int index
@@ -387,7 +398,7 @@ PanelWindow {
         Timer {
             interval: 16
             repeat: true
-            running: root.desktopHost && root.widgetGate < 4
+            running: root.widgetHost && root.widgetGate < 4
             onTriggered: root.widgetGate += 1
         }
 
@@ -532,7 +543,7 @@ PanelWindow {
                     active: cell.selected
                     hoverScale: 1.08
                     pressScale: 0.9
-                    activeFill: Qt.alpha(Core.Theme.accent, 0.42)
+                    activeFill: Qt.tint(Qt.rgba(0, 0, 0, 0.48), Qt.alpha(Core.Theme.accent, 0.22))
                 }
 
                 Image {
@@ -676,9 +687,9 @@ PanelWindow {
             width: Math.abs(root.boxX2 - root.boxX)
             height: Math.abs(root.boxY2 - root.boxY)
             z: 20
-            color: Qt.alpha(Core.Theme.accent, 0.18)
+            color: Qt.alpha(Qt.darker(Core.Theme.accent, 1.35), 0.40)
             border.width: 1
-            border.color: Core.Theme.accent
+            border.color: Qt.darker(Core.Theme.accent, 1.15)
         }
 
         Rectangle {

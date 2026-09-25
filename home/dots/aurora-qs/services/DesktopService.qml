@@ -175,18 +175,18 @@ QtObject {
             exec = exec.replace(/%[fFuUdDnNickvm]/g, "").replace(/\s+/g, " ").trim();
             const argv = root.tokenize(exec);
             if (argv.length) {
-                Quickshell.execDetached(argv);
+                Quickshell.execDetached(["systemd-run", "--user", "--scope", "--collect", "--quiet", "--"].concat(argv));
                 return;
             }
-            Quickshell.execDetached(["gio", "launch", path]);
+            Quickshell.execDetached(["systemd-run", "--user", "--scope", "--collect", "--quiet", "--", "gio", "launch", path]);
             return;
         }
 
-        Quickshell.execDetached(["xdg-open", path]);
+        Quickshell.execDetached(["systemd-run", "--user", "--scope", "--collect", "--quiet", "--", "xdg-open", path]);
     }
 
     function openDesktop() {
-        Quickshell.execDetached([root.home + "/.config/scripts/finder.sh", root.desktopPath]);
+        Quickshell.execDetached(["systemd-run", "--user", "--scope", "--collect", "--quiet", "--", root.home + "/.config/scripts/finder.sh", root.desktopPath]);
     }
 
     function createFolder() {
@@ -227,26 +227,40 @@ QtObject {
         const paths = root.selected.slice();
         if (paths.length === 0)
             return;
+        // qs PATH often lacks gio — always fall back to rm.
         Quickshell.execDetached(["sh", "-c", "if command -v gio >/dev/null 2>&1; then gio trash -- \"$@\"; else rm -rf -- \"$@\"; fi", "trash"].concat(paths));
         root.clearSelection();
         refreshTimer.restart();
-        trashTimer.restart();
+        root.refreshTrashSoon();
     }
 
     property bool trashFull: false
-
+    readonly property string trashDir: root.home + "/.local/share/Trash"
     readonly property string trashIcon: Quickshell.iconPath(root.trashFull ? "user-trash-full" : "user-trash", "user-trash")
 
     function openTrash() {
-        Quickshell.execDetached(["sh", "-c", "mkdir -p \"$HOME/.local/share/Trash/files\" \"$HOME/.local/share/Trash/info\"; fm=\"$HOME/.config/scripts/finder.sh\"; if gio list trash:// >/dev/null 2>&1; then exec \"$fm\" trash:///; fi; exec \"$fm\" \"$HOME/.local/share/Trash/files\""]);
+        const dir = root.trashDir;
+        Quickshell.execDetached(["sh", "-c", "mkdir -p \"$1/files\" \"$1/info\"; fm=\"$HOME/.config/scripts/finder.sh\"; if command -v gio >/dev/null 2>&1 && gio list trash:// >/dev/null 2>&1; then exec \"$fm\" trash:///; fi; exec \"$fm\" \"$1/files\"", "open-trash", dir]);
     }
 
     function emptyTrash() {
-        if (!root.trashFull)
-            return;
-        Quickshell.execDetached(["sh", "-c", "if gio trash --empty >/dev/null 2>&1; then exit 0; fi; rm -rf \"$HOME/.local/share/Trash/files\" \"$HOME/.local/share/Trash/info\"; mkdir -p \"$HOME/.local/share/Trash/files\" \"$HOME/.local/share/Trash/info\""]);
+        // Never gate on trashFull — the poll can lag, and qs often has no gio.
+        // Wipe the on-disk Trash dirs directly; gio is best-effort only.
+        const dir = root.trashDir;
+        Quickshell.execDetached(["sh", "-c", "dir=\"$1\"; command -v gio >/dev/null 2>&1 && gio trash --empty >/dev/null 2>&1 || true; rm -rf \"$dir/files\" \"$dir/info\" \"$dir/expunged\"; mkdir -p \"$dir/files\" \"$dir/info\"", "empty-trash", dir]);
         root.trashFull = false;
+        root.refreshTrashSoon();
+    }
+
+    function refreshTrashSoon() {
+        trashTimer.interval = 350;
         trashTimer.restart();
+    }
+
+    function refreshTrash() {
+        if (trashProc.running)
+            trashProc.running = false;
+        trashProc.running = true;
     }
 
     function ingest(text) {
@@ -335,7 +349,7 @@ QtObject {
     }
 
     property Timer pollTimer: Timer {
-        interval: 2000
+        interval: 8000
         running: true
         repeat: true
         triggeredOnStart: true
@@ -346,18 +360,20 @@ QtObject {
     }
 
     property Timer trashTimer: Timer {
-        interval: 2000
+        interval: 10000
         running: true
         repeat: true
         triggeredOnStart: true
         onTriggered: {
-            if (!trashProc.running)
-                trashProc.running = true;
+            root.refreshTrash();
+            // Back off to the slow poll after a forced refresh.
+            if (trashTimer.interval !== 10000)
+                trashTimer.interval = 10000;
         }
     }
 
     property Process trashProc: Process {
-        command: ["sh", "-c", "test -n \"$(ls -A \"$HOME/.local/share/Trash/files\" 2>/dev/null)\" && echo 1 || echo 0"]
+        command: ["sh", "-c", "files=\"$1/files\"; test -d \"$files\" && test -n \"$(ls -A \"$files\" 2>/dev/null)\" && echo 1 || echo 0", "trash-full", root.trashDir]
         stdout: StdioCollector {
             onStreamFinished: root.trashFull = this.text.trim() === "1"
         }

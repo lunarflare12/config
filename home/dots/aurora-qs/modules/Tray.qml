@@ -23,6 +23,8 @@ Item {
         const title = String(item.title || "").toLowerCase();
         const tooltip = String(item.tooltip || "").toLowerCase();
 
+        if (id.includes("chrome_status_icon") || title.includes("chrome_status_icon"))
+            return true;
         return (id.includes("nm-applet") || id.includes("networkmanager") || id.includes("blueman") || title.includes("networkmanager") || title.includes("blueman") || tooltip.includes("networkmanager") || tooltip.includes("blueman"));
     }
 

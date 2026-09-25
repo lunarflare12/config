@@ -21,7 +21,7 @@ Singleton {
 
     readonly property var players: (Mpris.players && Mpris.players.values) ? Mpris.players.values : []
 
-    readonly property string bridgeBin: (Quickshell.env("HOME") || "") + "/.config/scripts/mpris-bridge.py"
+    readonly property string bridgeBin: (Quickshell.env("HOME") || "") + "/.config/scripts/mpris-bridge"
 
     property var bridge: ({
         "available": false,
@@ -44,37 +44,51 @@ Singleton {
     // Active player
     //
     // Prefers whatever is actually playing, then whatever carries track
-    // metadata, then simply the first player that registered. Browsers publish
-    // a player per tab, so picking blindly would happily show a paused YouTube
-    // tab while Spotify is the thing making noise.
+    // metadata. Skip playerctld (multiplexer) and empty stubs.
+
+    function isRealPlayer(p) {
+        if (!p)
+            return false;
+        const blob = String((p.identity || "") + " " + (p.desktopEntry || "") + " " + (p.dbusName || "")).toLowerCase();
+        if (!blob.trim())
+            return false;
+        if (blob.indexOf("playerctld") >= 0)
+            return false;
+        return true;
+    }
 
     readonly property var active: {
         const list = root.players;
-
         for (let i = 0; i < list.length; i++) {
             const p = list[i];
-
-            if (p && p.playbackState === MprisPlaybackState.Playing)
+            if (root.isRealPlayer(p) && p.playbackState === MprisPlaybackState.Playing)
                 return p;
         }
-
         for (let i = 0; i < list.length; i++) {
             const p = list[i];
-
-            if (p && String(p.trackTitle || "") !== "")
+            if (root.isRealPlayer(p) && String(p.trackTitle || "") !== "")
                 return p;
         }
-
-        return list.length > 0 ? list[0] : null;
+        for (let i = 0; i < list.length; i++) {
+            if (root.isRealPlayer(list[i]))
+                return list[i];
+        }
+        return null;
     }
 
     readonly property bool hostPlaying: root.active !== null && root.active.playbackState === MprisPlaybackState.Playing
 
+    // Bridge owns container Spotify/Chrome. Prefer whichever source is Playing.
     readonly property bool useBridge: {
+        const bridgePlay = !!(root.bridge && root.bridge.playing);
+        if (bridgePlay && !root.hostPlaying)
+            return true;
+        if (root.hostPlaying && !bridgePlay)
+            return false;
+        if (bridgePlay)
+            return true;
         if (root.hostPlaying)
             return false;
-        if (root.bridge && root.bridge.playing)
-            return true;
         if (root.active && String(root.active.trackTitle || "") !== "")
             return false;
         return !!(root.bridge && root.bridge.available);
@@ -171,7 +185,7 @@ Singleton {
     readonly property bool canRaise: !root.useBridge && root.available && root.active && root.active.canRaise
 
     function bridgeCtl(action, extra) {
-        const args = ["python3", root.bridgeBin, String(action)];
+        const args = [root.bridgeBin, String(action)];
         if (extra !== undefined && extra !== null && String(extra) !== "")
             args.push(String(extra));
         Quickshell.execDetached(args);
@@ -309,13 +323,23 @@ Singleton {
     }
 
     Process {
+        id: bridgeProc
+        // Same as cliphist: KillMode=process orphans the bridge across crashes.
         running: true
-        command: ["python3", root.bridgeBin]
+        command: [
+            "sh",
+            "-c",
+            "\"$HOME/.config/scripts/aurora-kill-qs-helpers.sh\" >/dev/null 2>&1 || true; exec \"$HOME/.config/scripts/mpris-bridge\""
+        ]
         stdout: SplitParser {
             splitMarker: "\n"
             onRead: function (line) {
                 root.ingestBridge(line);
             }
         }
+        onExited: Qt.callLater(function () {
+            if (!bridgeProc.running)
+                bridgeProc.running = true;
+        })
     }
 }

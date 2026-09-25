@@ -156,6 +156,7 @@ in
               hl.exec_cmd("${scripts}/hypr-fix-safe-mode.sh")
               hl.exec_cmd("hypridle")
               hl.exec_cmd("${scripts}/steam-lock-shaders.sh")
+              hl.exec_cmd("${scripts}/cap-fossilize.sh")
               hl.exec_cmd("${scripts}/qs-session-start.sh")
           end)
 

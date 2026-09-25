@@ -1,5 +1,6 @@
 import QtQuick
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Wayland
 
 import "../core" as Core
@@ -10,10 +11,13 @@ PanelWindow {
     property var modelData: null
     screen: root.modelData
 
+    readonly property var hyprMon: Hyprland.monitorFor(root.screen)
+    readonly property real monX: root.hyprMon ? Number(root.hyprMon.x) : (root.screen ? root.screen.x : 0)
+    readonly property real monY: root.hyprMon ? Number(root.hyprMon.y) : (root.screen ? root.screen.y : 0)
     readonly property bool picking: Core.Session.screenshotOpen
-    readonly property bool editing: Core.Session.sattyOpen && !root.picking
-    readonly property bool hot: root.picking || root.editing
-    readonly property color dimColor: Qt.rgba(0, 0, 0, root.picking ? 0.36 : 0.46)
+    readonly property bool editing: Core.Session.sattyOpen
+    readonly property bool catching: root.picking || root.editing
+    readonly property color dimColor: Qt.rgba(0, 0, 0, 0.42)
 
     property bool dragging: false
     property real x0: 0
@@ -31,10 +35,13 @@ PanelWindow {
         const box = Core.Session.sattyBox;
         if (!root.editing || !box)
             return Qt.rect(0, 0, 0, 0);
-        const sx = root.screen ? root.screen.x : 0;
-        const sy = root.screen ? root.screen.y : 0;
-        return Qt.rect(box.x - sx - 8, box.y - sy - 8, box.w + 16, box.h + 16);
+        return Qt.rect(box.x - root.monX - 8, box.y - root.monY - 8, box.w + 16, box.h + 16);
     }
+    readonly property bool hasHole: root.hole.width >= 2 && root.hole.height >= 2
+    readonly property int hx: Math.floor(root.hole.x)
+    readonly property int hy: Math.floor(root.hole.y)
+    readonly property int hw: Math.ceil(root.hole.width)
+    readonly property int hh: Math.ceil(root.hole.height)
 
     anchors {
         top: true
@@ -43,7 +50,7 @@ PanelWindow {
         bottom: true
     }
 
-    exclusiveZone: 0
+    exclusiveZone: -1
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
     visible: true
@@ -61,14 +68,14 @@ PanelWindow {
         item: catcher
         Region {
             intersection: Intersection.Subtract
-            x: Math.round(root.hole.x)
-            y: Math.round(root.hole.y)
-            width: root.editing ? Math.max(0, Math.round(root.hole.width)) : 0
-            height: root.editing ? Math.max(0, Math.round(root.hole.height)) : 0
+            x: root.hx
+            y: root.hy
+            width: root.editing ? Math.max(0, root.hw) : 0
+            height: root.editing ? Math.max(0, root.hh) : 0
         }
     }
 
-    mask: root.hot ? root.activeMask : root.emptyMask
+    mask: root.catching ? root.activeMask : root.emptyMask
 
     onPickingChanged: {
         root.dragging = false;
@@ -87,65 +94,63 @@ PanelWindow {
             root.dismiss();
             return;
         }
-        const sx = root.screen ? root.screen.x : 0;
-        const sy = root.screen ? root.screen.y : 0;
-        Core.Session.captureRegion(sx + box.x, sy + box.y, box.width, box.height);
+        Core.Session.captureRegion(root.monX + box.x, root.monY + box.y, box.width, box.height);
     }
 
     Item {
         id: catcher
         anchors.fill: parent
         focus: root.picking
+
         Keys.onEscapePressed: root.dismiss()
 
         Rectangle {
-            visible: root.picking && !root.dragging
             anchors.fill: parent
-            color: root.dimColor
+            color: root.picking && !root.hasHole ? root.dimColor : Qt.rgba(0, 0, 0, 0)
         }
 
         Rectangle {
-            visible: root.hot && root.hole.width >= 2
             x: 0
             y: 0
             width: catcher.width
-            height: Math.max(0, root.hole.y)
+            height: Math.max(0, root.hy)
             color: root.dimColor
+            visible: root.picking && root.hasHole
         }
 
         Rectangle {
-            visible: root.hot && root.hole.width >= 2
             x: 0
-            y: root.hole.y
-            width: Math.max(0, root.hole.x)
-            height: Math.max(0, root.hole.height)
+            y: root.hy
+            width: Math.max(0, root.hx)
+            height: Math.max(0, root.hh)
             color: root.dimColor
+            visible: root.picking && root.hasHole
         }
 
         Rectangle {
-            visible: root.hot && root.hole.width >= 2
-            x: root.hole.x + root.hole.width
-            y: root.hole.y
+            x: root.hx + root.hw
+            y: root.hy
             width: Math.max(0, catcher.width - x)
-            height: Math.max(0, root.hole.height)
+            height: Math.max(0, root.hh)
             color: root.dimColor
+            visible: root.picking && root.hasHole
         }
 
         Rectangle {
-            visible: root.hot && root.hole.width >= 2
             x: 0
-            y: root.hole.y + root.hole.height
+            y: root.hy + root.hh
             width: catcher.width
             height: Math.max(0, catcher.height - y)
             color: root.dimColor
+            visible: root.picking && root.hasHole
         }
 
         Rectangle {
-            visible: root.picking && root.dragging && root.dragBox.width >= 2
-            x: root.dragBox.x
-            y: root.dragBox.y
-            width: root.dragBox.width
-            height: root.dragBox.height
+            visible: root.picking && root.hasHole
+            x: root.hx
+            y: root.hy
+            width: root.hw
+            height: root.hh
             color: "transparent"
             border.width: 1
             border.color: Core.Theme.borderActive
@@ -153,30 +158,36 @@ PanelWindow {
 
         MouseArea {
             anchors.fill: parent
-            hoverEnabled: true
+            enabled: root.catching
+            hoverEnabled: false
             acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
             cursorShape: root.picking ? Qt.CrossCursor : Qt.ArrowCursor
             onPressed: function (mouse) {
-                if (!root.picking || mouse.button !== Qt.LeftButton) {
+                if (root.editing || mouse.button !== Qt.LeftButton) {
                     root.dismiss();
                     return;
                 }
                 root.x0 = root.x1 = mouse.x;
                 root.y0 = root.y1 = mouse.y;
-                root.dragging = true;
+                root.dragging = false;
             }
             onPositionChanged: function (mouse) {
-                if (!root.dragging)
+                if (root.editing || !pressed || !(mouse.buttons & Qt.LeftButton))
                     return;
                 root.x1 = mouse.x;
                 root.y1 = mouse.y;
+                if (!root.dragging && Math.hypot(root.x1 - root.x0, root.y1 - root.y0) >= 2)
+                    root.dragging = true;
             }
             onReleased: function (mouse) {
-                if (!root.dragging)
+                if (root.editing || mouse.button !== Qt.LeftButton)
                     return;
                 root.x1 = mouse.x;
                 root.y1 = mouse.y;
-                root.commit();
+                if (root.dragging)
+                    root.commit();
+                else
+                    root.dragging = false;
             }
             onCanceled: root.dismiss()
         }

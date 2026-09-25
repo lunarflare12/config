@@ -268,12 +268,6 @@ Scope {
         LauncherOverlay {}
     }
 
-    Variants {
-        model: Quickshell.screens
-
-        LaunchSplashOverlay {}
-    }
-
     Lock {}
     NetworkPopup {}
     AudioPopup {}
@@ -303,8 +297,8 @@ Scope {
                 height: 1
                 asynchronous: true
                 cache: true
-                sourceSize.width: 384
-                sourceSize.height: 216
+                sourceSize.width: 640
+                sourceSize.height: 360
                 source: modelData && modelData.thumb ? "file://" + modelData.thumb : ""
             }
         }
@@ -314,7 +308,12 @@ Scope {
             height: 1
             asynchronous: true
             cache: true
-            source: Services.WallpaperService.current ? ("file://" + Services.WallpaperService.current) : ""
+            source: {
+                const p = Services.WallpaperService.currentPreview;
+                if (!p || Services.WallpaperService.isLivePath(p))
+                    return "";
+                return "file://" + p;
+            }
         }
     }
 }

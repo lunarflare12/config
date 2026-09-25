@@ -70,9 +70,9 @@ QtObject {
     }
 
     property Timer pollTimer: Timer {
-        interval: (root.building || root.updating) ? 1500 : 8000
+        interval: (root.building || root.updating) ? 1500 : 30000
         repeat: true
-        running: true
+        running: root.building || root.updating || Core.PopupManager.current === "shader"
         onTriggered: root.refresh()
     }
 

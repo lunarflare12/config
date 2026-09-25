@@ -315,6 +315,8 @@ QtObject {
         if (!needle)
             return "";
         const lower = needle.toLowerCase().replace(/\.desktop$/, "");
+        if (lower === "com.google.chrome" || lower === "chrome-dd")
+            return "google-chrome";
         const compact = lower.replace(/[^a-z0-9]/g, "");
         const list = root.entries;
         for (let i = 0; i < list.length; i++) {
@@ -910,6 +912,8 @@ QtObject {
     readonly property string sattyIcon: "file://" + Quickshell.shellDir + "/assets/satty.png"
     readonly property string kittyIcon: "file://" + Quickshell.shellDir + "/assets/kitty.png"
     readonly property string amneziaIcon: "file://" + Quickshell.shellDir + "/assets/amnezia.png"
+    readonly property string obsidianIcon: "file://" + Quickshell.shellDir + "/assets/obsidian.png"
+    readonly property string chromeIcon: "file://" + Quickshell.shellDir + "/assets/google-chrome.png"
 
     function haystack(entry) {
         return [entry.id, entry.name, entry.execString, entry.exec, entry.startupClass, entry.startupWmClass, entry.icon].join(" ").toLowerCase();
@@ -933,12 +937,19 @@ QtObject {
 
     function isJunk(entry) {
         const text = root.haystack(entry);
-        const deny = ["kvantum", "qt5ct", "qt6ct", "qv4l2", "qvidcap", "nm-connection", "uuctl", "pavucontrol", "zathura", "amneziavpn"];
+        const deny = ["kvantum", "qt5ct", "qt6ct", "qv4l2", "qvidcap", "nm-connection", "uuctl", "pavucontrol", "zathura", "amneziavpn", "wine-extension", "wine-protocol"];
 
         for (let i = 0; i < deny.length; i++) {
             if (text.indexOf(deny[i]) !== -1)
                 return true;
         }
+
+        const id = String(entry && entry.id || "").replace(/\.desktop$/i, "");
+        if (id === "Overwatch" || id === "Terraria" || id === "Albion Online" || id === "org.telegram.desktop")
+            return true;
+        const exec = String(entry && (entry.execString || entry.exec) || "");
+        if (exec.indexOf("steam://rungameid/2357570") !== -1 || exec.indexOf("steam://rungameid/105600") !== -1 || exec.indexOf("steam://rungameid/761890") !== -1)
+            return true;
 
         return false;
     }
@@ -980,7 +991,15 @@ QtObject {
             return "libreoffice-startcenter";
         if (low === "code-url-handler")
             return "code";
-        return String(id || "");
+        if (low === "com.google.chrome" || low === "chrome-dd" || low === "google-chrome")
+            return "google-chrome";
+        if (low === "albion online" || low === "albiononline" || low === "albion")
+            return "albion-online";
+        if (low === "overwatch" || low === "overwatch®" || low === "steam_app_2357570")
+            return "overwatch";
+        if (low === "terraria" || low === "steam_app_105600")
+            return "terraria";
+        return String(id || "").replace(/\.desktop$/i, "");
     }
 
     function isKeymapp(entry) {
@@ -990,6 +1009,20 @@ QtObject {
 
     function isSatty(entry) {
         return root.haystack(entry).indexOf("satty") !== -1;
+    }
+
+    function isObsidian(entry) {
+        return root.haystack(entry).indexOf("obsidian") !== -1;
+    }
+
+    function isChrome(entry) {
+        if (!entry)
+            return false;
+        const id = String(entry.id || "").toLowerCase().replace(/\.desktop$/, "");
+        if (id === "google-chrome" || id === "com.google.chrome" || id === "chrome-dd" || id === "chrome-az" || id === "chrome-hika" || id === "chrome-sciencesoft")
+            return true;
+        const hay = root.haystack(entry);
+        return hay.indexOf("google-chrome") !== -1 || hay.indexOf("chrome-dd") !== -1 || hay.indexOf("chrome-az") !== -1 || hay.indexOf("chrome-hika") !== -1 || hay.indexOf("chrome-sciencesoft") !== -1;
     }
 
     function isKitty(entry) {
@@ -1091,6 +1124,10 @@ QtObject {
     function resolveIcon(icon, fallback) {
         const name = String(icon || "");
         const fb = fallback || "application-x-executable";
+        if (name.toLowerCase().indexOf("obsidian") !== -1)
+            return root.obsidianIcon;
+        if (name.toLowerCase().indexOf("google-chrome") !== -1 || name.toLowerCase() === "chrome-dd" || name.toLowerCase() === "chrome-az" || name.toLowerCase() === "chrome-hika" || name.toLowerCase() === "chrome-sciencesoft")
+            return root.chromeIcon;
         if (!name)
             return Quickshell.iconPath(fb);
         if (name.indexOf("://") >= 0)
@@ -1118,6 +1155,10 @@ QtObject {
             return root.keymappIcon;
         if (root.isSatty(entry))
             return root.sattyIcon;
+        if (root.isObsidian(entry))
+            return root.obsidianIcon;
+        if (root.isChrome(entry))
+            return root.chromeIcon;
         if (root.isKitty(entry))
             return root.kittyIcon;
         if (root.isAmnezia(entry))
@@ -1176,7 +1217,7 @@ QtObject {
                     continue;
                 seenSteam[steamId] = true;
             } else {
-                const nameKey = String(entry.name).toLowerCase().replace(/®/g, "").trim();
+                const nameKey = String(entry.name).toLowerCase().replace(/[®™]/g, "").replace(/\s+/g, " ").trim();
                 if (seenName[nameKey])
                     continue;
                 seenName[nameKey] = true;
@@ -1637,13 +1678,21 @@ QtObject {
     }
 
     function classAliases(cls) {
-        const c = String(cls || "").toLowerCase().trim();
+        const c = String(cls || "").toLowerCase().trim().replace(/\.desktop$/, "");
         if (!c)
             return [];
         if (c.indexOf("org.telegram.desktop") === 0)
             return ["org.telegram.desktop", "telegram-1", "telegram-2", "telegram"];
-        if (c === "chrome-dd" || c === "google-chrome" || c === "com.google.chrome")
+        if (c === "chrome-az" || c.indexOf("chrome-az") === 0)
+            return ["chrome-az"];
+        if (c === "chrome-hika" || c.indexOf("chrome-hika") === 0)
+            return ["chrome-hika"];
+        if (c === "chrome-sciencesoft" || c.indexOf("chrome-sciencesoft") === 0)
+            return ["chrome-sciencesoft"];
+        if (c === "chrome-dd" || c === "google-chrome" || c === "com.google.chrome" || c.indexOf("chrome-dd") === 0)
             return ["chrome-dd", "google-chrome", "com.google.chrome"];
+        if (c === "steam_app_761890" || c.indexOf("albion") !== -1)
+            return ["albion-online", "albion online", "steam_app_761890", "albion"];
         if (c === "md.obsidian" || c === "obsidian")
             return ["obsidian", "md.obsidian"];
         if (c === "openlens" || c === "open-lens")
@@ -1682,7 +1731,12 @@ QtObject {
                 const n = needles[j];
                 if (!a || !n)
                     continue;
-                if (a === n || a.indexOf(n + ".") === 0 || n.indexOf(a + ".") === 0)
+                // Exact alias match only. Short needles like "idea" must not
+                // substring-match unrelated classes/titles.
+                if (a === n)
+                    return true;
+                // Allow org.foo.bar ↔ org.foo desktop-id style prefixes.
+                if (n.length >= 6 && (a.indexOf(n + ".") === 0 || n.indexOf(a + ".") === 0))
                     return true;
             }
         }
@@ -1769,6 +1823,7 @@ QtObject {
             "chrome-dd": "google-chrome",
             "chrome-az": "chrome-az",
             "chrome-hika": "chrome-hika",
+            "chrome-sciencesoft": "chrome-sciencesoft",
             "vscode": "code",
             "idea": "idea-ultimate",
             "libreoffice": "libreoffice-startcenter",
@@ -1791,6 +1846,10 @@ QtObject {
             return root.keymappIcon;
         if (root.isSatty(entry))
             return root.sattyIcon;
+        if (root.isObsidian(entry))
+            return root.obsidianIcon;
+        if (root.isChrome(entry))
+            return root.chromeIcon;
         if (root.isKitty(entry))
             return root.kittyIcon;
         if (root.isAmnezia(entry))
@@ -1804,6 +1863,10 @@ QtObject {
         const clsStr = String(cls || "");
         const titleStr = String(title || "");
         const needle = clsStr.toLowerCase();
+        if (needle.indexOf("obsidian") !== -1 || titleStr.toLowerCase().indexOf("obsidian") !== -1)
+            return root.obsidianIcon;
+        if (needle.indexOf("chrome") !== -1 || titleStr.toLowerCase().indexOf("chrome") !== -1)
+            return root.chromeIcon;
         if (needle.indexOf("kitty") !== -1 || titleStr.toLowerCase().indexOf("kitty") !== -1)
             return root.kittyIcon;
         if (needle.indexOf("amnezia") !== -1 || titleStr.toLowerCase().indexOf("amnezia") !== -1)

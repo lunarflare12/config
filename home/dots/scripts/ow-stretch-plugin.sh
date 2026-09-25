@@ -13,8 +13,7 @@ HOME="${HOME:-/home/dd}"
 XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 HYPRCTL="${HYPRCTL:-/run/current-system/sw/bin/hyprctl}"
 STATE="${HOME}/.local/state/aurora-vkfix-so"
-# User-built overlay (nix build of the patched main.cpp) beats the stale
-# HM path that still has the old mouse formula until nixos-rebuild.
+# Leftover local build. Used only if the flake path in ow-vkfix-dir is missing.
 LOCAL_SO="${HOME}/.local/lib/hypr/libcsgo-vulkan-fix.so"
 mkdir -p "${HOME}/.local/state"
 
@@ -29,12 +28,8 @@ fi
 
 find_so() {
   local dirf="${XDG_CONFIG_HOME}/hypr/ow-vkfix-dir" dir cand
-  for cand in "$LOCAL_SO"; do
-    if [ -f "$cand" ]; then
-      printf '%s\n' "$cand"
-      return 0
-    fi
-  done
+  # State file is the .so that keeps the 1920 client at x=0.
+  # ow-vkfix-dir can still be the older build until the next nixos-rebuild.
   if [ -f "$STATE" ]; then
     cand=$(tr -d '[:space:]' <"$STATE")
     if [ -f "$cand" ]; then
@@ -42,6 +37,12 @@ find_so() {
       return 0
     fi
   fi
+  for cand in "$LOCAL_SO"; do
+    if [ -f "$cand" ]; then
+      printf '%s\n' "$cand"
+      return 0
+    fi
+  done
   if [ -f "$dirf" ]; then
     dir=$(tr -d '[:space:]' <"$dirf")
     for cand in "$dir/lib/libcsgo-vulkan-fix.so" "$dir/lib/hyprland/libcsgo-vulkan-fix.so"; do
@@ -77,18 +78,16 @@ unload_cooling() {
 }
 
 unload() {
-  date +%s >"$UNLOAD_STAMP"
-  plugin_loaded || return 0
-  local so
-  so=$(find_so || true)
-  if [ -n "$so" ]; then
-    "$HYPRCTL" plugin unload "$so" >/dev/null 2>&1 || true
-  fi
+  # Unload/load is what Hyprland toasts as "plugin restarted" and what
+  # stalls the game on the way in and out. The hook only matches
+  # Overwatch, so leaving it loaded is safe.
+  return 0
 }
 
 register() {
-  # fix_mouse only. expand_undersized_textures is global and was redrawing
-  # the whole ultrawide every frame — that is the 3 FPS.
+  # fix_mouse maps window-local X (2560) → game X (1920). Never pass the
+  # window size as w/h — that disables remap and aim drifts. Y scale is 1.
+  # expand_undersized_textures scales that 1920 buffer to the full 2560 panel.
   "$HYPRCTL" eval '
 if hl.plugin and hl.plugin.csgo_vulkan_fix and hl.plugin.csgo_vulkan_fix.vkfix_app then
     pcall(function()
@@ -97,15 +96,15 @@ if hl.plugin and hl.plugin.csgo_vulkan_fix and hl.plugin.csgo_vulkan_fix.vkfix_a
             render = { expand_undersized_textures = false },
         })
     end)
-    hl.plugin.csgo_vulkan_fix.vkfix_app({ app = "steam_app_2357570", w = 1920, h = 1080 })
-    hl.plugin.csgo_vulkan_fix.vkfix_app({ app = "overwatch.exe", w = 1920, h = 1080 })
+    hl.plugin.csgo_vulkan_fix.vkfix_app({ app = "steam_app_2357570", w = 2560, h = 1080 })
+    hl.plugin.csgo_vulkan_fix.vkfix_app({ app = "overwatch.exe", w = 2560, h = 1080 })
 end
 ' >/dev/null 2>&1 || true
 }
 
 load() {
-  unload_cooling && return 0
   plugin_loaded && return 0
+  unload_cooling && return 0
   local so
   so=$(find_so || true)
   [ -n "$so" ] || return 0

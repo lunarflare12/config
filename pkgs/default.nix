@@ -2,6 +2,7 @@ final: prev: {
   insta360-link-controller = final.callPackage ./insta360-link-controller.nix { };
   excalifont = final.callPackage ./excalifont.nix { };
   openlens = final.callPackage ./openlens.nix { };
+  aurora-helpers = final.callPackage ./aurora-helpers.nix { };
   finder-pick = final.callPackage ./finder-pick.nix {
     script = ../home/dots/scripts/finder-pick.py;
   };

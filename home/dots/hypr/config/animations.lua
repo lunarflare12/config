@@ -6,9 +6,8 @@ end
 
 hl.config({ animations = { enabled = not in_game } })
 
--- Ease-out that actually uses 200Hz frames instead of snapping.
+-- Long ease-out: fast start, soft settle. No overshoot.
 hl.curve("smoothOut", { type = "bezier", points = { { 0.16, 1 }, { 0.3, 1 } } })
-hl.curve("smoothIn", { type = "bezier", points = { { 0.32, 0 }, { 0.67, 0 } } })
 
 -- Continuous per-frame border work. With 200Hz + 60Hz that is free stutter.
 hl.animation({ leaf = "borderangle", enabled = false })
@@ -18,12 +17,14 @@ hl.animation({ leaf = "border", enabled = false })
 hl.animation({ leaf = "windowsMove", enabled = false })
 
 for _, animation in ipairs({
-    { leaf = "windows", speed = 4, bezier = "smoothOut", style = "popin 88%" },
-    { leaf = "windowsIn", speed = 4, bezier = "smoothOut", style = "popin 88%" },
-    { leaf = "windowsOut", speed = 4, bezier = "smoothIn", style = "popin 80%" },
+    -- GNOME-style grow from the pointer. No parent "windows" style,
+    -- or windowsMove would inherit it.
+    { leaf = "windowsIn", speed = 4.6, bezier = "smoothOut", style = "gnomed" },
+    { leaf = "windowsOut", speed = 3.2, bezier = "smoothOut", style = "gnomed" },
     { leaf = "layers", speed = 5, bezier = "smoothOut", style = "fade" },
     { leaf = "layersIn", speed = 4, bezier = "smoothOut", style = "fade" },
-    { leaf = "fade", speed = 4, bezier = "smoothOut" },
+    { leaf = "fadeIn", speed = 3.4, bezier = "smoothOut" },
+    { leaf = "fadeOut", speed = 2.6, bezier = "smoothOut" },
     { leaf = "workspaces", speed = 5, bezier = "smoothOut", style = "fade" },
     { leaf = "specialWorkspace", speed = 5, bezier = "smoothOut", style = "fade" },
 }) do

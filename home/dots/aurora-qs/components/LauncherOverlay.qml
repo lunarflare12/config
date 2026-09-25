@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Effects
+import QtMultimedia
 
 import Quickshell
 import Quickshell.Wayland
@@ -117,20 +118,56 @@ PanelWindow {
         visible: root.intro > 0.01
         clip: true
 
+        readonly property bool live: {
+            const cur = Services.WallpaperService.current;
+            return !!(cur && cur.length && Services.WallpaperService.isLivePath(cur));
+        }
         readonly property string wallPath: {
+            if (frost.live)
+                return "";
             const cur = Services.WallpaperService.current;
             if (cur && cur.length)
                 return cur;
             const list = Services.WallpaperService.wallpapers;
             if (list && list.length && list[0].path)
-                return list[0].path;
+                return list[0].thumb || list[0].path;
             return "";
         }
         readonly property string wall: frost.wallPath.length ? ("file://" + frost.wallPath) : ""
 
+        onVisibleChanged: {
+            if (!frost.live)
+                return;
+            if (visible)
+                wallVideo.play();
+            else
+                wallVideo.pause();
+        }
+
         Rectangle {
             anchors.fill: parent
             color: "#1a1a1e"
+        }
+
+        Video {
+            id: wallVideo
+            anchors.fill: parent
+            visible: frost.live
+            fillMode: VideoOutput.PreserveAspectCrop
+            source: frost.live ? ("file://" + Services.WallpaperService.current) : ""
+            loops: MediaPlayer.Infinite
+            muted: true
+            autoPlay: frost.live && frost.visible
+        }
+
+        // VideoOutput cannot be blurred directly. Grab it, then blur the grab.
+        ShaderEffectSource {
+            id: videoGrab
+            anchors.fill: parent
+            sourceItem: wallVideo
+            live: frost.live && frost.visible
+            hideSource: true
+            visible: false
         }
 
         Image {
@@ -147,8 +184,8 @@ PanelWindow {
 
         MultiEffect {
             anchors.fill: parent
-            source: wallImage
-            visible: wallImage.status === Image.Ready
+            source: frost.live ? videoGrab : wallImage
+            visible: frost.live || wallImage.status === Image.Ready
             autoPaddingEnabled: false
             blurEnabled: true
             blurMax: 72
@@ -158,7 +195,7 @@ PanelWindow {
 
         Rectangle {
             anchors.fill: parent
-            color: Qt.rgba(0.04, 0.04, 0.06, wallImage.status === Image.Ready ? 0.34 : 0)
+            color: Qt.rgba(0.04, 0.04, 0.06, frost.live || wallImage.status === Image.Ready ? 0.34 : 0.55)
         }
     }
 

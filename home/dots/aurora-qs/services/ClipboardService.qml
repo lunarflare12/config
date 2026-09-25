@@ -87,9 +87,12 @@ Item {
     Process {
         id: watcher
 
-        // No --type filter on purpose: cliphist stores images too, and pinning
-        // this to text meant image copies never reached the history.
-        command: ["sh", "-c", "wl-paste --watch cliphist store"]
+        // KillMode=process leaves prior watchers alive after a qs crash.
+        command: [
+            "sh",
+            "-c",
+            "\"$HOME/.config/scripts/aurora-kill-qs-helpers.sh\" >/dev/null 2>&1 || true; exec wl-paste --watch cliphist store"
+        ]
 
         running: true
 

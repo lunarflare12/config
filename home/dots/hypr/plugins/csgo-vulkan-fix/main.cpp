@@ -24,6 +24,7 @@ extern "C" {
 }
 
 #include <algorithm>
+#include <cmath>
 #include <cctype>
 #include <hyprutils/string/ConstVarList.hpp>
 using namespace Hyprutils::String;
@@ -31,10 +32,12 @@ using namespace Hyprutils::String;
 inline CFunctionHook* g_pMouseMotionHook     = nullptr;
 inline CFunctionHook* g_pSurfaceSizeHook     = nullptr;
 inline CFunctionHook* g_pWLSurfaceDamageHook = nullptr;
+inline CFunctionHook* g_pRenderTextureHook   = nullptr;
 inline CFunctionHook* g_pSmallHook           = nullptr;
 typedef void (*origMotion)(CSeatManager*, uint32_t, const Vector2D&);
 typedef void (*origSurfaceSize)(CXWaylandSurface*, const CBox&);
 typedef CRegion (*origWLSurfaceDamage)(Desktop::View::CWLSurface*);
+typedef void (*origRenderTexture)(Render::GL::CHyprOpenGLImpl*, SP<Render::ITexture>, const CBox&, Render::GL::CHyprOpenGLImpl::STextureRenderData);
 typedef bool (*origSmall)(Desktop::View::CWLSurface*);
 
 static struct {
@@ -124,14 +127,15 @@ void hkNotifyMotion(CSeatManager* thisptr, uint32_t time_msec, const Vector2D& l
     const auto CONFIG     = window ? configFor(window, nullptr) : nullptr;
 
     if (configValues.fixMouse->value() && CONFIG && window) {
-        // Window pixels → fake 1920×1080. Do not also divide by
-        // m_X11SurfaceScaledBy: force_zero_scaling already keeps that at 1,
-        // and when it is the stretch factor the extra divide walks the
-        // cursor left as x grows (left edge OK, right misses left).
         const CBox box = window->getWindowMainSurfaceBox();
-        if (box.w > CONFIG->res.x + 2.0 && box.h > 1.0) {
+        // Screen shows the center 16:9 stretched to the full panel.
+        // Map the pointer into that center strip, not the black bars.
+        const double content = box.h * 16.0 / 9.0;
+        if (box.w > content + 2.0 && std::abs(box.w - CONFIG->res.x) < 8.0) {
+            const double margin = (box.w - content) / 2.0;
+            newCoords.x         = margin + newCoords.x * (content / box.w);
+        } else if (box.w > CONFIG->res.x + 2.0) {
             newCoords.x *= CONFIG->res.x / box.w;
-            newCoords.y *= CONFIG->res.y / box.h;
         }
     }
 
@@ -150,14 +154,61 @@ void hkSetWindowSize(CXWaylandSurface* surface, const CBox& box) {
 
     CBox       newBox = box;
     if (const auto CONFIG = configFor(PWINDOW, surface); CONFIG) {
-        newBox.w = CONFIG->res.x;
-        newBox.h = CONFIG->res.y;
+        // Keep the client at the window origin. Do not shrink a 2560
+        // swapchain to 1920: that is what made the game report Full HD.
+        if (PWINDOW) {
+            const auto placed = PWINDOW->getWindowMainSurfaceBox();
+            newBox.x          = placed.x;
+            newBox.y          = placed.y;
+        }
+        if (CONFIG->res.x < 2000.0) {
+            newBox.w = CONFIG->res.x;
+            newBox.h = CONFIG->res.y;
+        }
         markFill(SURF);
         if (CWLSURF)
             CWLSURF->m_fillIgnoreSmall = true;
     }
 
     (*(origSurfaceSize)g_pSurfaceSizeHook->m_original)(surface, newBox);
+}
+
+CRegion hkWLSurfaceDamage(Desktop::View::CWLSurface* thisptr) {
+    auto RG = (*(origWLSurfaceDamage)g_pWLSurfaceDamageHook->m_original)(thisptr);
+    if (!thisptr || !thisptr->exists())
+        return RG;
+
+    const auto WINDOW = Desktop::View::CWindow::fromView(thisptr->view());
+    const auto CONFIG = configFor(WINDOW, nullptr);
+    if (!CONFIG || !WINDOW)
+        return RG;
+
+    thisptr->m_fillIgnoreSmall = true;
+    const CBox box = WINDOW->getWindowMainSurfaceBox();
+    // Buffer is 1920 wide, the picture is drawn at 2560. Damage stayed in
+    // the buffer, so the stretched strip only refreshed under the cursor.
+    if (box.w > CONFIG->res.x + 2.0 && CONFIG->res.x > 1.0)
+        RG.scale(Vector2D{box.w / CONFIG->res.x, 1.0});
+    return RG;
+}
+
+void hkRenderTexture(Render::GL::CHyprOpenGLImpl* self, SP<Render::ITexture> tex, const CBox& box, Render::GL::CHyprOpenGLImpl::STextureRenderData data) {
+    // 16:9 sits in the middle of 2560×1080 with bars on both sides.
+    // Sample only that picture and draw it across the whole panel.
+    if (tex && data.surface && tex->m_size.x > 2400.0 && tex->m_size.y > 900.0) {
+        const auto CWLSURF = Desktop::View::CWLSurface::fromResource(data.surface);
+        const auto WINDOW  = CWLSURF ? Desktop::View::CWindow::fromView(CWLSURF->view()) : nullptr;
+        if (configFor(WINDOW, nullptr) && WINDOW) {
+            const double content = tex->m_size.y * 16.0 / 9.0;
+            if (tex->m_size.x > content + 2.0) {
+                const double u0                 = (tex->m_size.x - content) / 2.0 / tex->m_size.x;
+                data.allowCustomUV              = true;
+                data.primarySurfaceUVTopLeft     = Vector2D{u0, 0.0};
+                data.primarySurfaceUVBottomRight = Vector2D{1.0 - u0, 1.0};
+            }
+        }
+    }
+    (*(origRenderTexture)g_pRenderTextureHook->m_original)(self, tex, box, data);
 }
 
 bool hkSmall(Desktop::View::CWLSurface* thisptr) {
@@ -167,24 +218,6 @@ bool hkSmall(Desktop::View::CWLSurface* thisptr) {
     if (configFor(WINDOW, nullptr))
         return false;
     return (*(origSmall)g_pSmallHook->m_original)(thisptr);
-}
-
-CRegion hkWLSurfaceDamage(Desktop::View::CWLSurface* thisptr) {
-    const auto RG = (*(origWLSurfaceDamage)g_pWLSurfaceDamageHook->m_original)(thisptr);
-
-    if (thisptr->exists() && Desktop::View::CWindow::fromView(thisptr->view())) {
-        const auto WINDOW = Desktop::View::CWindow::fromView(thisptr->view());
-        const auto CONFIG = configFor(WINDOW, nullptr);
-
-        if (CONFIG) {
-            thisptr->m_fillIgnoreSmall = true;
-            // damageMonitor redrew the whole ultrawide every OW frame and
-            // hitch'd 1% lows at 200Hz. Window damage is enough for stretch.
-            g_pHyprRenderer->damageWindow(WINDOW);
-        }
-    }
-
-    return RG;
 }
 
 int vkfixAppLua(lua_State* L) {
@@ -308,6 +341,14 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
         break;
     }
 
+    FNS = HyprlandAPI::findFunctionsByName(PHANDLE, "renderTexture");
+    for (auto& fn : FNS) {
+        if (!fn.demangled.contains("CHyprOpenGLImpl"))
+            continue;
+        g_pRenderTextureHook = HyprlandAPI::createFunctionHook(PHANDLE, fn.address, (void*)::hkRenderTexture);
+        break;
+    }
+
     FNS = HyprlandAPI::findFunctionsByName(PHANDLE, "computeDamage");
     for (auto& r : FNS) {
         if (!r.demangled.contains("CWLSurface"))
@@ -326,13 +367,14 @@ APICALL EXPORT PLUGIN_DESCRIPTION_INFO PLUGIN_INIT(HANDLE handle) {
         break;
     }
 
-    bool success = g_pSurfaceSizeHook && g_pWLSurfaceDamageHook && g_pMouseMotionHook;
+    bool success = g_pSurfaceSizeHook && g_pMouseMotionHook && g_pWLSurfaceDamageHook;
     if (!success) {
         HyprlandAPI::addNotification(PHANDLE, "[csgo-vulkan-fix] Failure in initialization: Failed to find required hook fns", CHyprColor{1.0, 0.2, 0.2, 1.0}, 5000);
         throw std::runtime_error("[vkfix] Hooks fn init failed");
     }
 
     success = success && g_pWLSurfaceDamageHook->hook();
+    success = success && g_pRenderTextureHook && g_pRenderTextureHook->hook();
     success = success && g_pMouseMotionHook->hook();
     success = success && g_pSurfaceSizeHook->hook();
     if (g_pSmallHook)

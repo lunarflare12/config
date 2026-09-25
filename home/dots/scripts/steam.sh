@@ -11,6 +11,9 @@ COMPOSE="${HOME}/containers/steam/compose.yml"
 if [ -x "${BASH_SOURCE[0]%/*}/protect-shader-caches.sh" ]; then
   "${BASH_SOURCE[0]%/*}/protect-shader-caches.sh" >/dev/null 2>&1 || true
 fi
+if [ -x "${BASH_SOURCE[0]%/*}/cap-fossilize.sh" ]; then
+  "${BASH_SOURCE[0]%/*}/cap-fossilize.sh" >/dev/null 2>&1 || true
+fi
 
 # Host Steam must not hold the library while the container owns it.
 if [ -z "${STEAM_CONTAINER:-}" ]; then
@@ -31,14 +34,9 @@ case "$uri" in
 esac
 
 mkdir -p "${HOME}/programs/steam"
-# A game box owns the library lock. Steam UI cannot share it.
-for box in overwatch terraria albion; do
-  if docker inspect -f '{{.State.Running}}' "$box" 2>/dev/null | grep -qx true; then
-    echo "steam.sh: stopping $box (library lock)" >&2
-    docker stop "$box" >/dev/null 2>&1 || true
-  fi
-done
-docker compose -f "$COMPOSE" up -d --build --no-deps steam
+# One container. Old per-game boxes cannot share the library with this client.
+docker rm -f overwatch terraria albion >/dev/null 2>&1 || true
+docker compose -f "$COMPOSE" up -d --no-deps --no-build steam
 
 # Wait until the container is up.
 for _ in $(seq 1 30); do

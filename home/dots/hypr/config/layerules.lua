@@ -2,6 +2,13 @@ hl.layer_rule({
     name = "wallpaper",
     match = { namespace = "^(awww-daemon|awww|swww-daemon|wallpaper)$" },
     blur = false,
+    order = 0,
+})
+
+hl.layer_rule({
+    name = "mpvpaper",
+    match = { namespace = "^mpvpaper$" },
+    blur = false,
     order = 1,
 })
 
@@ -20,13 +27,6 @@ hl.layer_rule({
     match = { namespace = "^aurora-desktop-metrics$" },
     blur = false,
     order = 4,
-})
-
-hl.layer_rule({
-    name = "aurora-splash",
-    match = { namespace = "^aurora-splash$" },
-    blur = false,
-    order = 7,
 })
 
 hl.layer_rule({
@@ -83,6 +83,7 @@ hl.layer_rule({
     name = "aurora-screenshot",
     match = { namespace = "^aurora-screenshot$" },
     blur = false,
+    no_anim = true,
     order = 16,
 })
 

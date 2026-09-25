@@ -22,7 +22,6 @@ if [ "$#" -gt 0 ]; then
     --ignore-gpu-blocklist \
     --enable-gpu-rasterization \
     --enable-zero-copy \
-    --disable-setuid-sandbox \
     --no-sandbox \
     --disable-features=MemorySaverMode \
     "$@"

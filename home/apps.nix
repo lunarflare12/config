@@ -12,6 +12,8 @@ let
   inherit (space) mkSpaces;
   scripts = "${config.home.homeDirectory}/.config/scripts";
   zenBrowser = inputs.zen-browser.packages.${pkgs.stdenv.hostPlatform.system}.default;
+  spiceSpotify = config.programs.spicetify.spicedSpotify;
+  spiceXpui = "${spiceSpotify}/share/spotify/Apps/xpui";
   chromeMime = [
     "application/pdf"
     "text/html"
@@ -24,7 +26,7 @@ let
     name = "Chrome DD";
     genericName = "Web Browser";
     exec = "${scripts}/google-chrome.sh %U";
-    icon = "${pkgs.google-chrome}/share/icons/hicolor/256x256/apps/google-chrome.png";
+    icon = "google-chrome";
     categories = [
       "Network"
       "WebBrowser"
@@ -121,9 +123,16 @@ in
     force = true;
   };
 
+  # Theme name `google-chrome` after the host Chrome package left PATH.
+  xdg.dataFile."icons/hicolor/256x256/apps/google-chrome.png" = {
+    source = ./dots/aurora-qs/assets/google-chrome.png;
+    force = true;
+  };
+
   home.sessionPath = [ scripts ];
 
   home.packages = [
+    pkgs.aurora-helpers
     pkgs.xrandr
     spaces.discord.package
     spaces.cursor.package
@@ -133,6 +142,7 @@ in
     (shim "google-chrome" "google-chrome.sh")
     (shim "chrome-az" "chrome-az.sh")
     (shim "chrome-hika" "chrome-hika.sh")
+    (shim "chrome-sciencesoft" "chrome-sciencesoft.sh")
     (shim "firefox" "firefox.sh")
     (shim "zen" "zen.sh")
     (shim "telegram-1" "telegram-1.sh")
@@ -163,8 +173,9 @@ in
     ${pkgs.obsidian}
     ${pkgs.openlens}
     ${pkgs.libreoffice}
-    ${pkgs.spotify}
+    ${spiceSpotify}
     ${pkgs.openlens.extracted}
+    ${pkgs.socat}
   '';
 
   # Compose interpolates these so a rebuild cannot leave stale /nix/store command paths.
@@ -174,12 +185,14 @@ in
       FIREFOX_BIN=${pkgs.firefox}/bin/firefox
       ZEN_BIN=${zenBrowser}/bin/zen
       IDEA_BIN=${pkgs.jetbrains.idea}/bin/idea
-      SPOTIFY_BIN=${pkgs.spotify}/bin/spotify
+      SPOTIFY_BIN=${lib.getExe spiceSpotify}
+      SPOTIFY_XPUI=${spiceXpui}
       OBSIDIAN_BIN=${pkgs.obsidian}/bin/obsidian
       LIBREOFFICE_BIN=${pkgs.libreoffice}/bin/soffice
       VSCODE_BIN=${pkgs.vscode}/bin/code
       VSCODE_ELECTRON=${pkgs.vscode}/lib/vscode/code
       OPENLENS_APP=${pkgs.openlens.extracted}
+      SOCAT_BIN=${pkgs.socat}/bin/socat
     '';
     force = true;
   };
@@ -226,7 +239,12 @@ in
 
   xdg.desktopEntries = {
     google-chrome = chromeEntry;
-    "com.google.Chrome" = chromeEntry;
+    "com.google.Chrome" = {
+      name = "Hidden";
+      exec = "true";
+      noDisplay = true;
+      settings.Hidden = "true";
+    };
     steam = {
       name = "Steam";
       exec = "${scripts}/steam.sh %U";
@@ -309,7 +327,7 @@ in
     obsidian = {
       name = "Obsidian";
       exec = "${scripts}/obsidian.sh %U";
-      icon = "obsidian";
+      icon = "${pkgs.obsidian}/share/icons/hicolor/256x256/apps/obsidian.png";
       categories = [ "Office" ];
       mimeType = [ "x-scheme-handler/obsidian" ];
       startupNotify = true;
@@ -403,8 +421,8 @@ in
     chrome-az = {
       name = "Chrome Aziza";
       genericName = "Web Browser";
-      exec = "${scripts}/chrome-az.sh";
-      icon = "${pkgs.google-chrome}/share/icons/hicolor/256x256/apps/google-chrome.png";
+      exec = "${scripts}/chrome-az.sh %U";
+      icon = "google-chrome";
       categories = [
         "Network"
         "WebBrowser"
@@ -415,14 +433,26 @@ in
     chrome-hika = {
       name = "Chrome hika911";
       genericName = "Web Browser";
-      exec = "${scripts}/chrome-hika.sh";
-      icon = "${pkgs.google-chrome}/share/icons/hicolor/256x256/apps/google-chrome.png";
+      exec = "${scripts}/chrome-hika.sh %U";
+      icon = "google-chrome";
       categories = [
         "Network"
         "WebBrowser"
       ];
       startupNotify = true;
       settings.StartupWMClass = "chrome-hika";
+    };
+    chrome-sciencesoft = {
+      name = "Chrome ScienceSoft";
+      genericName = "Web Browser";
+      exec = "${scripts}/chrome-sciencesoft.sh %U";
+      icon = "google-chrome";
+      categories = [
+        "Network"
+        "WebBrowser"
+      ];
+      startupNotify = true;
+      settings.StartupWMClass = "chrome-sciencesoft";
     };
     firefox = {
       name = "Firefox";
@@ -562,6 +592,34 @@ in
 
   home.file."vms/ubuntu/Vagrantfile".source = ./dots/vagrant/ubuntu/Vagrantfile;
 
+  systemd.user.services.hypr-fix-safe-mode = {
+    Unit = {
+      Description = "Restore Hyprland rice after watchdog safe-mode";
+      After = [ "graphical-session.target" ];
+      PartOf = [ "graphical-session.target" ];
+    };
+    Service = {
+      ExecStart = "${config.home.homeDirectory}/.config/scripts/hypr-fix-safe-mode.sh loop";
+      Restart = "always";
+      RestartSec = 3;
+    };
+    Install.WantedBy = [ "graphical-session.target" ];
+  };
+
+  systemd.user.services.cap-fossilize = {
+    Unit = {
+      Description = "Pin Steam fossilize_replay to two idle cores";
+      After = [ "graphical-session.target" ];
+      PartOf = [ "graphical-session.target" ];
+    };
+    Service = {
+      ExecStart = "${config.home.homeDirectory}/.config/scripts/cap-fossilize.sh loop";
+      Restart = "always";
+      RestartSec = 10;
+    };
+    Install.WantedBy = [ "graphical-session.target" ];
+  };
+
   systemd.user.services.container-window-reaper = {
     Unit = {
       Description = "Drop ghost Hyprland windows after isolated containers exit";
@@ -569,7 +627,7 @@ in
       PartOf = [ "graphical-session.target" ];
     };
     Service = {
-      ExecStart = "${pkgs.python3}/bin/python3 ${config.home.homeDirectory}/.config/scripts/reap-container-windows.py watch";
+      ExecStart = "${config.home.homeDirectory}/.config/scripts/reap-container-windows watch";
       Restart = "on-failure";
       RestartSec = 2;
     };

@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtMultimedia
 import Quickshell
 import Quickshell.Wayland
 
@@ -12,8 +13,9 @@ WlSessionLockSurface {
 
     color: "black"
 
-    // Same asset SDDM glyph uses — not the live desktop wallpaper.
-    readonly property string wallpaper: "file://" + Quickshell.env("HOME") + "/.config/hyprlock/images/background.jpg"
+    // Same file the desktop loops and SDDM plays.
+    readonly property string wallpaperVideo: "file://" + Quickshell.env("HOME") + "/Pictures/Wallpapers/ayanami-rei-neon-genesis-evangelion.mp4"
+    readonly property string wallpaperStill: "file://" + Quickshell.env("HOME") + "/.local/state/aurora/wallpaper-poster.jpg"
     readonly property string avatar: "file://" + Quickshell.env("HOME") + "/.config/hyprlock/images/avatar.jpg"
     readonly property string fontName: Core.Theme.fontFamily
     readonly property color textColor: "white"
@@ -31,10 +33,20 @@ WlSessionLockSurface {
 
         Keys.onPressed: event => surface.session.handleKey(event)
 
-        Image {
+        Video {
             id: bg
             anchors.fill: parent
-            source: surface.wallpaper
+            fillMode: VideoOutput.PreserveAspectCrop
+            source: surface.wallpaperVideo
+            loops: MediaPlayer.Infinite
+            muted: true
+            autoPlay: true
+        }
+
+        Image {
+            anchors.fill: parent
+            visible: bg.playbackState !== MediaPlayer.PlayingState
+            source: surface.wallpaperStill
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
             cache: true
@@ -43,7 +55,7 @@ WlSessionLockSurface {
         Rectangle {
             anchors.fill: parent
             color: "black"
-            opacity: surface.session.inputOpen ? 0.42 : 0.12
+            opacity: surface.session.inputOpen ? 0.42 : 0
 
             Behavior on opacity {
                 NumberAnimation {

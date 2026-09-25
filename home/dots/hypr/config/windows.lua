@@ -30,7 +30,11 @@ for _, rule in ipairs({
     -- HTML5 `f` is client FS (2) while dwindle's layout-aware handler keeps
     -- internal=0 (player stays in the bar/dock tile). sync + immediate + no
     -- ICCCM max size so the lua promoter can set internal=2 covering the output.
-    { name = "browser-sync-fs", match = { class = "^(google-chrome|chrome|firefox|zen|mpv|vlc|celluloid)$" }, sync_fullscreen = true, no_anim = true, no_max_size = true, immediate = true, idle_inhibit = "fullscreen" },
+    -- chrome-dd / chrome-az / chrome-hika are the container browsers.
+    -- no_anim stays off so open/close still pop; windowsMove is already off
+    -- so HTML5 fullscreen does not grow as a rectangle.
+    { name = "browser-sync-fs", match = { class = "^(google-chrome|chrome|chrome-dd|chrome-az|chrome-hika|chrome-sciencesoft|firefox|zen)$" }, sync_fullscreen = true, no_max_size = true, immediate = true, idle_inhibit = "fullscreen" },
+    { name = "player-sync-fs", match = { class = "^(mpv|vlc|celluloid)$" }, sync_fullscreen = true, no_anim = true, no_max_size = true, immediate = true, idle_inhibit = "fullscreen" },
     { name = "opaque-cursor", match = { class = "^(cursor)$" }, opaque = true, no_blur = true, render_unfocused = true },
     { name = "opaque-code", match = { class = "^(code|Code)$" }, opaque = true, no_blur = true, render_unfocused = true },
     { name = "opaque-obsidian", match = { class = "^(obsidian)$" }, opaque = true, no_blur = true, render_unfocused = true },
@@ -47,7 +51,7 @@ for _, rule in ipairs({
     { name = "float-waydroid", match = { class = "^(Waydroid)$" }, float = true, size = "1280 720", center = true },
     { name = "float-insta360", match = { class = "^(insta360linkgui)$" }, float = true, size = "1760 1000", center = true },
     { name = "float-pavucontrol", match = { class = "^(org.pulseaudio.pavucontrol|pavucontrol-qt)$" }, float = true },
-    { name = "float-satty", match = { class = "^(com.gabm.satty|satty)$" }, float = true, center = true, no_anim = true, pin = true, size = "70% 70%" },
+    { name = "float-satty", match = { class = "^(com.gabm.satty|satty)$" }, float = true, center = true, no_anim = true, pin = true, immediate = true, opaque = true, no_blur = true },
     { name = "float-picture-in-picture", match = { class = "^()$", title = "^(Picture in picture)$" }, float = true },
     { name = "float-save-file", match = { class = "^()$", title = "^(Save File)$" }, float = true },
     { name = "float-open-file", match = { class = "^()$", title = "^(Open File)$" }, float = true },
@@ -115,14 +119,12 @@ game_rule("gamescope-class", { class = GAMESCOPE_CLASS }, { confine_pointer = fa
 game_rule("games-initial-class", { initial_class = GAME_CLASS }, { confine_pointer = true })
 game_rule("gamescope-initial-class", { initial_class = GAMESCOPE_CLASS }, { confine_pointer = false, no_vrr = true })
 
--- Overwatch: compositor exclusive (covers gaps_out), client stays windowed
--- 1920. Client FS (2) makes DXGI match the 2560 output and Use219=0
--- pillarboxes. Maximize (1) leaves the 10px right/bottom gap. no_max_size
--- stops ICCCM max=1920 from shrinking the Hyprland window.
+-- Compositor covers the panel. Client stays windowed: client fullscreen
+-- draws 16:9 on the left of 2560 and leaves a black strip on the right.
 local OW_CLASS = "^(steam_app_2357570|[Oo]verwatch\\.exe|[Oo]verwatch)$"
 game_rule("overwatch-class", { class = OW_CLASS }, {
     confine_pointer = true,
-    fullscreen_state = "2 0",
+    fullscreen_state = "2 2",
     no_max_size = true,
     -- Wine/Battle.net spam activate; do not yank the current workspace.
     focus_on_activate = false,
@@ -133,7 +135,7 @@ game_rule("overwatch-class", { class = OW_CLASS }, {
 })
 game_rule("overwatch-initial-class", { initial_class = OW_CLASS }, {
     confine_pointer = true,
-    fullscreen_state = "2 0",
+    fullscreen_state = "2 2",
     no_max_size = true,
     focus_on_activate = false,
     suppress_event = "x11configurerequest",
@@ -256,7 +258,7 @@ local function game_to_desk(win)
         return
     end
     if is_overwatch(w) then
-        pin_game(w, 0, 2)
+        pin_game(w, 2, 2)
         return
     end
     if cls:find("steam_app_761890", 1, true) or cls:find("albion", 1, true) then
@@ -275,69 +277,12 @@ local function game_to_desk(win)
     end
 end
 
-local function inset_satty(win)
-    local w = win and (win.window or win) or nil
-    if not w then
-        return
-    end
-    local cls = string.lower(tostring(w.class or "") .. " " .. tostring(w.initial_class or ""))
-    if not cls:find("satty", 1, true) then
-        return
-    end
-    local mon = nil
-    pcall(function()
-        mon = w.monitor
-    end)
-    if not mon then
-        pcall(function()
-            mon = hl.get_active_monitor()
-        end)
-    end
-    if not mon then
-        return
-    end
-    local mw = tonumber(mon.width) or 2560
-    local mh = tonumber(mon.height) or 1080
-    local mx = tonumber(mon.x) or 0
-    local my = tonumber(mon.y) or 0
-    local margin_x = math.max(80, math.floor(mw * 0.12))
-    local margin_y = math.max(64, math.floor(mh * 0.10))
-    local tw = mw - margin_x * 2
-    local th = mh - margin_y * 2
-    local tx = mx + margin_x
-    local ty = my + margin_y
-    pcall(function()
-        hl.dispatch(hl.dsp.window.float({ window = w, action = "on" }))
-    end)
-    local addr = tostring(w.address or "")
-    if addr ~= "" and addr:sub(1, 2) ~= "0x" then
-        addr = "0x" .. addr
-    end
-    if addr ~= "" then
-        hl.exec_cmd(
-            "hyprctl --batch 'dispatch resizewindowpixel exact "
-                .. tw
-                .. " "
-                .. th
-                .. ",address:"
-                .. addr
-                .. "; dispatch movewindowpixel exact "
-                .. tx
-                .. " "
-                .. ty
-                .. ",address:"
-                .. addr
-                .. "'"
-        )
-    end
-end
-
 if _G.aurora_satty_open then
     pcall(function()
         _G.aurora_satty_open:remove()
     end)
+    _G.aurora_satty_open = nil
 end
-_G.aurora_satty_open = hl.on("window.open", inset_satty)
 
 if _G.aurora_game_open then
     pcall(function()
@@ -439,9 +384,9 @@ _G.aurora_sync_texture_expand = function(win)
                 shadow = { enabled = not ingame },
             },
             render = {
-                -- Stretch is the vkfix plugin + ow-stretch-plugin.sh.
-                -- Turning this on without fix_mouse makes OW clicks drift left.
-                expand_undersized_textures = false,
+                -- 1920 buffer in the 2560 window is the black strip on the
+                -- right. Scale it only while Overwatch is focused.
+                expand_undersized_textures = is_overwatch(w),
                 send_content_type = ingame,
             },
             misc = {
@@ -452,16 +397,16 @@ _G.aurora_sync_texture_expand = function(win)
                 render_unfocused_fps = ingame and 1 or 15,
             },
             debug = {
-                render_solitary_wo_damage = ingame,
+                -- Forcing a redraw with no new damage kept the CPU in the
+                -- present path and the frame time missed 200 Hz.
+                render_solitary_wo_damage = false,
             },
         })
     end)
 end
 
--- Load the stretch plugin once when Overwatch maps, unload once when the
--- last client window is gone. window.active used to spawn the script on
--- every focus change: Hyprland toasted "plugin restarted" and the
--- compositor stalled hard enough for the game to sit at a few FPS.
+-- Load the stretch plugin once. Never unload it: unload+load is the
+-- "plugin restarted" toast and it stalls launch and quit.
 local ow_plugin_script = (os.getenv("HOME") or "/home/dd") .. "/.config/scripts/ow-stretch-plugin.sh"
 _G.aurora_ow_plugin_loaded = _G.aurora_ow_plugin_loaded or false
 
@@ -473,28 +418,7 @@ local function ow_plugin_load(w)
     hl.exec_cmd(ow_plugin_script .. " load")
 end
 
-local function ow_plugin_unload(win)
-    local w = win and (win.window or win) or nil
-    if not is_overwatch(w) then
-        return
-    end
-    local left = false
-    local ok, wins = pcall(function()
-        return hl.get_windows()
-    end)
-    if ok and type(wins) == "table" then
-        for _, x in ipairs(wins) do
-            if x ~= w and is_overwatch(x) then
-                left = true
-                break
-            end
-        end
-    end
-    if left then
-        return
-    end
-    _G.aurora_ow_plugin_loaded = false
-    hl.exec_cmd(ow_plugin_script .. " unload")
+local function ow_plugin_unload(_)
 end
 
 if _G.aurora_tex_expand then
@@ -528,6 +452,10 @@ local function is_media_window(w)
     end
     local cls = string.lower(tostring(w.initial_class or "") .. " " .. tostring(w.class or ""))
     return cls:find("google-chrome", 1, true)
+        or cls:find("chrome-dd", 1, true)
+        or cls:find("chrome-az", 1, true)
+        or cls:find("chrome-hika", 1, true)
+        or cls:find("chrome-sciencesoft", 1, true)
         or cls:find("firefox", 1, true)
         or cls:find("zen", 1, true)
         or cls == "chrome"
@@ -587,8 +515,8 @@ if _G.aurora_media_fs_active then
 end
 _G.aurora_media_fs_active = hl.on("window.active", promote_media_fs)
 
--- OW must stay compositor-fullscreen / client-windowed. Exclusive client
--- FS (2) makes DXGI match 2560 and the 1920 buffer pillarboxes.
+-- Client fullscreen leaves the 16:9 picture on the left and black on
+-- the right. Keep the compositor covering the panel, client windowed.
 local ow_fs_busy = false
 local function pin_ow_windowed(win)
     local w = win and (win.window or win) or nil
@@ -597,7 +525,7 @@ local function pin_ow_windowed(win)
     end
     local internal = tonumber(w.fullscreen) or 0
     local client = tonumber(w.fullscreen_client) or 0
-    if internal == 2 and client == 0 then
+    if internal == 2 and client == 2 then
         return
     end
     ow_fs_busy = true
@@ -605,7 +533,7 @@ local function pin_ow_windowed(win)
         hl.dispatch(hl.dsp.window.fullscreen_state({
             window = w,
             internal = 2,
-            client = 0,
+            client = 2,
         }))
     end)
     ow_fs_busy = false
@@ -616,3 +544,11 @@ if _G.aurora_ow_fs then
     end)
 end
 _G.aurora_ow_fs = hl.on("window.fullscreen", pin_ow_windowed)
+if _G.aurora_ow_fs_active then
+    pcall(function()
+        _G.aurora_ow_fs_active:remove()
+    end)
+end
+-- Client FS flips back without a fullscreen event (Wine activate). Re-pin
+-- when the window is focused, or the 1920 mouse map runs inside a 2560 client.
+_G.aurora_ow_fs_active = hl.on("window.active", pin_ow_windowed)

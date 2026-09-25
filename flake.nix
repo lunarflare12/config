@@ -11,6 +11,10 @@
       url = "github:youwen5/zen-browser-flake";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    spicetify-nix = {
+      url = "github:Gerg-L/spicetify-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -31,6 +35,9 @@
         system = systemArch;
         overlays = [ overlay ];
         config.allowUnfree = true;
+        config.permittedInsecurePackages = [
+          "python3.14-ecdsa-0.19.2"
+        ];
       };
       space = import ./lib/space.nix {
         inherit lib pkgs desktopEnv;

@@ -14,6 +14,7 @@
     ./theme.nix
     ./shell.nix
     ./apps.nix
+    ./daemons.nix
     ./quickshell.nix
     ./obs.nix
     ./git.nix
@@ -21,6 +22,7 @@
     ./libreoffice.nix
     ./thunar.nix
     ./cursors.nix
+    ./spicetify.nix
   ];
 
   home.stateVersion = params.stateVersion;
@@ -90,19 +92,25 @@
       fi
     done
 
-    # Hand-copied / old-generation desktops shadow HM wrappers (cursor.sh, idea-ultimate.sh).
+    # One replica: container launchers live in the HM profile. Wipe Steam/Wine
+    # and leftover vendor .desktop copies of those same apps.
     apps="$HOME/.local/share/applications"
     for name in cursor.desktop idea-ultimate.desktop idea-oss.desktop com.obsproject.Studio.desktop steam.desktop \
-      google-chrome.desktop com.google.Chrome.desktop chrome-az.desktop chrome-hika.desktop \
+      google-chrome.desktop com.google.Chrome.desktop chrome-az.desktop chrome-hika.desktop chrome-sciencesoft.desktop \
+      "Albion Online.desktop" albion-online.desktop Overwatch.desktop Terraria.desktop \
       firefox.desktop zen.desktop code.desktop code-url-handler.desktop obsidian.desktop \
       openlens.desktop spotify.desktop telegram-1.desktop telegram-2.desktop \
+      org.telegram.desktop.desktop \
       libreoffice-startcenter.desktop libreoffice-writer.desktop libreoffice-calc.desktop \
-      libreoffice-impress.desktop libreoffice-draw.desktop; do
+      libreoffice-impress.desktop libreoffice-draw.desktop \
+      writer.desktop calc.desktop impress.desktop draw.desktop startcenter.desktop \
+      math.desktop base.desktop xsltfilter.desktop; do
       target="$apps/$name"
       if [ -e "$target" ] && [ ! -L "$target" ]; then
         rm -f "$target"
       fi
     done
+    find "$apps" -maxdepth 1 \( -name 'wine-extension-*.desktop' -o -name 'wine-protocol-*.desktop' \) -delete
     rm -f "$apps"/*.desktop.hm.bak "$apps"/*.desktop.hm.bak.prev
   '';
 }

@@ -14,12 +14,37 @@ Item {
     readonly property int radius: 22
 
     readonly property var pinned: Services.AppsService.dockTiles || []
-    readonly property int toplevelCount: (Hyprland.toplevels && Hyprland.toplevels.values) ? Hyprland.toplevels.values.length : 0
     readonly property var runningTiles: {
-        const _ = tray.toplevelCount + Core.Session.clientsTick;
+        // Depend on clientsTick only — binding Hyprland.toplevels.length races
+        // HyprlandIpc::refreshToplevels and segfaults qs.
+        const _ = Core.Session.clientsTick + (Core.Session.ipcReady ? 1 : 0);
         return tray.collectRunning();
     }
     readonly property var tiles: tray.pinned.concat(tray.runningTiles)
+    readonly property var dockRows: {
+        const pins = tray.pinned || [];
+        const run = tray.runningTiles || [];
+        const rows = [];
+        for (let i = 0; i < pins.length; i++)
+            rows.push({
+                "kind": "app",
+                "tile": pins[i],
+                "g": i
+            });
+        if (run.length)
+            rows.push({
+                "kind": "sep",
+                "tile": null,
+                "g": -1
+            });
+        for (let j = 0; j < run.length; j++)
+            rows.push({
+                "kind": "app",
+                "tile": run[j],
+                "g": pins.length + j
+            });
+        return rows;
+    }
     readonly property var openFolder: Services.AppsService.openFolder
     readonly property bool dropping: Services.AppsService.dockDropActive
     readonly property int dropSlot: Services.AppsService.dockHoverSlot
@@ -93,8 +118,8 @@ Item {
             return;
         const top = tray.toplevelFor(tile);
         if (top) {
-            const here = Core.Session.activeWorkspaceOnMonitor(Core.Session.focusedMonitorName());
-            Core.Session.bringWindow(top, here);
+            // Jump to the app's workspace — never drag the window onto the desktop.
+            Core.Session.focusWindow(top);
             return;
         }
         if (tray.tileIsRunning(tile)) {
@@ -163,6 +188,75 @@ Item {
             return true;
         if (c.indexOf("xdg-desktop-portal") >= 0)
             return true;
+        if (c.indexOf("chrome_status_icon") >= 0)
+            return true;
+        return false;
+    }
+
+    function topIsLive(t) {
+        if (!t)
+            return false;
+        const ipc = t.lastIpcObject || {};
+        if (ipc.mapped === false || ipc.hidden === true)
+            return false;
+        const size = ipc.size || [];
+        const w = Number(size[0] || ipc.width || 0);
+        const h = Number(size[1] || ipc.height || 0);
+        // Zero-size / unknown geometry is treated as dead — stale Hyprland
+        // toplevels after docker/XWayland apps quit often look like this.
+        if (!(w > 0 && h > 0))
+            return false;
+        if (w * h < 64)
+            return false;
+        // Corroborate against hyprctl snapshot — qs Hyprland.toplevels can
+        // keep ghost IDEA/Chrome surfaces after the real client is gone.
+        const cls = tray.classOfTop(t);
+        const addr = String(t.address || ipc.address || "").toLowerCase().replace(/^0x/, "");
+        if (!tray.clientAlive(cls, addr))
+            return false;
+        return true;
+    }
+
+    function clientAlive(cls, addr) {
+        const _ = Core.Session.clientsTick;
+        const clients = Core.Session.openClients || [];
+        const c = String(cls || "").toLowerCase();
+        const a = String(addr || "").toLowerCase().replace(/^0x/, "");
+        if (!clients.length)
+            return false;
+        for (let i = 0; i < clients.length; i++) {
+            const row = clients[i];
+            const ra = String(row.address || "").toLowerCase().replace(/^0x/, "");
+            if (a && ra && a === ra)
+                return true;
+            if (c && String(row.class || "") === c)
+                return true;
+        }
+        return false;
+    }
+
+    function classAlive(cls) {
+        const c = String(cls || "").toLowerCase();
+        if (!c)
+            return false;
+        const _ = Core.Session.clientsTick;
+        const open = Core.Session.openClasses || [];
+        if (open.indexOf(c) !== -1)
+            return true;
+        const aliases = Services.AppsService.classAliases(c);
+        for (let i = 0; i < aliases.length; i++) {
+            if (open.indexOf(aliases[i]) !== -1)
+                return true;
+        }
+        for (let j = 0; j < open.length; j++) {
+            const oa = Services.AppsService.classAliases(open[j]);
+            if (oa.indexOf(c) !== -1)
+                return true;
+            for (let k = 0; k < aliases.length; k++) {
+                if (oa.indexOf(aliases[k]) !== -1)
+                    return true;
+            }
+        }
         return false;
     }
 
@@ -177,84 +271,123 @@ Item {
 
     function classOfTop(t) {
         const ipc = t && t.lastIpcObject ? t.lastIpcObject : {};
-        let c = String(ipc.class || ipc.initialClass || ipc.initial_class || (t && t.class) || "").toLowerCase();
-        if (c)
-            return c;
-        const addr = String((t && (t.address || ipc.address)) || "");
-        const snap = Core.Session.openClasses || [];
-        if (addr && snap.length)
-            return c;
-        return c;
+        return String(ipc.class || ipc.initialClass || ipc.initial_class || (t && t.class) || "").toLowerCase();
     }
 
     function tileIsRunning(tile) {
+        const _ = Core.Session.clientsTick;
         if (!tile)
             return false;
-        if (tray.toplevelFor(tile))
-            return true;
+        // hyprctl snapshot only — never trust stale Hyprland.toplevels alone.
         const entry = tile.entry || tile;
         if (entry && Services.AppsService.entryIsRunning(entry, Core.Session.openClasses))
             return true;
         const cls = String(tile.runningClass || "").toLowerCase();
-        const open = Core.Session.openClasses || [];
-        return cls && open.indexOf(cls) !== -1;
+        if (cls && tray.classAlive(cls))
+            return true;
+        return false;
     }
 
     function toplevelFor(tile) {
         if (!tile)
             return null;
-        if (tile.runningWindow)
-            return tile.runningWindow;
-        const tops = (Hyprland.toplevels && Hyprland.toplevels.values) ? Hyprland.toplevels.values : [];
+        const _ = Core.Session.clientsTick;
         const entry = tile.entry || tile;
-        const cls = String(entry && (entry.startupWmClass || entry.startupClass || entry.wmClass) || "").toLowerCase();
-        const name = String(tile.name || entry && entry.name || "").toLowerCase();
-        const id = String(tile.id || entry && entry.id || "").toLowerCase();
-        for (let i = 0; i < tops.length; i++) {
-            const t = tops[i];
-            const ipc = t.lastIpcObject || {};
-            const c = tray.classOfTop(t);
-            if (c && tray.skipDockClass(c))
+        // Prefer a live hyprctl client match, then map to a Hyprland toplevel.
+        const clients = Core.Session.openClients || [];
+        let wantClass = "";
+        for (let i = 0; i < clients.length; i++) {
+            const row = clients[i];
+            const c = String(row.class || "");
+            if (!c || tray.skipDockClass(c))
                 continue;
-            if (entry && c && Services.AppsService.classMatchesEntry(c, entry))
-                return t;
-            const title = String(t.title || ipc.title || "").toLowerCase();
-            if (cls && (c === cls || c.indexOf(cls) >= 0 || cls.indexOf(c) >= 0))
-                return t;
-            if (id && c.indexOf(id) >= 0)
-                return t;
-            if (name.length >= 3 && (c.indexOf(name) >= 0 || title.indexOf(name) >= 0))
-                return t;
+            if (entry && Services.AppsService.classMatchesEntry(c, entry)) {
+                wantClass = c;
+                break;
+            }
+            const id = String(tile.id || entry && entry.id || "").toLowerCase().replace(/\.desktop$/, "");
+            const aliases = Services.AppsService.classAliases(id);
+            if (id && (c === id || aliases.indexOf(c) !== -1)) {
+                wantClass = c;
+                break;
+            }
+        }
+        if (!wantClass && tile.runningClass && tray.classAlive(tile.runningClass))
+            wantClass = String(tile.runningClass).toLowerCase();
+        if (!wantClass)
+            return null;
+        const tops = (Hyprland.toplevels && Hyprland.toplevels.values) ? Hyprland.toplevels.values : [];
+        for (let j = 0; j < tops.length; j++) {
+            const t = tops[j];
+            const c = tray.classOfTop(t);
+            if (c !== wantClass && Services.AppsService.classAliases(c).indexOf(wantClass) < 0)
+                continue;
+            if (!tray.topIsLive(t))
+                continue;
+            return t;
         }
         return null;
     }
 
+    function pinnedCovers(cls, t) {
+        const pins = tray.pinned;
+        const aliases = Services.AppsService.classAliases(cls);
+        const canon = Services.AppsService.canonicalAppId(cls);
+        for (let i = 0; i < pins.length; i++) {
+            const tile = pins[i];
+            if (!tile || tile.type === "folder")
+                continue;
+            if (t && tray.toplevelFor(tile) === t)
+                return true;
+            const entry = tile.entry || tile;
+            if (entry && Services.AppsService.classMatchesEntry(cls, entry))
+                return true;
+            const pid = String(Services.AppsService.canonicalAppId(tile.id) || "").toLowerCase();
+            const canonLow = String(canon || "").toLowerCase();
+            if (pid && (pid === canonLow || aliases.indexOf(pid) !== -1))
+                return true;
+            const needles = Services.AppsService.entryNeedles(entry);
+            for (let n = 0; n < needles.length; n++) {
+                if (needles[n] === cls || aliases.indexOf(needles[n]) !== -1)
+                    return true;
+            }
+        }
+        return false;
+    }
+
     function collectRunning() {
-        const tops = (Hyprland.toplevels && Hyprland.toplevels.values) ? Hyprland.toplevels.values : [];
+        const _ = Core.Session.clientsTick;
+        const clients = Core.Session.openClients || [];
         const pinned = tray.pinned;
         const seen = ({});
         for (let i = 0; i < pinned.length; i++) {
-            const key = tray.tileKey(pinned[i]);
+            const key = Services.AppsService.canonicalAppId(tray.tileKey(pinned[i]));
             if (key)
                 seen[key] = true;
             const entry = pinned[i] && (pinned[i].entry || pinned[i]);
             const needles = Services.AppsService.entryNeedles(entry);
             for (let n = 0; n < needles.length; n++)
                 seen["cls:" + needles[n]] = true;
+            const extra = Services.AppsService.classAliases(key || tray.tileKey(pinned[i]));
+            for (let x = 0; x < extra.length; x++)
+                seen["cls:" + extra[x]] = true;
         }
         const out = [];
-        const pushTile = function (cls, t, title) {
+        const pushTile = function (cls, title) {
             if (tray.skipDockClass(cls))
+                return;
+            if (tray.pinnedCovers(cls, null))
                 return;
             const steamId = Services.AppsService.steamIdFromClass(cls);
             const entry = steamId ? Services.AppsService.entryForSteamId(steamId) : Services.AppsService.entryForClass(cls);
-            const id = entry && entry.id ? String(entry.id) : cls;
-            const key = id.toLowerCase();
+            const rawId = entry && entry.id ? String(entry.id) : cls;
+            const id = Services.AppsService.canonicalAppId(rawId) || rawId;
+            const key = String(id).toLowerCase();
             const aliases = Services.AppsService.classAliases(cls);
             if (seen[key])
                 return;
             for (let a = 0; a < aliases.length; a++) {
-                if (seen["cls:" + aliases[a]])
+                if (seen["cls:" + aliases[a]] || seen[aliases[a]])
                     return;
             }
             seen[key] = true;
@@ -265,24 +398,19 @@ Item {
                 "name": Services.AppsService.nameForClass(cls, title || cls),
                 "entry": entry,
                 "apps": [],
-                "runningWindow": t || null,
+                "runningWindow": null,
                 "runningClass": cls,
                 "transient": true
             });
         };
-        for (let i = 0; i < tops.length; i++) {
-            const t = tops[i];
-            const ipc = t.lastIpcObject || {};
-            const cls = tray.classOfTop(t);
-            const ws = ipc.workspace || {};
-            if (String(ws.name || "").indexOf("special") === 0)
+        // hyprctl clients only — Hyprland.toplevels keeps ghosts after IDEA/Chrome quit.
+        for (let j = 0; j < clients.length; j++) {
+            const row = clients[j];
+            const cls = String(row.class || "");
+            if (!cls)
                 continue;
-            if (cls)
-                pushTile(cls, t, t.title || ipc.title || cls);
+            pushTile(cls, row.title || cls);
         }
-        const classes = Core.Session.openClasses || [];
-        for (let j = 0; j < classes.length; j++)
-            pushTile(classes[j], null, classes[j]);
         return out;
     }
 
@@ -361,25 +489,28 @@ Item {
                     spacing: 0
 
                     Repeater {
-                        model: tray.tiles.length
+                        model: tray.dockRows.length
 
                         Item {
                             id: slot
                             required property int index
-                            readonly property var modelData: tray.tiles[slot.index]
+                            readonly property var row: tray.dockRows[slot.index] || ({})
+                            readonly property var modelData: slot.row.tile
+                            readonly property bool isSep: slot.row.kind === "sep"
+                            readonly property int gIndex: Number(slot.row.g)
                             width: 56
-                            height: 40
-                            opacity: tray.dragging && tray.dragFrom === slot.index ? 0 : 1
-                            z: tray.dragging && tray.dragFrom === slot.index ? 0 : 1
+                            height: slot.isSep ? 16 : 40
+                            opacity: tray.dragging && tray.dragFrom === slot.gIndex ? 0 : 1
+                            z: tray.dragging && tray.dragFrom === slot.gIndex ? 0 : 1
 
                             property real flowY: {
-                                if (tray.flowLock)
+                                if (slot.isSep || tray.flowLock)
                                     return 0;
                                 if (tray.dropping && !tray.dragging)
-                                    return slot.index >= Math.max(0, tray.dropSlot) ? slot.height : 0;
-                                if (!tray.dragging || slot.index === tray.dragFrom)
+                                    return slot.gIndex >= 0 && slot.gIndex >= Math.max(0, tray.dropSlot) ? slot.height : 0;
+                                if (!tray.dragging || slot.gIndex === tray.dragFrom)
                                     return 0;
-                                return (tray.flowIndexFor(slot.index) - slot.index) * slot.height;
+                                return (tray.flowIndexFor(slot.gIndex) - slot.gIndex) * slot.height;
                             }
 
                             Behavior on flowY {
@@ -400,7 +531,7 @@ Item {
                                 id: icon
                                 anchors.verticalCenter: parent.verticalCenter
                                 anchors.left: parent.left
-                                anchors.leftMargin: 10
+                                anchors.leftMargin: 8
                                 width: 38
                                 height: 38
                                 source: {
@@ -411,14 +542,14 @@ Item {
                                         return Services.AppsService.iconSource(e);
                                     return Services.AppsService.iconPathForWindow(slot.runningTop);
                                 }
-                                visible: !(slot.modelData && slot.modelData.type === "folder")
+                                visible: !slot.isSep && !(slot.modelData && slot.modelData.type === "folder")
                                 fillMode: Image.PreserveAspectFit
                                 smooth: true
                                 asynchronous: true
                                 cache: true
                                 sourceSize.width: 128
                                 sourceSize.height: 128
-                                scale: tray.interactive && !tray.dragging && !tray.holding && !tray.dropping && tray.hoverIndex === slot.index ? 1.38 : 1.0
+                                scale: tray.interactive && !tray.dragging && !tray.holding && !tray.dropping && tray.hoverIndex === slot.gIndex ? 1.38 : 1.0
                                 transformOrigin: Item.Left
 
                                 Behavior on scale {
@@ -430,14 +561,14 @@ Item {
                             }
 
                             FolderGlyph {
-                                visible: slot.modelData && slot.modelData.type === "folder"
+                                visible: !slot.isSep && slot.modelData && slot.modelData.type === "folder"
                                 anchors.verticalCenter: parent.verticalCenter
                                 anchors.left: parent.left
-                                anchors.leftMargin: 10
+                                anchors.leftMargin: 8
                                 width: 38
                                 height: 38
                                 apps: slot.modelData && slot.modelData.apps ? slot.modelData.apps : []
-                                scale: tray.interactive && !tray.dragging && !tray.holding && !tray.dropping && tray.hoverIndex === slot.index ? 1.38 : 1.0
+                                scale: tray.interactive && !tray.dragging && !tray.holding && !tray.dropping && tray.hoverIndex === slot.gIndex ? 1.38 : 1.0
                                 transformOrigin: Item.Left
 
                                 Behavior on scale {
@@ -449,6 +580,7 @@ Item {
                             }
 
                             Rectangle {
+                                visible: !slot.isSep
                                 anchors.verticalCenter: parent.verticalCenter
                                 anchors.left: parent.left
                                 anchors.leftMargin: 4
@@ -459,13 +591,22 @@ Item {
                                 opacity: slot.running ? 0.9 : 0
                             }
 
+                            Rectangle {
+                                visible: slot.isSep
+                                anchors.centerIn: parent
+                                width: 28
+                                height: 1
+                                radius: 1
+                                color: Qt.rgba(1, 1, 1, 0.34)
+                            }
+
                             readonly property var runningTop: tray.toplevelFor(slot.modelData)
                             readonly property bool running: tray.tileIsRunning(slot.modelData)
 
                             MouseArea {
                                 id: iconMouse
                                 anchors.fill: parent
-                                enabled: tray.interactive
+                                enabled: tray.interactive && !slot.isSep
                                 hoverEnabled: tray.interactive
                                 acceptedButtons: Qt.LeftButton | Qt.RightButton
                                 cursorShape: tray.dragging ? Qt.ClosedHandCursor : Qt.PointingHandCursor
@@ -475,10 +616,10 @@ Item {
 
                                 onEntered: {
                                     if (!tray.dragging && !tray.holding)
-                                        tray.hoverIndex = slot.index;
+                                        tray.hoverIndex = slot.gIndex;
                                 }
                                 onExited: {
-                                    if (tray.hoverIndex === slot.index)
+                                    if (tray.hoverIndex === slot.gIndex)
                                         tray.hoverIndex = -1;
                                 }
                                 onPressed: function (mouse) {
@@ -488,15 +629,15 @@ Item {
                                     pressY = mouse.y;
                                     dragged = false;
                                     tray.holding = true;
-                                    tray.hoverIndex = slot.index;
+                                    tray.hoverIndex = slot.gIndex;
                                 }
                                 onPositionChanged: function (mouse) {
                                     if (!iconMouse.pressed)
                                         return;
                                     if (!dragged && Math.hypot(mouse.x - pressX, mouse.y - pressY) > 8) {
                                         dragged = true;
-                                        tray.dragFrom = slot.index;
-                                        tray.hoverSlot = slot.index;
+                                        tray.dragFrom = slot.gIndex;
+                                        tray.hoverSlot = slot.gIndex;
                                         tray.hoverIndex = -1;
                                     }
                                     if (!dragged)
@@ -818,14 +959,12 @@ Item {
                             "label": "Open",
                             "icon": Core.Icons.folder,
                             "action": "open",
-                            "enabled": true,
                             "danger": false
                         },
                         {
                             "label": "Empty Trash",
                             "icon": Core.Icons.trash,
                             "action": "empty",
-                            "enabled": Services.DesktopService.trashFull,
                             "danger": true
                         }
                     ]
@@ -833,17 +972,18 @@ Item {
                     Rectangle {
                         id: row
                         required property var modelData
+                        readonly property bool rowEnabled: row.modelData.action !== "empty" || Services.DesktopService.trashFull
                         width: menuCol.width
                         height: 30
                         radius: Core.Theme.radiusRow
                         color: "transparent"
-                        opacity: row.modelData.enabled ? 1 : 0.42
+                        opacity: row.rowEnabled ? 1 : 0.42
 
                         Tactile {
                             anchors.fill: parent
                             radius: Core.Theme.radiusRow
-                            hovered: rowMouse.containsMouse && row.modelData.enabled
-                            pressed: rowMouse.pressed && row.modelData.enabled
+                            hovered: rowMouse.containsMouse && row.rowEnabled
+                            pressed: rowMouse.pressed && row.rowEnabled
                             hoverScale: 1.03
                             pressScale: 0.94
                         }
@@ -878,8 +1018,8 @@ Item {
                             id: rowMouse
                             anchors.fill: parent
                             hoverEnabled: true
-                            enabled: row.modelData.enabled
-                            cursorShape: row.modelData.enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
+                            enabled: row.rowEnabled
+                            cursorShape: row.rowEnabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                             onClicked: {
                                 const action = row.modelData.action;
                                 tray.menuOpen = false;

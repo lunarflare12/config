@@ -1,4 +1,5 @@
 import QtQuick 2.15
+import QtMultimedia
 
 import "components"
 
@@ -30,10 +31,20 @@ Rectangle {
     }
     property string globalFont: "Inter"
 
-    Image {
+    Video {
         id: bg
         anchors.fill: parent
-        source: config.background || "assets/images/background.jpg"
+        fillMode: VideoOutput.PreserveAspectCrop
+        source: "/home/dd/Pictures/Wallpapers/ayanami-rei-neon-genesis-evangelion.mp4"
+        loops: MediaPlayer.Infinite
+        muted: true
+        autoPlay: true
+    }
+
+    Image {
+        anchors.fill: parent
+        visible: bg.playbackState !== MediaPlayer.PlayingState
+        source: "/home/dd/Pictures/Wallpapers/ayanami-rei-neon-genesis-evangelion.jpg"
         fillMode: Image.PreserveAspectCrop
         asynchronous: true
         cache: true
@@ -42,7 +53,7 @@ Rectangle {
     Rectangle {
         anchors.fill: parent
         color: "black"
-        opacity: container.inputOpen ? 0.42 : 0.12
+        opacity: container.inputOpen ? 0.42 : 0
         Behavior on opacity {
             NumberAnimation {
                 duration: 420

@@ -500,6 +500,7 @@ APP_CONTAINERS = {
     "chrome-dd",
     "chrome-az",
     "chrome-hika",
+    "chrome-sciencesoft",
     "firefox",
     "zen",
     "idea",
@@ -570,7 +571,7 @@ def container_inspect(names: list[str]) -> dict[str, dict]:
     return out
 
 
-def list_docker() -> tuple[list[dict], list[dict]]:
+def list_docker(full: bool = True) -> tuple[list[dict], list[dict]]:
     code, text, _ = run(
         [
             "docker",
@@ -582,6 +583,8 @@ def list_docker() -> tuple[list[dict], list[dict]]:
     )
     if code != 0:
         return [], []
+    # Always inspect mounts/networks so hover tips can show Volumes / Networks.
+    # stats stays the heavy part; inspect of the name list is cheap.
     stats = container_stats()
     rows: list[tuple[str, str, list[str]]] = []
     for line in text.splitlines():
@@ -620,7 +623,7 @@ def list_docker() -> tuple[list[dict], list[dict]]:
 
 
 def containers() -> list[dict]:
-    return list_docker()[0]
+    return list_docker(True)[0]
 
 
 def public_tunnels(rows: list[dict], kind: str) -> list[dict]:
@@ -636,8 +639,8 @@ def public_tunnels(rows: list[dict], kind: str) -> list[dict]:
     ]
 
 
-def status() -> dict:
-    lab, apps = list_docker()
+def status(full: bool = True) -> dict:
+    lab, apps = list_docker(full)
     return {
         "vms": vms(),
         "containers": lab,
@@ -798,10 +801,13 @@ def gui_toggle(kind: str, name: str) -> int:
 def drop_container_windows(name: str, action: str) -> None:
     if name in {"steam", "overwatch", "terraria", "albion", "ollama", "omniroute"}:
         return
-    script = os.path.expanduser("~/.config/scripts/reap-container-windows.py")
-    if not os.path.isfile(script):
+    script = os.path.expanduser("~/.config/scripts/reap-container-windows")
+    if os.path.isfile(script):
+        run([script, name, action], timeout=2.0)
         return
-    run(["python3", script, name, action], timeout=2.0)
+    py = os.path.expanduser("~/.config/scripts/reap-container-windows.py")
+    if os.path.isfile(py):
+        run(["python3", py, name, action], timeout=2.0)
 
 
 def docker_action(action: str, name: str) -> int:
@@ -845,7 +851,11 @@ def docker_action(action: str, name: str) -> int:
 def main() -> int:
     argv = sys.argv[1:]
     if not argv or argv[0] in ("status", "list"):
-        json.dump(status(), sys.stdout, ensure_ascii=False, separators=(",", ":"))
+        json.dump(status(full=True), sys.stdout, ensure_ascii=False, separators=(",", ":"))
+        sys.stdout.write("\n")
+        return 0
+    if argv[0] == "status-light":
+        json.dump(status(full=False), sys.stdout, ensure_ascii=False, separators=(",", ":"))
         sys.stdout.write("\n")
         return 0
     if argv[0] == "toggle" and len(argv) >= 3:
@@ -856,7 +866,7 @@ def main() -> int:
         return gui_toggle(argv[1], argv[2])
     if argv[0] == "docker" and len(argv) >= 3:
         return docker_action(argv[1], argv[2])
-    print("usage: lab-ctl status | toggle wireguard|amnezia|vless NAME | docker start|stop|pause|unpause|restart|rm NAME", file=sys.stderr)
+    print("usage: lab-ctl status|status-light | toggle wireguard|amnezia|vless NAME | docker start|stop|pause|unpause|restart|rm NAME", file=sys.stderr)
     return 2
 
 

@@ -21,11 +21,10 @@ Item {
         return Core.Session.activeWorkspaceOnMonitor(root.monitorName);
     }
     readonly property var spaceLocals: {
-        const _ = (Hyprland.toplevels && Hyprland.toplevels.values) ? Hyprland.toplevels.values.length : 0;
+        const _ = Core.Session.clientsTick + Core.Session.spaceRev;
         const __ = (Hyprland.workspaces && Hyprland.workspaces.values) ? Hyprland.workspaces.values.length : 0;
         const ___ = root.activeGlobal;
         const ____ = Core.Session.spaceOrder;
-        const _____ = Core.Session.spaceRev;
         const list = Core.Session.workspaceLocalsOnMonitor(root.monitorName);
         return list.length ? list : [1];
     }
@@ -140,8 +139,7 @@ Item {
     function occupiedAt(localWs) {
         if (localWs < 1 || localWs > root.count)
             return false;
-        const _ = (Hyprland.toplevels && Hyprland.toplevels.values) ? Hyprland.toplevels.values.length : 0;
-        const __ = Core.Session.clientsTick;
+        const _ = Core.Session.clientsTick;
         return Core.Session.windowsOnWorkspace(root.base + localWs).length > 0;
     }
 
@@ -156,7 +154,7 @@ Item {
                 continue;
             const size = ipc.size || [0, 0];
             let score = Number(size[0]) * Number(size[1]);
-            if (cls.indexOf("gamescope") !== -1 || cls.indexOf("steam_app_") !== -1 || cls.indexOf("dota2") !== -1)
+            if (cls === "steam" || cls.indexOf("gamescope") !== -1 || cls.indexOf("steam_app_") !== -1 || cls.indexOf("dota2") !== -1)
                 score += 1000000000;
             if (cls.indexOf("minecraft") !== -1)
                 score += 1000000000;
@@ -234,7 +232,7 @@ Item {
                 readonly property int localWs: root.spaceLocals[cell.index]
                 readonly property int workspace: root.base + cell.localWs
                 readonly property var windows: {
-                    const _ = (Hyprland.toplevels && Hyprland.toplevels.values) ? Hyprland.toplevels.values.length : 0;
+                    const _ = Core.Session.clientsTick;
                     return Core.Session.windowsOnWorkspace(cell.workspace);
                 }
                 readonly property bool occupied: cell.windows.length > 0

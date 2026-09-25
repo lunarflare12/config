@@ -26,9 +26,18 @@ PanelWindow {
 
     readonly property string monitorName: Core.Session.monitorNameForScreen(root.screen)
     readonly property bool onMain: Core.Session.isDesktopMonitor(root.monitorName)
-    readonly property bool gameFullscreen: Core.Session.gameFullscreenOnScreen(root.screen)
+    property bool gameFullscreen: false
+    property int fsWatch: Core.Session.fsTick
+    property bool ipcWatch: Core.Session.ipcReady
+    onFsWatchChanged: Qt.callLater(root.syncGameFullscreen)
+    onIpcWatchChanged: Qt.callLater(root.syncGameFullscreen)
+    function syncGameFullscreen() {
+        const next = root.ipcWatch && Core.Session.gameFullscreenOnScreen(root.screen);
+        if (root.gameFullscreen !== next)
+            root.gameFullscreen = next;
+    }
+    Component.onCompleted: root.syncGameFullscreen()
     property bool hideHold: false
-
     onGameFullscreenChanged: {
         if (root.gameFullscreen) {
             showDelay.stop();

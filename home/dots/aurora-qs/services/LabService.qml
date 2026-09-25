@@ -196,6 +196,29 @@ Singleton {
             root.amnezia = amnezia;
         if (!root.sameJson(root.vless, vless))
             root.vless = vless;
+        root.refreshHover();
+    }
+
+    function refreshHover() {
+        const tip = root.hoverTip;
+        if (!tip || !tip.name)
+            return;
+        const lists = [root.containers, root.apps];
+        for (let i = 0; i < lists.length; i++) {
+            const list = lists[i];
+            for (let j = 0; j < list.length; j++) {
+                if (list[j].name !== tip.name)
+                    continue;
+                root.hoverTip = {
+                    name: tip.name,
+                    monitor: tip.monitor,
+                    x: tip.x,
+                    y: tip.y,
+                    lines: root.tipLines(list[j])
+                };
+                return;
+            }
+        }
     }
 
     function parseStdout(text) {
@@ -217,6 +240,7 @@ Singleton {
             "chrome-dd": "Chrome DD",
             "chrome-az": "Chrome Aziza",
             "chrome-hika": "Chrome hika911",
+            "chrome-sciencesoft": "Chrome ScienceSoft",
             "telegram-1": "Telegram 1",
             "telegram-2": "Telegram 2",
             "vscode": "VS Code",
@@ -278,7 +302,7 @@ Singleton {
     function openVm(name) {
         if (!name)
             return;
-        Quickshell.execDetached(["virt-viewer", "--connect", "qemu:///system", "--attach", name]);
+        Quickshell.execDetached(["systemd-run", "--user", "--scope", "--collect", "--quiet", "--", "virt-viewer", "--connect", "qemu:///system", "--attach", name]);
     }
 
     function validCt(name) {
@@ -327,7 +351,7 @@ Singleton {
     function enterContainer(name) {
         if (!root.validCt(name))
             return;
-        Quickshell.execDetached(["kitty", "--class", "termfloat", "-e", "sh", "-c", "docker exec -it " + name + " bash 2>/dev/null || docker exec -it " + name + " sh"]);
+        Quickshell.execDetached(["systemd-run", "--user", "--scope", "--collect", "--quiet", "--", "kitty", "--class", "termfloat", "-e", "sh", "-c", "docker exec -it " + name + " bash 2>/dev/null || docker exec -it " + name + " sh"]);
     }
 
     property var actionQueue: []
@@ -389,14 +413,14 @@ Singleton {
     }
 
     property Process statusProc: Process {
-        command: ["python3", root.ctl, "status"]
+        command: ["python3", root.ctl, "status-light"]
         stdout: StdioCollector {
             onStreamFinished: root.parseStdout(text)
         }
     }
 
     property Timer poll: Timer {
-        interval: 4000
+        interval: 3000
         repeat: true
         running: root.viewers > 0 && !root.busy
         onTriggered: root.refresh()

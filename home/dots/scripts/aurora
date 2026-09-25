@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set +e
+for p in \
+  "${HOME:-/home/dd}/.local/state/aurora/bin/aurora" \
+  "/etc/profiles/per-user/${USER:-dd}/bin/aurora"
+do
+  if [ -x "$p" ]; then
+    exec "$p" "$@"
+  fi
+done
+printf 'aurora: binary not found\n' >&2
+exit 127

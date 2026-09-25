@@ -90,7 +90,7 @@ Item {
                             width: ctCol.width
                             iconSource: panel.appIcons ? Services.AppsService.iconForContainer(modelData.name) : Qt.resolvedUrl("../assets/docker.svg")
                             title: String(modelData.name || "")
-                            subtitle: String(modelData.image || modelData.status || "")
+                            subtitle: String(modelData.status || modelData.image || "")
                             trailing: modelData.state === "running" ? "ON" : (modelData.state === "paused" ? "PAUSE" : "OFF")
                             trailingColor: modelData.state === "running" ? Core.Theme.accent : Core.Theme.foregroundMuted
                             active: modelData.state === "running"

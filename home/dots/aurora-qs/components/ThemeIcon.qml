@@ -15,8 +15,8 @@ Image {
     fillMode: Image.PreserveAspectFit
     asynchronous: true
     // Off so bar SVG edits show up without a full Quickshell restart.
-    cache: false
+    cache: true
     smooth: true
-    mipmap: true
+    mipmap: false
     transformOrigin: Item.Center
 }

@@ -15,6 +15,9 @@ fi
 
 # ── Host path: only docker; never run Proton/OW on the host. ─────────────
 if [ "$in_box" -eq 0 ]; then
+  # Do not touch the compositor until the shader depots are on disk.
+  # applaunch otherwise starts Overwatch while Steam is still downloading.
+  game_wait_ow_shaders
   if [ -x "${BASH_SOURCE[0]%/*}/protect-shader-caches.sh" ]; then
     "${BASH_SOURCE[0]%/*}/protect-shader-caches.sh" >/dev/null 2>&1 || true
   fi
@@ -23,22 +26,34 @@ if [ "$in_box" -eq 0 ]; then
   game_ensure_xwayland
   game_stop_other_boxes overwatch
   game_gpu_perf
-  game_compositor_game 1
+  # Plugin + fullscreen pin segfaulted Hyprland into safe-mode. Do not
+  # load either until the compositor is a normal session again.
+  if ! pgrep -a Hyprland 2>/dev/null | grep -q -- '--safe-mode'; then
+    game_compositor_game 1
+    if [ -x "${BASH_SOURCE[0]%/*}/ow-stretch-plugin.sh" ]; then
+      "${BASH_SOURCE[0]%/*}/ow-stretch-plugin.sh" load >/dev/null 2>&1 || true
+    fi
+  fi
 
   mkdir -p "${HOME}/programs/steam"
-  # Foreground: container lives for the Steam silent + game session.
-  docker compose -f "$COMPOSE" run --rm --name overwatch overwatch
+  game_ensure_steam
+  # Same container as the Steam window. Do not start a second box.
+  docker exec steam /usr/local/bin/game-session.sh 2357570 Overwatch.exe
   status=$?
   game_compositor_game 0
+  game_gpu_idle
   exit "$status"
 fi
 
 # ── Inside overwatch/steam box (launch options %command%). ───────────────
 
+# Safe-mode means the last session segfaulted. Aborting here is why the
+# game never appears. Skip the plugin and the fullscreen pin: that pin is
+# what crashed Hyprland (setFullscreenMode on activate).
+ow_safe=0
 if game_host pgrep -a Hyprland 2>/dev/null | grep -q -- '--safe-mode'; then
-  notify-send -u critical "Overwatch" "Hyprland в safe-mode — перезапусти композитор" 2>/dev/null || true
-  echo "overwatch.sh: Hyprland --safe-mode; aborting" >&2
-  exit 1
+  ow_safe=1
+  echo "overwatch.sh: Hyprland safe-mode, launching without plugin/fullscreen" >&2
 fi
 
 game_block_fossilize
@@ -46,10 +61,12 @@ game_low_latency
 
 # Do not call gamemode-start / gamemoderun: aurora-game toggles kill HDMI,
 # hyprsunset, and decorations — user wants both monitors untouched.
-if [ -x "${BASH_SOURCE[0]%/*}/ow-stretch-plugin.sh" ]; then
+if [ "$ow_safe" -eq 0 ] && [ -x "${BASH_SOURCE[0]%/*}/ow-stretch-plugin.sh" ]; then
   "${BASH_SOURCE[0]%/*}/ow-stretch-plugin.sh" load >/dev/null 2>&1 || true
 fi
-game_compositor_game 1
+if [ "$ow_safe" -eq 0 ]; then
+  game_compositor_game 1
+fi
 
 # ── Flags from ProtonDB + DXVK#3813 + Valve/NVIDIA OW shader-cache reports ──
 # https://www.protondb.com/app/2357570
@@ -60,8 +77,8 @@ export PROTON_HIDE_NVIDIA_GPU="${PROTON_HIDE_NVIDIA_GPU:-0}"
 export PROTON_ENABLE_NGX_UPDATER=0
 export PROTON_LOCAL_SHADER_CACHE=1
 export DXVK_NVAPI_VKREFLEX=0
-unset ENABLE_VK_LAYER_VALVE_steam_fossilize_1 || true
-export DISABLE_VK_LAYER_VALVE_steam_fossilize_1=1
+# Steam's fossilize layer is what reads the pipelines it already compiled.
+# Leaving it off is why the match compiled a second cache.
 # No /dev/ntsync on this host — fsync/esync only.
 export PROTON_NO_NTSYNC=1
 export WINEFSYNC=1
@@ -89,11 +106,16 @@ fi
 export DXVK_HDR=0
 export DXVK_STATE_CACHE=1
 export __GL_SYNC_TO_VBLANK=0
+# Driver thread does shader-cache work. Without it that work sits on DXVK's
+# submit thread, that thread stays at 100%, and the GPU waits with nothing to draw.
+export __GL_THREADED_OPTIMIZATIONS=1
 export __GL_SYNC_DISPLAY_DEVICE="${__GL_SYNC_DISPLAY_DEVICE:-DP-1}"
 export __GL_SHARPEN_ENABLE=0
 export __GL_GSYNC_ALLOWED=0
 export __GL_VRR_ALLOWED=0
 unset __GL_MaxFramesAllowed || true
+# A cap at the refresh rate sits on 200 and dips under it. Leave DXVK uncapped.
+unset DXVK_FRAME_RATE || true
 # Steam overlay Vulkan layer was on and compositing every frame.
 unset ENABLE_VK_LAYER_VALVE_steam_overlay_1 || true
 export DISABLE_VK_LAYER_VALVE_steam_overlay_1=1
@@ -105,10 +127,9 @@ XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
 
 ow_dxvk_home="${XDG_CACHE_HOME}/dxvk/overwatch"
 ow_dxvk_prefix="/steam/steamapps/compatdata/2357570/pfx/drive_c/users/steamuser/AppData/Local/dxvk"
-# Steam's shader manager truncates steamapps/shadercache on every launch.
-# This tree is a separate copy (merged 4.3G + session 3.6G). Same filenames,
-# so the driver opens them instead of compiling a new cache.
-ow_nv_cache="${XDG_CACHE_HOME}/nvidia/overwatch"
+# Driver looks up GLCache under this directory. This is Steam's own tree,
+# the one fossilize_replay filled. Not a side copy.
+ow_nv_cache="/steam/steamapps/shadercache/2357570/nvidiav1"
 mkdir -p "$ow_dxvk_home" "$ow_dxvk_prefix" "$XDG_CONFIG_HOME/dxvk" "$ow_nv_cache"
 if [ -x "${BASH_SOURCE[0]%/*}/protect-shader-caches.sh" ]; then
   "${BASH_SOURCE[0]%/*}/protect-shader-caches.sh" >/dev/null 2>&1 || true
@@ -124,21 +145,23 @@ export __GL_SHADER_DISK_CACHE_APP_NAME=steamapp_shader_cache
 export __GL_SHADER_DISK_CACHE_READ_ONLY_APP_NAME="steam_shader_cache;steamapp_merged_shader_cache"
 
 read -r phys_w phys_h refresh _ <<<"$(game_monitor)"
-width=1920
+# In-game mode is 2560×1080 @ 200 Hz. 1920 is Full HD and the menu shows it.
+width=2560
 height=1080
+refresh=200
 use_219=0
-# 300 on a 200Hz XWayland compositor hitchs 1% lows and keeps the GPU in P3.
-fps_cap=${refresh:-200}
-if [ "$fps_cap" -lt 60 ]; then
-  fps_cap=200
-fi
-export DXVK_FRAME_RATE="$fps_cap"
+# Cap above the 200 Hz panel so the counter is not glued to 200 and dipping under.
+fps_cap=400
 
-# trackPipelineLifetime: OW D3D11 RAM blow-up under GPL (dxvk#3813), ProtonDB default tip.
-# Leave numCompilerThreads at DXVK default (all cores). Do not cap device memory.
+# Do not flip GPL. The disk cache was built without it; turning it on
+# recompiles every pipeline on the CPU and the frame stutters.
 cat >"$DXVK_CONFIG_FILE" <<EOF
 dxgi.syncInterval = 0
-dxvk.trackPipelineLifetime = True
+dxvk.enableGraphicsPipelineLibrary = False
+# Auto latency-sleep holds the GPU queue empty. Util stays near idle and
+# frame time wobbles. Throughput, not the extra sleep.
+dxvk.latencySleep = False
+dxgi.nvLowLatency = False
 EOF
 
 ini="/steam/steamapps/compatdata/2357570/pfx/drive_c/users/steamuser/Documents/Overwatch/Settings/Settings_v0.ini"
@@ -148,15 +171,15 @@ game_ini_set "$ini" "[Render.13]" "WindowedWidth" "\"${width}\""
 game_ini_set "$ini" "[Render.13]" "WindowedHeight" "\"${height}\""
 game_ini_set "$ini" "[Render.13]" "FullScreenRefresh" "\"${refresh}\""
 game_ini_set "$ini" "[Render.13]" "WindowedRefresh" "\"${refresh}\""
+game_ini_set "$ini" "[GPU.6]" "DisplayIndex" "\"1\""
 game_ini_set "$ini" "[Render.13]" "Use219AspectRatio" "\"${use_219}\""
-game_ini_set "$ini" "[Render.13]" "FullscreenWindow" "\"1\""
-game_ini_set "$ini" "[Render.13]" "FullscreenWindowEnabled" "\"1\""
+# 0 = полный экран, 2560×1080 @ 200. 1 is borderless and the menu
+# does not show fullscreen.
+game_ini_set "$ini" "[Render.13]" "WindowMode" "\"0\""
+game_ini_set "$ini" "[Render.13]" "FullscreenWindow" "\"0\""
+game_ini_set "$ini" "[Render.13]" "FullscreenWindowEnabled" "\"0\""
 game_ini_set "$ini" "[Render.13]" "FieldOfView" "\"103.000000\""
 game_ini_set "$ini" "[Render.13]" "HorizontalFOV" "\"103.000000\""
-game_ini_set "$ini" "[Render.13]" "AADetail" "\"1\""
-game_ini_set "$ini" "[Render.13]" "ModelQuality" "\"2\""
-game_ini_set "$ini" "[Render.13]" "PhysicsQuality" "\"1\""
-game_ini_set "$ini" "[Render.13]" "HighQualityUpsample" "\"0\""
 game_ini_set "$ini" "[Render.13]" "BroadcastMarginBottom" "\"1.000000\""
 game_ini_set "$ini" "[Render.13]" "BroadcastMarginLeft" "\"1.000000\""
 game_ini_set "$ini" "[Render.13]" "BroadcastMarginRight" "\"1.000000\""
@@ -169,10 +192,14 @@ game_ini_set "$ini" "[Render.13]" "TripleBufferingEnabled" "\"0\""
 game_ini_set "$ini" "[Render.13]" "CpuForceSyncEnabled" "\"0\""
 game_ini_set "$ini" "[Render.13]" "NVIDIAReflex" "\"0\""
 game_ini_set "$ini" "[Render.13]" "ReflexMode" "\"0\""
-game_ini_set "$ini" "[Render.13]" "ImageSharpening" "\"0.000000\""
 # OW mirrors some Render keys into TankMenuItems; the spaced copy was
 # capping at 205 while Render said 300.
 game_ini_set "$ini" "[TankMenuItems.1]" "FrameRateCap" "\"${fps_cap}\""
+game_ini_set "$ini" "[TankMenuItems.1]" "Use219AspectRatio" "\"${use_219}\""
+game_ini_set "$ini" "[TankMenuItems.1]" "FullScreenWidth" "\"${width}\""
+game_ini_set "$ini" "[TankMenuItems.1]" "FullScreenHeight" "\"${height}\""
+game_ini_set "$ini" "[TankMenuItems.1]" "WindowedWidth" "\"${width}\""
+game_ini_set "$ini" "[TankMenuItems.1]" "WindowedHeight" "\"${height}\""
 game_ini_set "$ini" "[TankMenuItems.1]" "UseVSync" "\"0\""
 game_ini_set "$ini" "[TankMenuItems.1]" "LimitToRefresh" "\"0\""
 game_ini_set "$ini" "[Input.1]" "HighTickInput" "\"1\""
@@ -181,7 +208,9 @@ game_wine_warp "/steam/steamapps/compatdata/2357570/pfx/user.reg" disable
 game_xwayland_ultrawide
 game_x_primary "$phys_w" "$phys_h"
 game_strip_overlay
-game_place_overwatch
+if [ "$ow_safe" -eq 0 ]; then
+  game_place_overwatch
+fi
 
 if [ "$#" -eq 0 ]; then
   echo "overwatch.sh: inside box but no command" >&2
@@ -199,10 +228,9 @@ if [ "$has_dx" -eq 0 ]; then
   set -- "$@" -dx11
 fi
 
+# Play in the Steam window hits this script directly. Same gate.
+game_wait_ow_shaders
+
 "$@"
 status=$?
-# Game process is gone. Unload stretch once and tell the silent Steam
-# client to exit so the container does not sit there reloading the plugin.
-"${BASH_SOURCE[0]%/*}/ow-stretch-plugin.sh" unload >/dev/null 2>&1 || true
-steam -shutdown >/dev/null 2>&1 || true
 exit "$status"

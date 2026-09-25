@@ -23,11 +23,21 @@ if [ "$in_box" -eq 0 ]; then
   game_ensure_xwayland
   game_stop_other_boxes albion
   mkdir -p "${HOME}/programs/steam"
-  exec docker compose -f "$COMPOSE" run --rm --name albion albion
+  game_ensure_steam
+  exec docker exec steam /usr/local/bin/game-session.sh 761890 Albion-Online AlbionOnline
 fi
 
 game_strip_overlay
 game_low_latency
+albion_nv="${XDG_CACHE_HOME:-$HOME/.cache}/nvidia/albion"
+mkdir -p "$albion_nv"
+printf 'frozen\n' >"$albion_nv/.frozen"
+export __GL_SHADER_DISK_CACHE=1
+export __GL_SHADER_DISK_CACHE_SKIP_CLEANUP=1
+export __GL_SHADER_DISK_CACHE_SIZE="${__GL_SHADER_DISK_CACHE_SIZE:-34359738368}"
+export __GL_SHADER_DISK_CACHE_PATH="$albion_nv"
+export __GL_SHADER_DISK_CACHE_APP_NAME=steamapp_shader_cache
+export __GL_SHADER_DISK_CACHE_READ_ONLY_APP_NAME="steam_shader_cache;steamapp_merged_shader_cache"
 game_xwayland_ultrawide
 
 export SDL_VIDEODRIVER=x11

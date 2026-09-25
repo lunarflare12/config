@@ -8,7 +8,8 @@ import Quickshell.Services.SystemTray
 
 import "../core" as Core
 
-// Placeholder window (frontend Suspense) until the real client paints.
+// Pins a launching client to the workspace it was opened from.
+// No skeleton: the compositor animates the real window.
 Singleton {
     id: root
 
@@ -45,7 +46,7 @@ Singleton {
         return (t && t.wayland) ? t.wayland : null;
     }
 
-    readonly property int toplevelCount: (Hyprland.toplevels && Hyprland.toplevels.values) ? Hyprland.toplevels.values.length : 0
+    readonly property int toplevelCount: Core.Session.clientsTick
 
     onToplevelCountChanged: {
         if (root.active)
@@ -111,7 +112,7 @@ Singleton {
         // Already-open window → focus only. Never show the skeleton preview.
         const running = root.findRunning(app);
         if (running) {
-            Core.Session.bringWindow(running, dest);
+            Core.Session.focusWindow(running);
             AppsService.launchConsumed = true;
             root.clear();
             return;
@@ -132,7 +133,7 @@ Singleton {
         // it is in ignore — still focus it and abort splash.
         const existing = root.findWindow(app, root.needles, null, true);
         if (existing) {
-            Core.Session.bringWindow(existing, dest);
+            Core.Session.focusWindow(existing);
             AppsService.launchConsumed = true;
             root.clear();
             return;
@@ -156,7 +157,7 @@ Singleton {
         const t = root.findRunning(app);
         if (!t)
             return false;
-        Core.Session.bringWindow(t, root.launchWorkspace());
+        Core.Session.focusWindow(t);
         return true;
     }
 
@@ -295,7 +296,20 @@ Singleton {
         const homeUser = String(Quickshell.env("HOME") || "").split("/").pop().toLowerCase();
         if (homeUser && n === homeUser)
             return true;
-        return n === "desktop" || n === "org" || n === "com" || n === "io" || n === "net" || n === "app" || n === "www" || n === "gtk" || n === "gnome" || n === "kde" || n === "qt" || n === "bin" || n === "usr" || n === "status" || n === "icon" || n === "tray" || n === "item" || n === "force" || n === "dark" || n === "mode" || n === "wayland" || n === "ozone" || n === "platform" || n === "disable" || n === "enable" || n === "gpu" || n === "features" || n === "sandbox" || n === "scripts" || n === "config" || n === "home" || n === "nix" || n === "store";
+        return n === "desktop" || n === "org" || n === "com" || n === "io" || n === "net" || n === "app" || n === "www" || n === "gtk" || n === "gnome" || n === "kde" || n === "qt" || n === "bin" || n === "usr" || n === "status" || n === "icon" || n === "tray" || n === "item" || n === "force" || n === "dark" || n === "mode" || n === "wayland" || n === "ozone" || n === "platform" || n === "disable" || n === "enable" || n === "gpu" || n === "features" || n === "sandbox" || n === "scripts" || n === "config" || n === "home" || n === "nix" || n === "store" || n === "chrome" || n === "chromium" || n === "google";
+    }
+
+    function chromeKind(s) {
+        const c = String(s || "").toLowerCase();
+        if (c === "chrome-az" || c.indexOf("chrome-az") === 0)
+            return "az";
+        if (c === "chrome-hika" || c.indexOf("chrome-hika") === 0)
+            return "hika";
+        if (c === "chrome-sciencesoft" || c.indexOf("chrome-sciencesoft") === 0)
+            return "sciencesoft";
+        if (c === "chrome-dd" || c.indexOf("chrome-dd") === 0 || c === "google-chrome" || c === "com.google.chrome")
+            return "dd";
+        return "";
     }
 
     function execBase(app) {
@@ -329,6 +343,10 @@ Singleton {
         const n = String(needle || "").toLowerCase().replace(/\.desktop$/, "");
         if (!c || !n || n.length < 3 || root.isGenericToken(n))
             return false;
+        const ck = root.chromeKind(c);
+        const nk = root.chromeKind(n);
+        if (ck || nk)
+            return ck !== "" && ck === nk;
         if (c === n)
             return true;
         // Substring only on token boundaries — bare "obs" must not match "obsidian".
@@ -461,8 +479,11 @@ Singleton {
         if (steamId)
             add("steam_app_" + steamId);
         const name = String(app.name || "").toLowerCase();
-        const icon = String(app.icon || "").toLowerCase().split("/").pop();
-        const blob = name + " " + icon + " " + String(app.id || "").toLowerCase();
+        const icon = String(app.icon || "").toLowerCase().split("/").pop().replace(/\.(png|svg|xpm)$/, "");
+        const kind = root.chromeKind(app.startupWmClass || app.id || "");
+        if (icon && !(kind && (icon === "google-chrome" || icon === "chrome" || icon === "chromium")))
+            add(icon);
+        const blob = name + " " + String(app.id || "").toLowerCase();
         const parts = blob.split(/[^a-z0-9]+/);
         for (let i = 0; i < parts.length; i++)
             add(parts[i]);
@@ -511,7 +532,7 @@ Singleton {
             return;
         const already = root.findWindow(root.launchApp, root.needles, null);
         if (already && root.ignore[root.addressOf(already)]) {
-            Core.Session.bringWindow(already, root.workspaceId || root.launchWorkspace());
+            Core.Session.focusWindow(already);
             root.clear();
             return;
         }
@@ -567,14 +588,13 @@ Singleton {
             // means the app was already open — focus it, never show skeleton.
             const already = root.findWindow(root.launchApp, root.needles, null, true);
             if (already) {
-                Core.Session.bringWindow(already, root.workspaceId || root.launchWorkspace());
+                Core.Session.focusWindow(already);
                 AppsService.launchConsumed = true;
                 root.clear();
                 return;
             }
-            // Still nothing after the grace window — only then show skeleton.
-            root.shown = true;
-            root.shownAt = Date.now();
+            // Window has not mapped yet. Leave the pin armed; do not cover
+            // the workspace with a placeholder.
         }
     }
 

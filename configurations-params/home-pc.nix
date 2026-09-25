@@ -2,7 +2,7 @@
   systemArch = "x86_64-linux";
   stateVersion = "26.05";
   userName = "dd";
-  repo = "projects/config";
+  repo = "Documents/projects/config";
 
   users = {
     dd = {

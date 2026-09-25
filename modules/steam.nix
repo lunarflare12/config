@@ -9,6 +9,7 @@
 let
   shaderCacheDir = "/home/${host.userName}/.cache/steam-shadercache";
   dxvkCacheDir = "/home/${host.userName}/.cache/dxvk";
+  nvidiaCacheDir = "/home/${host.userName}/.cache/nvidia";
   scripts = "/home/${host.userName}/.config/scripts";
   steamBinFile = "/home/${host.userName}/.local/share/aurora/steam-bin";
 
@@ -68,6 +69,10 @@ lib.mkIf (host.enabled "steam") {
         # Never let the NVIDIA driver cull the disk cache on its own.
         export __GL_SHADER_DISK_CACHE_SKIP_CLEANUP=1
         export __GL_SHADER_DISK_CACHE_SIZE=34359738368
+        export __GL_SHADER_DISK_CACHE_READ_ONLY_APP_NAME='steam_shader_cache;steamapp_merged_shader_cache'
+        # Steam otherwise starts fossilize_replay with --num-threads=$(nproc)
+        # and the desktop freezes while Overwatch shaders compile.
+        export FOSSILIZE_CONCURRENCY=2
         # Session GBM_BACKEND=nvidia-drm breaks Steam CEF on XWayland (black window).
         unset GBM_BACKEND
         unset NVD_BACKEND
@@ -130,10 +135,18 @@ lib.mkIf (host.enabled "steam") {
     "d /var/lib/steam-work 0700 root root -"
     "d ${shaderCacheDir} 0755 ${host.userName} users -"
     "d ${dxvkCacheDir} 0755 ${host.userName} users -"
+    "d ${nvidiaCacheDir} 0755 ${host.userName} users -"
+    "d ${nvidiaCacheDir}/overwatch 0755 ${host.userName} users -"
+    "d ${nvidiaCacheDir}/terraria 0755 ${host.userName} users -"
+    "d ${nvidiaCacheDir}/albion 0755 ${host.userName} users -"
     # Exclude from systemd-tmpfiles-clean. Never age-delete shader/DXVK caches.
+    # boot.tmp.cleanOnBoot only wipes /tmp. These live on /home and survive
+    # nixos-rebuild, nix-collect-garbage, and reboot.
     "x ${shaderCacheDir}"
     "x ${shaderCacheDir}/*"
     "x ${dxvkCacheDir}"
     "x ${dxvkCacheDir}/*"
+    "x ${nvidiaCacheDir}"
+    "x ${nvidiaCacheDir}/*"
   ];
 }

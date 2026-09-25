@@ -1,0 +1,12 @@
+[Unit]
+Description=SOCKS proxy via SSH DynamicForward to job-pc (:1080)
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/run/current-system/sw/bin/ssh -N -D 127.0.0.1:1080 -o ExitOnForwardFailure=yes -o BatchMode=yes job-pc
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target

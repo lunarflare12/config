@@ -22,21 +22,44 @@ game_ensure_xwayland() {
     Xwayland :0 -nolisten tcp -ac >/dev/null 2>&1 || true
 }
 
-# One Steam library lock. steam / overwatch / terraria / albion cannot run together.
+# One container (`steam`) owns the library. Games are processes inside it.
+# Drop the old per-game containers. Never stop the Steam client here.
+game_ensure_steam() {
+  local compose="${COMPOSE:-${HOME:-/home/dd}/containers/steam/compose.yml}"
+  local i
+  docker rm -f overwatch terraria albion >/dev/null 2>&1 || true
+  docker compose -f "$compose" up -d --no-deps --no-build steam
+  for i in $(seq 1 40); do
+    if docker inspect -f '{{.State.Running}}' steam 2>/dev/null | grep -qx true; then
+      return 0
+    fi
+    sleep 0.25
+  done
+  echo "game-lib: steam container did not start" >&2
+  return 1
+}
+
 game_stop_other_boxes() {
   local keep=${1:-}
-  local name
-  for name in steam overwatch terraria albion; do
-    [ "$name" = "$keep" ] && continue
-    docker stop "$name" >/dev/null 2>&1 || true
-  done
-  if [ -n "$keep" ]; then
-    docker rm -f "$keep" >/dev/null 2>&1 || true
-  fi
-  if pgrep -f '/\.local/share/Steam/ubuntu12_32/steam' >/dev/null 2>&1; then
-    pkill -f '/\.local/share/Steam/ubuntu12_32/steam' >/dev/null 2>&1 || true
-    sleep 1
-  fi
+  docker rm -f overwatch terraria albion >/dev/null 2>&1 || true
+  case "$keep" in
+    overwatch)
+      pkill -x Terraria.exe >/dev/null 2>&1 || true
+      pkill -x Terraria.bin >/dev/null 2>&1 || true
+      pkill -x Albion-Online >/dev/null 2>&1 || true
+      pkill -x AlbionOnline >/dev/null 2>&1 || true
+      ;;
+    terraria)
+      pkill -x Overwatch.exe >/dev/null 2>&1 || true
+      pkill -x Albion-Online >/dev/null 2>&1 || true
+      pkill -x AlbionOnline >/dev/null 2>&1 || true
+      ;;
+    albion)
+      pkill -x Overwatch.exe >/dev/null 2>&1 || true
+      pkill -x Terraria.exe >/dev/null 2>&1 || true
+      pkill -x Terraria.bin >/dev/null 2>&1 || true
+      ;;
+  esac
 }
 
 game_block_fossilize() {
@@ -47,6 +70,9 @@ game_block_fossilize() {
   fi
   if [ -x "${BASH_SOURCE[0]%/*}/steam-lock-shaders.sh" ]; then
     "${BASH_SOURCE[0]%/*}/steam-lock-shaders.sh" >/dev/null 2>&1 || true
+  fi
+  if [ -x "${BASH_SOURCE[0]%/*}/cap-fossilize.sh" ]; then
+    "${BASH_SOURCE[0]%/*}/cap-fossilize.sh" >/dev/null 2>&1 || true
   fi
 }
 
@@ -78,25 +104,38 @@ game_low_latency() {
   unset SDL_VIDEODRIVER || true
 }
 
-# nvidia-settings inside the box has no NV-CONTROL — GPU stays in P3 / 25W.
+# nvidia-settings inside the box has no NV-CONTROL, and on this driver
+# GPUPowerMizerMode=1 is accepted and then stays 0. The card then sits
+# near 1700 MHz / 20W while Overwatch is open, so the 200 Hz panel starves.
 # Call this on the host session before the container starts.
 game_gpu_perf() {
   DISPLAY="${DISPLAY:-:0}" \
     nvidia-settings -a "[gpu:0]/GPUPowerMizerMode=1" >/dev/null 2>&1 || true
+  timeout 2 run0 nvidia-smi -lgc 2700,3090 >/dev/null 2>&1 || true
+}
+
+game_gpu_idle() {
+  timeout 2 run0 nvidia-smi -rgc >/dev/null 2>&1 || true
 }
 
 # Drop compositor extras while a game box is up. Do not touch monitors.
 game_compositor_game() {
-  local on=${1:-1} cmd
+  local on=${1:-1} fps blur
+  # keyword/batch does not apply under the Lua config. hl.config does.
   if [ "$on" = 1 ]; then
-    cmd="keyword decoration:blur:enabled false; keyword decoration:shadow:enabled false; keyword misc:render_unfocused_fps 1; keyword render:expand_undersized_textures false"
+    fps=200
+    blur=false
+    kill -STOP "$(pgrep -f '/mpvpaper ' | head -1)" >/dev/null 2>&1 || true
   else
-    cmd="keyword decoration:blur:enabled true; keyword decoration:shadow:enabled true; keyword misc:render_unfocused_fps 15"
+    fps=15
+    blur=true
+    kill -CONT "$(pgrep -f '/mpvpaper ' | head -1)" >/dev/null 2>&1 || true
   fi
+  local lua="hl.config({ misc = { render_unfocused_fps = $fps }, decoration = { blur = { enabled = $blur }, shadow = { enabled = $blur } } })"
   if [ -n "${STEAM_CONTAINER:-}" ] || [ -f /.dockerenv ]; then
-    game_host hyprctl --batch "$cmd" >/dev/null 2>&1 || true
+    game_host hyprctl eval "$lua" >/dev/null 2>&1 || true
   else
-    hyprctl --batch "$cmd" >/dev/null 2>&1 || true
+    hyprctl eval "$lua" >/dev/null 2>&1 || true
   fi
 }
 
@@ -121,9 +160,12 @@ game_gamescope() {
   return 1
 }
 
-# Never disable HDMI / never flip "game mode" monitor layout.
+# XWayland must match the compositor: ultrawide at 0,0. If HDMI sits at
+# the X origin, the game locks onto 1920×1080@60 and leaves a black strip.
 game_xwayland_ultrawide() {
-  :
+  DISPLAY="${DISPLAY:-:0}" xrandr \
+    --output DP-1 --primary --mode 2560x1080 --pos 0x0 \
+    --output HDMI-A-1 --mode 1920x1080 --pos 2560x0 >/dev/null 2>&1 || true
 }
 
 game_xwayland_restore() {
@@ -157,7 +199,7 @@ game_place_overwatch() {
     # A few silent pins while Proton maps. Do not focus workspace 4 — that
     # yanked every desktop onto the game. Stop once the client is gone so
     # this loop cannot fight Alt+F4 / Steam stop.
-    for i in $(seq 1 6); do
+    for i in 1 2; do
       sleep 0.4
       game_host hyprctl eval '
 local w
@@ -177,7 +219,7 @@ pcall(function()
   hl.dispatch(hl.dsp.window.move({ workspace = 4, window = w, silent = true }))
 end)
 pcall(function()
-  hl.dispatch(hl.dsp.window.fullscreen_state({ window = w, internal = 2, client = 0 }))
+  hl.dispatch(hl.dsp.window.fullscreen_state({ window = w, internal = 2, client = 2 }))
 end
 ' >/dev/null 2>&1 || true
     done
@@ -287,4 +329,72 @@ game_ini_set() {
       }
     }
   ' "$file" >"$tmp" && mv "$tmp" "$file"
+}
+
+# Biggest on-disk copy of one Overwatch pipeline depot (download dir or final).
+game_ow_hash_bytes() {
+  local hash=$1 root
+  root=/steam/steamapps/shadercache/2357570
+  [ -d "$root" ] || root="${HOME:-/home/dd}/.local/share/Steam/steamapps/shadercache/2357570"
+  find "$root" -path "*${hash}*" -name steam_pipeline_cache.foz -printf '%s\n' 2>/dev/null \
+    | LC_ALL=C awk 'BEGIN{m=0} {if ($1+0>m) m=$1+0} END{printf "%.0f\n", m}'
+}
+
+game_fossil_alive() {
+  local d comm
+  for d in /proc/[0-9]*; do
+    comm=$(cat "$d/comm" 2>/dev/null) || continue
+    case "$comm" in
+      fossilize_replay|fossilize-replay) return 0 ;;
+    esac
+  done
+  return 1
+}
+
+# Steam applaunch starts the exe while these depots are still downloading.
+# Block until both pipeline caches are on disk and a replay is not running.
+game_wait_ow_shaders() {
+  local need_a=12500000000 need_b=1300000000
+  local i=0 a b k waited=0
+  a=$(game_ow_hash_bytes 904f69d2b1b44b65)
+  b=$(game_ow_hash_bytes 2e6c105801134e9c)
+  if [ "$a" -lt "$need_a" ] || [ "$b" -lt "$need_b" ]; then
+    waited=1
+    while [ "$i" -lt 1800 ]; do
+      a=$(game_ow_hash_bytes 904f69d2b1b44b65)
+      b=$(game_ow_hash_bytes 2e6c105801134e9c)
+      if [ "$a" -ge "$need_a" ] && [ "$b" -ge "$need_b" ]; then
+        echo "game-lib: shader depots ready ($a $b)" >&2
+        break
+      fi
+      if [ $((i % 15)) -eq 0 ]; then
+        echo "game-lib: waiting for shader cache $a/$need_a $b/$need_b" >&2
+      fi
+      i=$((i + 1))
+      sleep 2
+    done
+  fi
+  a=$(game_ow_hash_bytes 904f69d2b1b44b65)
+  b=$(game_ow_hash_bytes 2e6c105801134e9c)
+  if [ "$a" -lt "$need_a" ] || [ "$b" -lt "$need_b" ]; then
+    echo "game-lib: shader cache not ready, not launching" >&2
+    return 1
+  fi
+  if [ "$waited" -eq 1 ]; then
+    k=0
+    while [ "$k" -lt 15 ]; do
+      if game_fossil_alive; then
+        break
+      fi
+      k=$((k + 1))
+      sleep 1
+    done
+  fi
+  if game_fossil_alive; then
+    echo "game-lib: waiting for pipeline replay" >&2
+    while game_fossil_alive; do
+      sleep 2
+    done
+  fi
+  return 0
 }

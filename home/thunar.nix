@@ -110,8 +110,11 @@ in
       file:/// Root
       file://${homeDir}/Desktop Desktop
       file://${homeDir}/Documents Documents
+      file://${homeDir}/Documents/projects Projects
+      file://${homeDir}/Documents/notes Notes
       file://${homeDir}/Downloads Downloads
       file://${homeDir}/Pictures Pictures
+      file://${homeDir}/Pictures/Wallpapers Wallpapers
     '';
   };
 

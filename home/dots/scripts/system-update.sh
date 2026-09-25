@@ -8,7 +8,7 @@ notify() {
   notify-send -a Aurora -u "$urgency" -- "System update" "$*" >/dev/null 2>&1 || true
 }
 
-repo="${HOME}/projects/config"
+repo="${HOME}/Documents/projects/config"
 cd "$repo" || {
   printf 'Could not open %s\n' "$repo"
   notify critical "Could not open $repo"

@@ -222,9 +222,15 @@ Item {
 
                 const now = Date.now();
                 const dt = Math.max(0.2, (now - monitor.previousTime) / 1000);
-                if (monitor.previousReceived > 0 && monitor.previousTime > 0) {
-                    monitor.downloadBytesPerSec = Math.max(0, (received - monitor.previousReceived) / dt);
-                    monitor.uploadBytesPerSec = Math.max(0, (sent - monitor.previousSent) / dt);
+                if (received < monitor.previousReceived || sent < monitor.previousSent) {
+                    monitor.downloadBytesPerSec = 0;
+                    monitor.uploadBytesPerSec = 0;
+                    monitor.download = 0;
+                    monitor.upload = 0;
+                } else if (monitor.previousReceived > 0 && monitor.previousTime > 0) {
+                    const cap = 2.5e9;
+                    monitor.downloadBytesPerSec = Math.min(cap, Math.max(0, (received - monitor.previousReceived) / dt));
+                    monitor.uploadBytesPerSec = Math.min(cap, Math.max(0, (sent - monitor.previousSent) / dt));
                     monitor.download = monitor.downloadBytesPerSec / 1024;
                     monitor.upload = monitor.uploadBytesPerSec / 1024;
                 }
@@ -250,8 +256,8 @@ Item {
     }
 
     Timer {
-        interval: 1000
-        running: true
+        interval: monitor.metricsOpen ? 1000 : 3000
+        running: monitor.metricsOpen || Core.Session.showDesktopMetrics
         repeat: true
         triggeredOnStart: true
         onTriggered: {

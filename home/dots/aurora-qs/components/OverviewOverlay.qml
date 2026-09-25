@@ -41,7 +41,7 @@ PanelWindow {
     }
     readonly property var spaceLocals: {
         const _ws = (Hyprland.workspaces && Hyprland.workspaces.values) ? Hyprland.workspaces.values.length : 0;
-        const _tops = (Hyprland.toplevels && Hyprland.toplevels.values) ? Hyprland.toplevels.values.length : 0;
+        const _tops = Core.Session.clientsTick;
         const _ord = Core.Session.spaceOrder;
         const _rev = Core.Session.spaceRev;
         const list = Core.Session.workspaceLocalsOnMonitor(root.monitorName);
@@ -73,7 +73,7 @@ PanelWindow {
     Component.onCompleted: root.rebuildSpaces()
     readonly property bool canAddSpace: root.spaceLocals.length < root.count
     readonly property var previewWins: {
-        const _ = (Hyprland.toplevels && Hyprland.toplevels.values) ? Hyprland.toplevels.values.length : 0;
+        const _ = Core.Session.clientsTick;
         return Core.Session.windowsOnWorkspace(root.base + root.previewLocal);
     }
     property bool spacesExpanded: false
@@ -103,7 +103,7 @@ PanelWindow {
         return n * root.thumbW + Math.max(0, n - 1) * root.thumbGap;
     }
     readonly property real compactFocusCenter: {
-        const _ = (Hyprland.toplevels && Hyprland.toplevels.values) ? Hyprland.toplevels.values.length : 0;
+        const _ = Core.Session.clientsTick;
         const n = root.spaceLocals.length;
         let x = 0;
         for (let i = 0; i < n; i++) {
@@ -542,7 +542,7 @@ PanelWindow {
 
     Image {
         anchors.fill: parent
-        source: Services.WallpaperService.current ? ("file://" + Services.WallpaperService.current) : ""
+        source: (root.visible && Services.WallpaperService.currentPreview) ? ("file://" + Services.WallpaperService.currentPreview) : ""
         fillMode: Image.PreserveAspectCrop
         visible: status === Image.Ready
         scale: 1
@@ -673,7 +673,7 @@ PanelWindow {
 
                         Image {
                             anchors.fill: parent
-                            source: Services.WallpaperService.current ? ("file://" + Services.WallpaperService.current) : ""
+                            source: Services.WallpaperService.currentPreview ? ("file://" + Services.WallpaperService.currentPreview) : ""
                             fillMode: Image.PreserveAspectCrop
                             opacity: 0.9
                             visible: status === Image.Ready
@@ -892,7 +892,7 @@ PanelWindow {
 
                 Image {
                     anchors.fill: parent
-                    source: Services.WallpaperService.current ? ("file://" + Services.WallpaperService.current) : ""
+                    source: Services.WallpaperService.currentPreview ? ("file://" + Services.WallpaperService.currentPreview) : ""
                     fillMode: Image.PreserveAspectCrop
                     opacity: 0.22
                     visible: status === Image.Ready && !livePreview.ready
