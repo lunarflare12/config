@@ -17,12 +17,13 @@ let
   );
 in
 {
-  xdg.configFile."daemons" = {
-    source = config.lib.file.mkOutOfStoreSymlink daemonsSrc;
-    force = true;
-  };
-
-  xdg.configFile = lib.listToAttrs (
+  xdg.configFile = {
+    daemons = {
+      source = config.lib.file.mkOutOfStoreSymlink daemonsSrc;
+      force = true;
+    };
+  }
+  // lib.listToAttrs (
     map (name: {
       name = "systemd/user/${name}";
       value = {

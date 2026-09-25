@@ -93,17 +93,23 @@ if hl.plugin and hl.plugin.csgo_vulkan_fix and hl.plugin.csgo_vulkan_fix.vkfix_a
     pcall(function()
         hl.config({
             plugin = { csgo_vulkan_fix = { fix_mouse = true } },
-            render = { expand_undersized_textures = false },
+            render = { expand_undersized_textures = true },
         })
     end)
-    hl.plugin.csgo_vulkan_fix.vkfix_app({ app = "steam_app_2357570", w = 2560, h = 1080 })
-    hl.plugin.csgo_vulkan_fix.vkfix_app({ app = "overwatch.exe", w = 2560, h = 1080 })
+    -- Client buffer is 16:9. Passing 2560 here skips the shrink and the
+    -- 1920 picture stays in the middle of the ultrawide.
+    hl.plugin.csgo_vulkan_fix.vkfix_app({ app = "steam_app_2357570", w = 1920, h = 1080 })
+    hl.plugin.csgo_vulkan_fix.vkfix_app({ app = "overwatch.exe", w = 1920, h = 1080 })
+    hl.plugin.csgo_vulkan_fix.vkfix_app({ app = "Overwatch", w = 1920, h = 1080 })
 end
 ' >/dev/null 2>&1 || true
 }
 
 load() {
-  plugin_loaded && return 0
+  if plugin_loaded; then
+    register
+    return 0
+  fi
   unload_cooling && return 0
   local so
   so=$(find_so || true)

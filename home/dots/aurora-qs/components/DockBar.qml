@@ -4,14 +4,15 @@ import Quickshell.Hyprland
 import "../core" as Core
 import "../services" as Services
 
-// Vertical glass dock on the left edge. Rounded; windows stay square.
+// Vertical glass dock on the left edge. Same square accent frame as desktop widgets.
+
 Item {
     id: tray
 
     property real intro: 1
     property bool interactive: true
     property bool fadeWithIntro: true
-    readonly property int radius: 22
+    readonly property int radius: 0
 
     readonly property var pinned: Services.AppsService.dockTiles || []
     readonly property var runningTiles: {
@@ -21,28 +22,55 @@ Item {
         return tray.collectRunning();
     }
     readonly property var tiles: tray.pinned.concat(tray.runningTiles)
-    readonly property var dockRows: {
+    readonly property var pinRows: {
+        const pins = tray.pinned || [];
+        const rows = [];
+        for (let i = 0; i < pins.length; i++) {
+            const tile = pins[i];
+            if (tile && tile.type === "folder")
+                continue;
+            rows.push({
+                "kind": "app",
+                "tile": tile,
+                "g": i
+            });
+        }
+        return rows;
+    }
+    readonly property var runRows: {
         const pins = tray.pinned || [];
         const run = tray.runningTiles || [];
         const rows = [];
-        for (let i = 0; i < pins.length; i++)
-            rows.push({
-                "kind": "app",
-                "tile": pins[i],
-                "g": i
-            });
-        if (run.length)
-            rows.push({
-                "kind": "sep",
-                "tile": null,
-                "g": -1
-            });
         for (let j = 0; j < run.length; j++)
             rows.push({
                 "kind": "app",
                 "tile": run[j],
                 "g": pins.length + j
             });
+        return rows;
+    }
+    readonly property var placeRows: {
+        const pins = tray.pinned || [];
+        const rows = [];
+        for (let i = 0; i < pins.length; i++) {
+            const tile = pins[i];
+            if (!tile || tile.type !== "folder")
+                continue;
+            rows.push({
+                "kind": "app",
+                "tile": tile,
+                "g": i
+            });
+        }
+        rows.push({
+            "kind": "place",
+            "tile": {
+                "type": "place",
+                "id": "downloads",
+                "name": "Downloads"
+            },
+            "g": -2
+        });
         return rows;
     }
     readonly property var openFolder: Services.AppsService.openFolder
@@ -65,7 +93,7 @@ Item {
 
     signal launched
 
-    implicitWidth: 74
+    implicitWidth: 76
     implicitHeight: dockBody.height
     width: implicitWidth
     height: implicitHeight
@@ -415,12 +443,19 @@ Item {
     }
 
     function slotFromRow(x, y) {
-        const n = tray.pinned.length;
-        if (n === 0)
-            return 0;
+        const rows = tray.pinRows || [];
         const p = tray.mapToItem(iconsRow, x, y);
-        const h = 40;
-        return Math.max(0, Math.min(n, Math.round(p.y / h)));
+        let acc = 0;
+        let last = 0;
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const h = 40;
+            if (p.y < acc + h * 0.5)
+                return row.g;
+            last = row.g + 1;
+            acc += h;
+        }
+        return last;
     }
 
     function finishDrag(unpinId, from, to) {
@@ -449,11 +484,246 @@ Item {
         return tray.slotFromRow(x, y);
     }
 
+
+    component DockFrame: Item {
+        anchors.fill: parent
+
+        Rectangle {
+            anchors.fill: parent
+            radius: 0
+            color: tray.dropping ? Core.Theme.accentHover : Core.Theme.accent
+
+            Rectangle {
+                anchors.fill: parent
+                anchors.margins: Core.Theme.borderWidth
+                radius: 0
+                color: Core.Theme.background
+            }
+        }
+    }
+
+    component DockSlot: Item {
+        id: slot
+
+        property var row: ({})
+        property bool reorder: false
+        readonly property var modelData: slot.row.tile
+        readonly property int gIndex: Number(slot.row.g)
+        width: 56
+        height: 40
+        opacity: tray.dragging && tray.dragFrom === slot.gIndex ? 0 : 1
+        z: tray.dragging && tray.dragFrom === slot.gIndex ? 0 : 1
+
+        property real flowY: {
+            if (!slot.reorder || tray.flowLock)
+                return 0;
+            if (tray.dropping && !tray.dragging)
+                return slot.gIndex >= 0 && slot.gIndex >= Math.max(0, tray.dropSlot) ? slot.height : 0;
+            if (!tray.dragging || slot.gIndex === tray.dragFrom)
+                return 0;
+            return (tray.flowIndexFor(slot.gIndex) - slot.gIndex) * slot.height;
+        }
+
+        Behavior on flowY {
+            enabled: !tray.flowLock
+            SpringAnimation {
+                spring: 4.4
+                damping: 0.34
+                mass: 1.0
+                epsilon: 0.18
+            }
+        }
+
+        transform: Translate {
+            y: slot.flowY
+        }
+
+        Image {
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.left: parent.left
+            anchors.leftMargin: 8
+            width: 38
+            height: 38
+            source: {
+                if (slot.modelData && slot.modelData.type === "folder")
+                    return "";
+                const e = slot.modelData && slot.modelData.entry ? slot.modelData.entry : null;
+                if (e)
+                    return Services.AppsService.iconSource(e);
+                return Services.AppsService.iconPathForWindow(slot.runningTop);
+            }
+            visible: slot.row.kind !== "place" && !(slot.modelData && slot.modelData.type === "folder")
+            fillMode: Image.PreserveAspectFit
+            smooth: true
+            asynchronous: true
+            cache: true
+            sourceSize.width: 128
+            sourceSize.height: 128
+            scale: tray.interactive && !tray.dragging && !tray.holding && !tray.dropping && tray.hoverIndex === slot.gIndex ? 1.08 : 1.0
+            transformOrigin: Item.Center
+
+            Behavior on scale {
+                NumberAnimation {
+                    duration: 140
+                    easing.type: Easing.OutCubic
+                }
+            }
+        }
+
+        Image {
+            visible: slot.row.kind === "place"
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.left: parent.left
+            anchors.leftMargin: 8
+            width: 38
+            height: 38
+            source: Services.DesktopService.folderIcon
+            fillMode: Image.PreserveAspectFit
+            smooth: true
+            asynchronous: true
+            cache: true
+            sourceSize.width: 128
+            sourceSize.height: 128
+            scale: tray.interactive && !tray.dragging && !tray.holding && tray.hoverIndex === slot.gIndex ? 1.08 : 1.0
+            transformOrigin: Item.Center
+
+            Behavior on scale {
+                NumberAnimation {
+                    duration: 140
+                    easing.type: Easing.OutCubic
+                }
+            }
+        }
+
+        FolderGlyph {
+            visible: slot.modelData && slot.modelData.type === "folder"
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.left: parent.left
+            anchors.leftMargin: 8
+            width: 38
+            height: 38
+            apps: slot.modelData && slot.modelData.apps ? slot.modelData.apps : []
+            scale: tray.interactive && !tray.dragging && !tray.holding && !tray.dropping && tray.hoverIndex === slot.gIndex ? 1.08 : 1.0
+            transformOrigin: Item.Center
+
+            Behavior on scale {
+                NumberAnimation {
+                    duration: 140
+                    easing.type: Easing.OutCubic
+                }
+            }
+        }
+
+        Rectangle {
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.left: parent.left
+            anchors.leftMargin: 4
+            width: 4
+            height: 4
+            radius: 2
+            color: Core.Theme.accent
+            opacity: slot.running ? 0.9 : 0
+        }
+
+        readonly property var runningTop: tray.toplevelFor(slot.modelData)
+        readonly property bool running: tray.tileIsRunning(slot.modelData)
+
+        MouseArea {
+            id: iconMouse
+            anchors.fill: parent
+            enabled: tray.interactive
+            hoverEnabled: tray.interactive
+            acceptedButtons: Qt.LeftButton | Qt.RightButton
+            cursorShape: tray.dragging ? Qt.ClosedHandCursor : Qt.PointingHandCursor
+            property real pressX: 0
+            property real pressY: 0
+            property bool dragged: false
+
+            onEntered: {
+                if (!tray.dragging && !tray.holding)
+                    tray.hoverIndex = slot.gIndex;
+            }
+            onExited: {
+                if (tray.hoverIndex === slot.gIndex)
+                    tray.hoverIndex = -1;
+            }
+            onPressed: function (mouse) {
+                if (mouse.button === Qt.RightButton || slot.row.kind === "place")
+                    return;
+                pressX = mouse.x;
+                pressY = mouse.y;
+                dragged = false;
+                tray.holding = true;
+                tray.hoverIndex = slot.gIndex;
+            }
+            onPositionChanged: function (mouse) {
+                if (!iconMouse.pressed)
+                    return;
+                if (!dragged && Math.hypot(mouse.x - pressX, mouse.y - pressY) > 8) {
+                    dragged = true;
+                    tray.dragFrom = slot.gIndex;
+                    tray.hoverSlot = slot.gIndex;
+                    tray.hoverIndex = -1;
+                }
+                if (!dragged)
+                    return;
+                const p = iconMouse.mapToItem(tray, mouse.x, mouse.y);
+                tray.dragX = p.x;
+                tray.dragY = p.y;
+                tray.hoverSlot = tray.slotFromRow(p.x, p.y);
+            }
+            onClicked: function (mouse) {
+                if (mouse.button !== Qt.RightButton || slot.row.kind === "place")
+                    return;
+                tray.resetPointer();
+                const p = iconMouse.mapToItem(dockBody, 0, slot.height / 2);
+                tray.openAppMenu(slot.modelData, p.y);
+            }
+            onReleased: function (mouse) {
+                if (mouse.button === Qt.RightButton)
+                    return;
+                if (dragged && tray.dragFrom >= 0) {
+                    const p = iconMouse.mapToItem(dockBody, mouse.x, mouse.y);
+                    const from = tray.dragFrom;
+                    const to = tray.hoverSlot;
+                    const unpin = p.x < -28 || p.x > dockBody.width + 28;
+                    const id = slot.modelData && slot.modelData.id;
+                    const extra = !!(slot.modelData && slot.modelData.transient);
+                    dragged = false;
+                    if (extra) {
+                        tray.resetPointer();
+                        if (!unpin && id)
+                            Services.AppsService.pinDock(id, to);
+                        return;
+                    }
+                    tray.finishDrag(unpin ? id : "", from, unpin ? -1 : to);
+                    return;
+                }
+                dragged = false;
+                tray.resetPointer();
+                if (slot.row.kind === "place") {
+                    Services.DesktopService.openDownloads();
+                    tray.launched();
+                    return;
+                }
+                if (slot.modelData && slot.modelData.type === "folder") {
+                    Services.AppsService.toggleFolder(slot.modelData.id);
+                    return;
+                }
+                tray.runTile(slot.modelData);
+            }
+            onCanceled: {
+                dragged = false;
+                tray.resetPointer();
+            }
+        }
+    }
+
     Item {
         id: hit
         anchors.left: parent.left
         anchors.verticalCenter: parent.verticalCenter
-        width: 74 + (tray.menuOpen || tray.appMenuOpen || folderMenu.folderIntro > 0.01 ? Math.max(trashMenu.width, appMenu.width, folderMenu.width) + 10 : 0)
+        width: dockBody.width + 10 + (tray.menuOpen || tray.appMenuOpen || folderMenu.folderIntro > 0.01 ? Math.max(trashMenu.width, appMenu.width, folderMenu.width) + 10 : 0)
 
         height: dockBody.height
 
@@ -461,96 +731,122 @@ Item {
             id: dockBody
             anchors.left: parent.left
             anchors.verticalCenter: parent.verticalCenter
-            width: 64
-            height: Math.max(64, dockCol.implicitHeight + 10)
-
-            Glass {
-                anchors.fill: parent
-                radius: tray.radius
-                strength: 1.0
-            }
-
-            Rectangle {
-                anchors.fill: parent
-                radius: tray.radius
-                color: "transparent"
-                border.width: tray.dropping ? 3 : 2
-                border.color: tray.dropping ? Qt.rgba(1, 1, 1, 0.9) : Qt.rgba(1, 1, 1, 0.72)
-                antialiasing: true
-            }
+            width: 76
+            height: dockCol.implicitHeight
 
             Column {
                 id: dockCol
-                anchors.centerIn: parent
-                spacing: 0
+                width: parent.width
+                spacing: 36
 
-                Column {
-                    id: iconsRow
-                    spacing: 0
+                Item {
+                    id: pinBar
+                    width: 76
+                    height: Math.max(56, pinCol.implicitHeight + 16)
 
-                    Repeater {
-                        model: tray.dockRows.length
+                    DockFrame {}
+
+                    Column {
+                        id: pinCol
+                        anchors.centerIn: parent
+                        spacing: 0
+
+                        Column {
+                            id: iconsRow
+                            spacing: 0
+
+                            Repeater {
+                                model: tray.pinRows.length
+
+                                DockSlot {
+                                    required property int index
+                                    row: tray.pinRows[index] || ({})
+                                    reorder: true
+                                }
+                            }
+
+                            Item {
+                                width: 56
+                                height: 6
+                                visible: tray.dropping && tray.dropSlot >= tray.pinned.length
+
+                                Rectangle {
+                                    anchors.centerIn: parent
+                                    width: 36
+                                    height: 3
+                                    radius: 2
+                                    color: Qt.rgba(1, 1, 1, 0.7)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Item {
+                    id: runBar
+                    visible: tray.runRows.length > 0
+                    width: 76
+                    height: visible ? Math.max(56, runCol.implicitHeight + 16) : 0
+
+                    DockFrame {}
+
+                    Column {
+                        id: runCol
+                        anchors.centerIn: parent
+                        spacing: 0
+
+                        Repeater {
+                            model: tray.runRows.length
+
+                            DockSlot {
+                                required property int index
+                                row: tray.runRows[index] || ({})
+                            }
+                        }
+                    }
+                }
+
+                Item {
+                    id: placeBar
+                    width: 76
+                    height: Math.max(56, placeCol.implicitHeight + 16)
+
+                    DockFrame {}
+
+                    Column {
+                        id: placeCol
+                        anchors.centerIn: parent
+                        spacing: 0
+
+                        Repeater {
+                            model: tray.placeRows.length
+
+                            DockSlot {
+                                required property int index
+                                row: tray.placeRows[index] || ({})
+                            }
+                        }
 
                         Item {
-                            id: slot
-                            required property int index
-                            readonly property var row: tray.dockRows[slot.index] || ({})
-                            readonly property var modelData: slot.row.tile
-                            readonly property bool isSep: slot.row.kind === "sep"
-                            readonly property int gIndex: Number(slot.row.g)
+                            id: trashSlot
                             width: 56
-                            height: slot.isSep ? 16 : 40
-                            opacity: tray.dragging && tray.dragFrom === slot.gIndex ? 0 : 1
-                            z: tray.dragging && tray.dragFrom === slot.gIndex ? 0 : 1
-
-                            property real flowY: {
-                                if (slot.isSep || tray.flowLock)
-                                    return 0;
-                                if (tray.dropping && !tray.dragging)
-                                    return slot.gIndex >= 0 && slot.gIndex >= Math.max(0, tray.dropSlot) ? slot.height : 0;
-                                if (!tray.dragging || slot.gIndex === tray.dragFrom)
-                                    return 0;
-                                return (tray.flowIndexFor(slot.gIndex) - slot.gIndex) * slot.height;
-                            }
-
-                            Behavior on flowY {
-                                enabled: !tray.flowLock
-                                SpringAnimation {
-                                    spring: 4.4
-                                    damping: 0.34
-                                    mass: 1.0
-                                    epsilon: 0.18
-                                }
-                            }
-
-                            transform: Translate {
-                                y: slot.flowY
-                            }
+                            height: 40
 
                             Image {
-                                id: icon
                                 anchors.verticalCenter: parent.verticalCenter
                                 anchors.left: parent.left
-                                anchors.leftMargin: 8
+                                anchors.leftMargin: 10
                                 width: 38
                                 height: 38
-                                source: {
-                                    if (slot.modelData && slot.modelData.type === "folder")
-                                        return "";
-                                    const e = slot.modelData && slot.modelData.entry ? slot.modelData.entry : null;
-                                    if (e)
-                                        return Services.AppsService.iconSource(e);
-                                    return Services.AppsService.iconPathForWindow(slot.runningTop);
-                                }
-                                visible: !slot.isSep && !(slot.modelData && slot.modelData.type === "folder")
+                                source: Services.DesktopService.trashIcon
                                 fillMode: Image.PreserveAspectFit
                                 smooth: true
                                 asynchronous: true
                                 cache: true
                                 sourceSize.width: 128
                                 sourceSize.height: 128
-                                scale: tray.interactive && !tray.dragging && !tray.holding && !tray.dropping && tray.hoverIndex === slot.gIndex ? 1.38 : 1.0
-                                transformOrigin: Item.Left
+                                scale: tray.interactive && !tray.dragging && !tray.holding && tray.trashHover ? 1.08 : 1.0
+                                transformOrigin: Item.Center
 
                                 Behavior on scale {
                                     NumberAnimation {
@@ -559,218 +855,26 @@ Item {
                                     }
                                 }
                             }
-
-                            FolderGlyph {
-                                visible: !slot.isSep && slot.modelData && slot.modelData.type === "folder"
-                                anchors.verticalCenter: parent.verticalCenter
-                                anchors.left: parent.left
-                                anchors.leftMargin: 8
-                                width: 38
-                                height: 38
-                                apps: slot.modelData && slot.modelData.apps ? slot.modelData.apps : []
-                                scale: tray.interactive && !tray.dragging && !tray.holding && !tray.dropping && tray.hoverIndex === slot.gIndex ? 1.38 : 1.0
-                                transformOrigin: Item.Left
-
-                                Behavior on scale {
-                                    NumberAnimation {
-                                        duration: 140
-                                        easing.type: Easing.OutCubic
-                                    }
-                                }
-                            }
-
-                            Rectangle {
-                                visible: !slot.isSep
-                                anchors.verticalCenter: parent.verticalCenter
-                                anchors.left: parent.left
-                                anchors.leftMargin: 4
-                                width: 4
-                                height: 4
-                                radius: 2
-                                color: Core.Theme.text
-                                opacity: slot.running ? 0.9 : 0
-                            }
-
-                            Rectangle {
-                                visible: slot.isSep
-                                anchors.centerIn: parent
-                                width: 28
-                                height: 1
-                                radius: 1
-                                color: Qt.rgba(1, 1, 1, 0.34)
-                            }
-
-                            readonly property var runningTop: tray.toplevelFor(slot.modelData)
-                            readonly property bool running: tray.tileIsRunning(slot.modelData)
 
                             MouseArea {
-                                id: iconMouse
                                 anchors.fill: parent
-                                enabled: tray.interactive && !slot.isSep
+                                enabled: tray.interactive
                                 hoverEnabled: tray.interactive
                                 acceptedButtons: Qt.LeftButton | Qt.RightButton
-                                cursorShape: tray.dragging ? Qt.ClosedHandCursor : Qt.PointingHandCursor
-                                property real pressX: 0
-                                property real pressY: 0
-                                property bool dragged: false
-
-                                onEntered: {
-                                    if (!tray.dragging && !tray.holding)
-                                        tray.hoverIndex = slot.gIndex;
-                                }
-                                onExited: {
-                                    if (tray.hoverIndex === slot.gIndex)
-                                        tray.hoverIndex = -1;
-                                }
-                                onPressed: function (mouse) {
-                                    if (mouse.button === Qt.RightButton)
-                                        return;
-                                    pressX = mouse.x;
-                                    pressY = mouse.y;
-                                    dragged = false;
-                                    tray.holding = true;
-                                    tray.hoverIndex = slot.gIndex;
-                                }
-                                onPositionChanged: function (mouse) {
-                                    if (!iconMouse.pressed)
-                                        return;
-                                    if (!dragged && Math.hypot(mouse.x - pressX, mouse.y - pressY) > 8) {
-                                        dragged = true;
-                                        tray.dragFrom = slot.gIndex;
-                                        tray.hoverSlot = slot.gIndex;
-                                        tray.hoverIndex = -1;
-                                    }
-                                    if (!dragged)
-                                        return;
-                                    const p = iconMouse.mapToItem(tray, mouse.x, mouse.y);
-                                    tray.dragX = p.x;
-                                    tray.dragY = p.y;
-                                    const r = iconMouse.mapToItem(iconsRow, mouse.x, mouse.y);
-                                    const n = tray.pinned.length;
-                                    const idx = Math.max(0, Math.min(n - 1, Math.round(r.y / 40)));
-                                    tray.hoverSlot = idx;
-                                }
+                                cursorShape: Qt.PointingHandCursor
+                                onEntered: tray.trashHover = !tray.dragging && !tray.holding
+                                onExited: tray.trashHover = false
                                 onClicked: function (mouse) {
-                                    if (mouse.button !== Qt.RightButton)
-                                        return;
-                                    tray.resetPointer();
-                                    const p = iconMouse.mapToItem(dockBody, 0, slot.height / 2);
-                                    tray.openAppMenu(slot.modelData, p.y);
-                                }
-
-                                onReleased: function (mouse) {
-                                    if (mouse.button === Qt.RightButton)
-                                        return;
-                                    if (dragged && tray.dragFrom >= 0) {
-                                        const p = iconMouse.mapToItem(dockBody, mouse.x, mouse.y);
-                                        const from = tray.dragFrom;
-                                        const to = tray.hoverSlot;
-                                        const unpin = p.x < -28 || p.x > dockBody.width + 28;
-                                        const id = slot.modelData && slot.modelData.id;
-                                        const extra = !!(slot.modelData && slot.modelData.transient);
-                                        dragged = false;
-                                        if (extra) {
-                                            tray.resetPointer();
-                                            if (!unpin && id)
-                                                Services.AppsService.pinDock(id, to);
-                                            return;
-                                        }
-                                        tray.finishDrag(unpin ? id : "", from, unpin ? -1 : to);
+                                    if (mouse.button === Qt.RightButton) {
+                                        tray.appMenuOpen = false;
+                                        tray.menuOpen = true;
                                         return;
                                     }
-                                    dragged = false;
-                                    tray.resetPointer();
-                                    if (slot.modelData && slot.modelData.type === "folder") {
-                                        Services.AppsService.toggleFolder(slot.modelData.id);
-                                        return;
-                                    }
-                                    tray.runTile(slot.modelData);
-                                }
-                                onCanceled: {
-                                    dragged = false;
-                                    tray.resetPointer();
+                                    tray.menuOpen = false;
+                                    Services.DesktopService.openTrash();
+                                    tray.launched();
                                 }
                             }
-                        }
-                    }
-
-                    Item {
-                        width: 56
-                        height: 6
-                        visible: tray.dropping && tray.dropSlot >= tray.pinned.length
-
-                        Rectangle {
-                            anchors.centerIn: parent
-                            width: 36
-                            height: 3
-                            radius: 2
-                            color: Qt.rgba(1, 1, 1, 0.7)
-                        }
-                    }
-                }
-
-                Item {
-                    width: 56
-                    height: 10
-
-                    Rectangle {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        anchors.verticalCenter: parent.verticalCenter
-                        width: 28
-                        height: 1
-                        radius: 1
-                        color: Qt.rgba(1, 1, 1, 0.32)
-                    }
-                }
-
-                Item {
-                    id: trashSlot
-                    width: 56
-                    height: 40
-
-                    Image {
-                        id: trashIcon
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.left: parent.left
-                        anchors.leftMargin: 10
-                        width: 38
-                        height: 38
-                        source: Services.DesktopService.trashIcon
-                        fillMode: Image.PreserveAspectFit
-                        smooth: true
-                        asynchronous: true
-                        cache: true
-                        sourceSize.width: 128
-                        sourceSize.height: 128
-                        scale: tray.interactive && !tray.dragging && !tray.holding && tray.trashHover ? 1.38 : 1.0
-                        transformOrigin: Item.Left
-
-                        Behavior on scale {
-                            NumberAnimation {
-                                duration: 140
-                                easing.type: Easing.OutCubic
-                            }
-                        }
-                    }
-
-                    MouseArea {
-                        id: trashMouse
-                        anchors.fill: parent
-                        enabled: tray.interactive
-                        hoverEnabled: tray.interactive
-                        acceptedButtons: Qt.LeftButton | Qt.RightButton
-                        cursorShape: Qt.PointingHandCursor
-                        onEntered: tray.trashHover = !tray.dragging && !tray.holding
-                        onExited: tray.trashHover = false
-                        onClicked: function (mouse) {
-                            if (mouse.button === Qt.RightButton) {
-                                tray.appMenuOpen = false;
-                                tray.menuOpen = true;
-                                return;
-                            }
-                            tray.menuOpen = false;
-                            Services.DesktopService.openTrash();
-                            tray.launched();
                         }
                     }
                 }

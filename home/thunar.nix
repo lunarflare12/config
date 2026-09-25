@@ -69,7 +69,7 @@ in
     last-side-pane = "ThunarShortcutsPane";
     hidden-bookmarks = [
       "recent:///"
-      "file://${homeDir}"
+      "computer:///"
     ];
     last-menubar-visible = false;
     last-statusbar-visible = true;
@@ -97,24 +97,22 @@ in
     desktop = "${homeDir}/Desktop";
     documents = "${homeDir}/Documents";
     download = "${homeDir}/Downloads";
-    music = "${homeDir}/Music";
     pictures = "${homeDir}/Pictures";
-    videos = "${homeDir}/Videos";
-    templates = "${homeDir}/Templates";
-    publicShare = "${homeDir}/Public";
+    # Same as $HOME = hidden in GTK/Thunar Places.
+    music = homeDir;
+    videos = homeDir;
+    templates = homeDir;
+    publicShare = homeDir;
+    projects = homeDir;
   };
 
   xdg.configFile."gtk-3.0/bookmarks" = {
     force = true;
     text = ''
-      file:/// Root
       file://${homeDir}/Desktop Desktop
       file://${homeDir}/Documents Documents
-      file://${homeDir}/Documents/projects Projects
-      file://${homeDir}/Documents/notes Notes
       file://${homeDir}/Downloads Downloads
       file://${homeDir}/Pictures Pictures
-      file://${homeDir}/Pictures/Wallpapers Wallpapers
     '';
   };
 

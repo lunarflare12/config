@@ -88,8 +88,6 @@ local function game_rule(name, match, extra)
     local rule = {
         name = name,
         match = match,
-        monitor = GAME_MONITOR,
-        workspace = GAME_WORKSPACE,
         fullscreen_state = "1 2",
         sync_fullscreen = false,
         content = "game",
@@ -124,7 +122,7 @@ game_rule("gamescope-initial-class", { initial_class = GAMESCOPE_CLASS }, { conf
 local OW_CLASS = "^(steam_app_2357570|[Oo]verwatch\\.exe|[Oo]verwatch)$"
 game_rule("overwatch-class", { class = OW_CLASS }, {
     confine_pointer = true,
-    fullscreen_state = "2 2",
+    fullscreen_state = "2 0",
     no_max_size = true,
     -- Wine/Battle.net spam activate; do not yank the current workspace.
     focus_on_activate = false,
@@ -135,7 +133,7 @@ game_rule("overwatch-class", { class = OW_CLASS }, {
 })
 game_rule("overwatch-initial-class", { initial_class = OW_CLASS }, {
     confine_pointer = true,
-    fullscreen_state = "2 2",
+    fullscreen_state = "2 0",
     no_max_size = true,
     focus_on_activate = false,
     suppress_event = "x11configurerequest",
@@ -258,7 +256,8 @@ local function game_to_desk(win)
         return
     end
     if is_overwatch(w) then
-        pin_game(w, 2, 2)
+        -- Leave the workspace alone. Glue-to-4 made Super+move a no-op
+        -- and Wine remaps yanked the client back onto 4 / 5.
         return
     end
     if cls:find("steam_app_761890", 1, true) or cls:find("albion", 1, true) then
@@ -374,9 +373,27 @@ local function is_game_focus(w)
         or cls:find("minecraft", 1, true)
 end
 
+local function overwatch_mapped()
+    local ok, wins = pcall(function()
+        return hl.get_windows()
+    end)
+    if not ok or type(wins) ~= "table" then
+        return false
+    end
+    for _, x in ipairs(wins) do
+        if is_overwatch(x) then
+            return true
+        end
+    end
+    return false
+end
+
 _G.aurora_sync_texture_expand = function(win)
     local w = win and (win.window or win) or hl.get_active_window()
     local ingame = is_game_focus(w)
+    -- Stretch must stay on while the client exists. Alt-tab to HDMI used
+    -- to flip this off and the 1920 buffer sat in the middle of 2560.
+    local ow_open = overwatch_mapped() or is_overwatch(w)
     pcall(function()
         hl.config({
             decoration = {
@@ -384,9 +401,7 @@ _G.aurora_sync_texture_expand = function(win)
                 shadow = { enabled = not ingame },
             },
             render = {
-                -- 1920 buffer in the 2560 window is the black strip on the
-                -- right. Scale it only while Overwatch is focused.
-                expand_undersized_textures = is_overwatch(w),
+                expand_undersized_textures = ow_open,
                 send_content_type = ingame,
             },
             misc = {
@@ -410,11 +425,22 @@ end
 local ow_plugin_script = (os.getenv("HOME") or "/home/dd") .. "/.config/scripts/ow-stretch-plugin.sh"
 _G.aurora_ow_plugin_loaded = _G.aurora_ow_plugin_loaded or false
 
+local function pin_outputs()
+    -- OW / XWayland RandR must not leave HDMI on a fallback mode.
+    pcall(function()
+        hl.monitor({ output = "DP-1", mode = "2560x1080@200.00Hz", position = "0x0", scale = 1, bitdepth = 8, disabled = false })
+        hl.monitor({ output = "HDMI-A-1", mode = "1920x1080@60.00Hz", position = "2560x0", scale = 1, bitdepth = 8, disabled = false })
+    end)
+end
+
 local function ow_plugin_load(w)
-    if not is_overwatch(w) or _G.aurora_ow_plugin_loaded then
+    if not is_overwatch(w) then
         return
     end
+    -- Always re-register. hypr reload clears vkfix apps but leaves the
+    -- plugin loaded, so a one-shot flag would skip stretch forever.
     _G.aurora_ow_plugin_loaded = true
+    pin_outputs()
     hl.exec_cmd(ow_plugin_script .. " load")
 end
 
@@ -443,7 +469,10 @@ if _G.aurora_ow_plugin_close then
         _G.aurora_ow_plugin_close:remove()
     end)
 end
-_G.aurora_ow_plugin_close = hl.on("window.close", ow_plugin_unload)
+_G.aurora_ow_plugin_close = hl.on("window.close", function(ev)
+    ow_plugin_unload(ev)
+    _G.aurora_sync_texture_expand()
+end)
 _G.aurora_sync_texture_expand()
 
 local function is_media_window(w)
@@ -525,7 +554,7 @@ local function pin_ow_windowed(win)
     end
     local internal = tonumber(w.fullscreen) or 0
     local client = tonumber(w.fullscreen_client) or 0
-    if internal == 2 and client == 2 then
+    if internal == 2 and client == 0 then
         return
     end
     ow_fs_busy = true
@@ -533,7 +562,7 @@ local function pin_ow_windowed(win)
         hl.dispatch(hl.dsp.window.fullscreen_state({
             window = w,
             internal = 2,
-            client = 2,
+            client = 0,
         }))
     end)
     ow_fs_busy = false
@@ -552,3 +581,19 @@ end
 -- Client FS flips back without a fullscreen event (Wine activate). Re-pin
 -- when the window is focused, or the 1920 mouse map runs inside a 2560 client.
 _G.aurora_ow_fs_active = hl.on("window.active", pin_ow_windowed)
+if _G.aurora_ow_fs_open then
+    pcall(function()
+        _G.aurora_ow_fs_open:remove()
+    end)
+end
+_G.aurora_ow_fs_open = hl.on("window.open", pin_ow_windowed)
+if _G.aurora_ow_mon then
+    pcall(function()
+        _G.aurora_ow_mon:remove()
+    end)
+end
+_G.aurora_ow_mon = hl.on("monitor.added", function()
+    if overwatch_mapped() then
+        pin_outputs()
+    end
+end)

@@ -9,6 +9,8 @@ QtObject {
 
     readonly property string home: Quickshell.env("HOME")
     readonly property string desktopPath: root.home + "/Desktop"
+    readonly property string downloadsPath: root.home + "/Downloads"
+    readonly property string folderIcon: Quickshell.iconPath("folder-download", "folder")
 
     property var items: []
     property var selected: []
@@ -75,6 +77,8 @@ QtObject {
     function gameIcon(item) {
         const blob = [item && item.name ? item.name : "", item && item.desktopIcon ? item.desktopIcon : "", item && item.path ? item.path : ""].join(" ").toLowerCase();
 
+        if (blob.indexOf("overwatch") !== -1 || blob.indexOf("2357570") !== -1)
+            return "file://" + Quickshell.shellDir + "/assets/games/overwatch.png";
         if (blob.indexOf("terraria") !== -1 || blob.indexOf("105600") !== -1)
             return "file://" + Quickshell.shellDir + "/assets/games/terraria.png";
         return "";
@@ -237,6 +241,10 @@ QtObject {
     property bool trashFull: false
     readonly property string trashDir: root.home + "/.local/share/Trash"
     readonly property string trashIcon: Quickshell.iconPath(root.trashFull ? "user-trash-full" : "user-trash", "user-trash")
+
+    function openDownloads() {
+        Quickshell.execDetached(["systemd-run", "--user", "--scope", "--collect", "--quiet", "--", root.home + "/.config/scripts/finder.sh", root.downloadsPath]);
+    }
 
     function openTrash() {
         const dir = root.trashDir;

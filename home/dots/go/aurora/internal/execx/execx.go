@@ -46,9 +46,21 @@ func RunOK(timeout time.Duration, name string, args ...string) bool {
 }
 
 func Look(name string) string {
-	p, err := exec.LookPath(name)
-	if err != nil {
-		return ""
+	if p, err := exec.LookPath(name); err == nil && p != "" {
+		return p
 	}
-	return p
+	user := os.Getenv("USER")
+	if user == "" {
+		user = "dd"
+	}
+	for _, dir := range []string{
+		"/run/current-system/sw/bin",
+		"/etc/profiles/per-user/" + user + "/bin",
+	} {
+		p := dir + "/" + name
+		if st, err := os.Stat(p); err == nil && !st.IsDir() {
+			return p
+		}
+	}
+	return ""
 }

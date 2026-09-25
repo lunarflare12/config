@@ -193,19 +193,27 @@ CRegion hkWLSurfaceDamage(Desktop::View::CWLSurface* thisptr) {
 }
 
 void hkRenderTexture(Render::GL::CHyprOpenGLImpl* self, SP<Render::ITexture> tex, const CBox& box, Render::GL::CHyprOpenGLImpl::STextureRenderData data) {
-    // 16:9 sits in the middle of 2560×1080 with bars on both sides.
-    // Sample only that picture and draw it across the whole panel.
-    if (tex && data.surface && tex->m_size.x > 2400.0 && tex->m_size.y > 900.0) {
-        const auto CWLSURF = Desktop::View::CWLSurface::fromResource(data.surface);
-        const auto WINDOW  = CWLSURF ? Desktop::View::CWindow::fromView(CWLSURF->view()) : nullptr;
-        if (configFor(WINDOW, nullptr) && WINDOW) {
+    // Draw the game across the whole compositor window. A 1920 buffer in a
+    // 2560 window otherwise stays centered with black bars. A 2560 buffer
+    // with a 16:9 picture in the middle is cropped then stretched.
+    const auto CWLSURF = data.surface ? Desktop::View::CWLSurface::fromResource(data.surface) : nullptr;
+    auto       WINDOW  = CWLSURF ? Desktop::View::CWindow::fromView(CWLSURF->view()) : nullptr;
+    if (!WINDOW && tex && tex->m_size.x >= 1280.0 && tex->m_size.y >= 720.0) {
+        if (auto w = Desktop::focusState()->window(); configFor(w, nullptr))
+            WINDOW = w;
+    }
+    if (configFor(WINDOW, nullptr) && WINDOW && tex) {
+        CBox dest = WINDOW->getWindowMainSurfaceBox();
+        if (dest.w > 2.0 && dest.h > 2.0) {
             const double content = tex->m_size.y * 16.0 / 9.0;
             if (tex->m_size.x > content + 2.0) {
-                const double u0                 = (tex->m_size.x - content) / 2.0 / tex->m_size.x;
-                data.allowCustomUV              = true;
+                const double u0                  = (tex->m_size.x - content) / 2.0 / tex->m_size.x;
+                data.allowCustomUV               = true;
                 data.primarySurfaceUVTopLeft     = Vector2D{u0, 0.0};
                 data.primarySurfaceUVBottomRight = Vector2D{1.0 - u0, 1.0};
             }
+            (*(origRenderTexture)g_pRenderTextureHook->m_original)(self, tex, dest, data);
+            return;
         }
     }
     (*(origRenderTexture)g_pRenderTextureHook->m_original)(self, tex, box, data);

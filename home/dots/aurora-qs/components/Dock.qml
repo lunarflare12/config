@@ -100,7 +100,7 @@ PanelWindow {
     DockBar {
         id: dockBar
         anchors.left: parent.left
-        anchors.leftMargin: 8
+        anchors.leftMargin: 16
         anchors.verticalCenter: parent.verticalCenter
         intro: root.rise
         fadeWithIntro: false

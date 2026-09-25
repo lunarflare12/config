@@ -76,9 +76,6 @@ func SessionStart() int {
 		return 0
 	}
 	_ = hyprfix.Recover()
-	_ = execx.RunOK(2*time.Second, "xrandr",
-		"--output", "DP-1", "--primary", "--mode", "2560x1080", "--pos", "0x0",
-		"--output", "HDMI-A-1", "--mode", "1920x1080", "--pos", "2560x0")
 	_ = cursor.Load()
 	if execx.RunOK(400*time.Millisecond, "pgrep", "-x", "quickshell") {
 		return 0
