@@ -24,8 +24,8 @@ Item {
         active: root.running
         activeFill: Qt.alpha(Core.Theme.accent, 0.28)
         feelTarget: glyph
-        hoverScale: 1.12
-        pressScale: 0.92
+        hoverScale: 1
+        pressScale: 1
     }
 
     Components.ThemeIcon {
@@ -33,7 +33,7 @@ Item {
         anchors.centerIn: parent
         name: "update"
         opacity: root.running || mouse.containsMouse ? 1 : 0.92
-        scale: root.running ? 1.08 : 1
+        scale: 1
 
         RotationAnimator on rotation {
             running: root.running

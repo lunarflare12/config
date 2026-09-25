@@ -15,18 +15,52 @@ Item {
     property bool contextMenuOpen: false
     property bool dnd: false
     property bool hoverKeep: false
+    property bool triggerHovered: false
+    property bool drawerHovered: false
     property string pendingHoverCloseId: ""
     property real launchpadIntro: 0
+    property string appearanceMode: "wallpaper"
+    property real rightSheetExtent: 0
+    property real rightSheetWidth: 0
+
+    function toggleAppearance(mode, fromItem) {
+        const next = (mode === "theme" || mode === "cursor") ? mode : "wallpaper";
+        root.appearanceMode = next;
+        root.toggle(next, 0, 0, fromItem);
+    }
 
     Timer {
         id: hoverCloseTimer
-        interval: 220
+        interval: 420
         repeat: false
         onTriggered: {
-            if (!root.hoverKeep && root.current === root.pendingHoverCloseId)
+            if (!root.hoverKeep && !root.triggerHovered && !root.drawerHovered && root.current === root.pendingHoverCloseId)
                 root.close();
             root.pendingHoverCloseId = "";
         }
+    }
+
+    function setTriggerHover(id, hovered, fromItem) {
+        if (hovered) {
+            hoverCloseTimer.stop();
+            root.triggerHovered = true;
+            root.pendingHoverCloseId = "";
+            if (root.current !== id)
+                root.open(id, 0, 0, fromItem);
+            return;
+        }
+        root.triggerHovered = false;
+        root.requestHoverClose(id);
+    }
+
+    function setDrawerHover(id, hovered) {
+        root.drawerHovered = hovered;
+        if (hovered) {
+            hoverCloseTimer.stop();
+            root.pendingHoverCloseId = "";
+            return;
+        }
+        root.requestHoverClose(id);
     }
 
     function resolveScreen(fromItem) {
@@ -76,6 +110,8 @@ Item {
         root.pendingHoverCloseId = "";
         root.contextMenuOpen = false;
         root.hoverKeep = false;
+        root.triggerHovered = false;
+        root.drawerHovered = false;
         root.current = "";
     }
 

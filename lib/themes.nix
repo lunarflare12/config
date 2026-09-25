@@ -3,7 +3,7 @@
 
     # Active theme
 
-    activeTheme = "macos-golden-gate";
+    activeTheme = "brain-shell";
 
     # Fonts
 
@@ -43,13 +43,13 @@
 
     ui = {
 
-      borderWidth = 3;
+      borderWidth = 2;
 
       radius = 0;
       radiusSmall = 0;
       radiusLarge = 0;
 
-      iconSize = 17;
+      iconSize = 16;
 
       fontSize = 13;
       fontSizeSmall = 11;
@@ -67,185 +67,213 @@
 
   themes = {
 
-    # ==========================================================
-    # MACOS GOLDEN GATE
-    # ==========================================================
-
-    macos-golden-gate = {
-
-      name = "macOS Golden Gate";
-
-      description = "Apple dark system UI";
-
+    burg = {
+      name = "Burg";
+      description = "CARTO Burg palette";
+      swatches = [ "#FFC6C4" "#F4A3A8" "#E38191" "#CC607D" "#AD466C" "#8B3058" "#672044" ];
       colors = {
-
-        background = "#1C1C1E";
-
-        surface = "#2C2C2E";
-        surfaceHover = "#3A3A3C";
-
-        border = "#545458";
-        borderFocus = "#0A84FF";
-        separator = "#38383A";
-
-        text = "#F5F5F7";
-        textSecondary = "#EBEBF5";
-        textMuted = "#98989D";
-
-        accent = "#0A84FF";
-        accentHover = "#409CFF";
-        accentActive = "#64D2FF";
-        accentMuted = "#0A3D73";
-        accentForeground = "#FFFFFF";
-
-        success = "#30D158";
-        warning = "#FFD60A";
-        error = "#FF453A";
-        info = "#64D2FF";
-
-        terminalBlack = "#1C1C1E";
-        terminalRed = "#FF453A";
-        terminalGreen = "#30D158";
-        terminalYellow = "#FFD60A";
-        terminalBlue = "#0A84FF";
-        terminalMagenta = "#BF5AF2";
-        terminalCyan = "#64D2FF";
-        terminalWhite = "#EBEBF5";
-
-        terminalBrightBlack = "#8E8E93";
-        terminalBrightRed = "#FF6961";
-        terminalBrightGreen = "#30DB5B";
-        terminalBrightYellow = "#FFD426";
-        terminalBrightBlue = "#409CFF";
-        terminalBrightMagenta = "#DA8FFF";
-        terminalBrightCyan = "#70D7FF";
-        terminalBrightWhite = "#F5F5F7";
+        background = "#41182E";
+        surface = "#6F2748";
+        surfaceHover = "#93395D";
+        border = "#953C5E";
+        borderFocus = "#F4A3A8";
+        separator = "#622341";
+        text = "#FFC6C4";
+        textSecondary = "#F4A3A8";
+        textMuted = "#CE7C92";
+        accent = "#E38191";
+        accentHover = "#F4A3A8";
+        accentActive = "#FFC6C4";
+        accentMuted = "#8B3058";
+        accentForeground = "#41182E";
+        success = "#F4A3A8";
+        warning = "#E38191";
+        error = "#AD466C";
+        info = "#F4A3A8";
+        terminalBlack = "#41182E";
+        terminalRed = "#AD466C";
+        terminalGreen = "#E38191";
+        terminalYellow = "#F4A3A8";
+        terminalBlue = "#CC607D";
+        terminalMagenta = "#8B3058";
+        terminalCyan = "#E38191";
+        terminalWhite = "#FFC6C4";
+        terminalBrightBlack = "#8B3058";
+        terminalBrightRed = "#CC607D";
+        terminalBrightGreen = "#F4A3A8";
+        terminalBrightYellow = "#FFC6C4";
+        terminalBrightBlue = "#E38191";
+        terminalBrightMagenta = "#AD466C";
+        terminalBrightCyan = "#F4A3A8";
+        terminalBrightWhite = "#F4F4F5";
       };
     };
 
-    # ==========================================================
-    # CATPPUCCIN MOCHA
-    # ==========================================================
-
-    catppuccin-mocha = {
-
-      name = "Catppuccin Mocha";
-
-      description = "Soft pastel dark theme";
-
+    emrld = {
+      name = "Emrld";
+      description = "CARTO Emrld palette";
+      swatches = [ "#D3F2A3" "#97E196" "#6CC08B" "#4C9B82" "#217A79" "#105965" "#074050" ];
       colors = {
+        background = "#092B35";
+        surface = "#0D4853";
+        surfaceHover = "#196569";
+        border = "#1C696A";
+        borderFocus = "#97E196";
+        separator = "#0C404B";
+        text = "#D3F2A3";
+        textSecondary = "#97E196";
+        textMuted = "#6EA996";
+        accent = "#6CC08B";
+        accentHover = "#97E196";
+        accentActive = "#D3F2A3";
+        accentMuted = "#105965";
+        accentForeground = "#092B35";
+        success = "#97E196";
+        warning = "#6CC08B";
+        error = "#217A79";
+        info = "#97E196";
+        terminalBlack = "#092B35";
+        terminalRed = "#217A79";
+        terminalGreen = "#6CC08B";
+        terminalYellow = "#97E196";
+        terminalBlue = "#4C9B82";
+        terminalMagenta = "#105965";
+        terminalCyan = "#6CC08B";
+        terminalWhite = "#D3F2A3";
+        terminalBrightBlack = "#105965";
+        terminalBrightRed = "#4C9B82";
+        terminalBrightGreen = "#97E196";
+        terminalBrightYellow = "#D3F2A3";
+        terminalBrightBlue = "#6CC08B";
+        terminalBrightMagenta = "#217A79";
+        terminalBrightCyan = "#97E196";
+        terminalBrightWhite = "#F4F4F5";
+      };
+    };
 
-        # Base
-        background = "#1E1E2E";
-
-        # Surfaces
-        surface = "#313244";
-        surfaceHover = "#45475A";
-
-        # Borders
-        border = "#45475A";
-        borderFocus = "#CBA6F7";
-        separator = "#3B3D52";
-
-        # Text
-        text = "#CDD6F4";
-        textSecondary = "#BAC2DE";
-        textMuted = "#9399B2";
-
-        # Accent
-        accent = "#CBA6F7";
-        accentHover = "#B4BEFE";
-        accentActive = "#F5C2E7";
-        accentMuted = "#585B70";
-        accentForeground = "#1E1E2E";
-
-        # Semantic
-        success = "#A6E3A1";
-        warning = "#F9E2AF";
-        error = "#F38BA8";
-        info = "#89B4FA";
-
-        # ANSI
-        terminalBlack = "#45475A";
-        terminalRed = "#F38BA8";
-        terminalGreen = "#A6E3A1";
+    brain-shell = {
+      name = "Brain Shell";
+      description = "Teal Material frame from Brain Shell";
+      swatches = [ "#F3FBFA" "#D7F4EF" "#A6E4DC" "#5EBEB6" "#2F8D97" "#1E4A4E" "#142022" ];
+      colors = {
+        accent = "#A6D0F7";
+        accentActive = "#94E2D5";
+        accentForeground = "#1A282A";
+        accentHover = "#C4E2FB";
+        accentMuted = "#2F8D97";
+        background = "#1A282A";
+        border = "#2F8D97";
+        borderFocus = "#A6D0F7";
+        error = "#FA6B94";
+        info = "#A6D0F7";
+        separator = "#2A3C3E";
+        success = "#94E2D5";
+        surface = "#243538";
+        surfaceHover = "#2D4244";
+        terminalBlack = "#1A282A";
+        terminalBlue = "#A6D0F7";
+        terminalBrightBlack = "#4A5C5E";
+        terminalBrightBlue = "#C4E2FB";
+        terminalBrightCyan = "#4AA8B0";
+        terminalBrightGreen = "#B4F0E4";
+        terminalBrightMagenta = "#DAF0FF";
+        terminalBrightRed = "#FF89A8";
+        terminalBrightWhite = "#F2F3F7";
+        terminalBrightYellow = "#FFE08A";
+        terminalCyan = "#2F8D97";
+        terminalGreen = "#94E2D5";
+        terminalMagenta = "#C4E2FB";
+        terminalRed = "#FA6B94";
+        terminalWhite = "#CDD6F4";
         terminalYellow = "#F9E2AF";
-        terminalBlue = "#89B4FA";
-        terminalMagenta = "#F5C2E7";
-        terminalCyan = "#94E2D5";
-        terminalWhite = "#BAC2DE";
-
-        terminalBrightBlack = "#585B70";
-        terminalBrightRed = "#F38BA8";
-        terminalBrightGreen = "#A6E3A1";
-        terminalBrightYellow = "#F9E2AF";
-        terminalBrightBlue = "#89B4FA";
-        terminalBrightMagenta = "#F5C2E7";
-        terminalBrightCyan = "#94E2D5";
-        terminalBrightWhite = "#CDD6F4";
+        text = "#CDD6F4";
+        textMuted = "#7AA8A0";
+        textSecondary = "#94E2D5";
+        warning = "#F9E2AF";
       };
     };
 
-    # ==========================================================
-    # TOKYO NIGHT
-    # ==========================================================
+    sunset = {
+      name = "Sunset";
+      description = "CARTO Sunset palette";
+      swatches = [ "#F3E79B" "#FAC484" "#F8A07E" "#EB7F86" "#CE6693" "#A059A0" "#5C53A5" ];
+      colors = {
+        background = "#22213A";
+        surface = "#704479";
+        surfaceHover = "#A75888";
+        border = "#A8577F";
+        borderFocus = "#FAC484";
+        separator = "#5B3A68";
+        text = "#F3E79B";
+        textSecondary = "#FAC484";
+        textMuted = "#E59499";
+        accent = "#F8A07E";
+        accentHover = "#FAC484";
+        accentActive = "#F3E79B";
+        accentMuted = "#A059A0";
+        accentForeground = "#22213A";
+        success = "#FAC484";
+        warning = "#F8A07E";
+        error = "#CE6693";
+        info = "#FAC484";
+        terminalBlack = "#22213A";
+        terminalRed = "#CE6693";
+        terminalGreen = "#F8A07E";
+        terminalYellow = "#FAC484";
+        terminalBlue = "#EB7F86";
+        terminalMagenta = "#A059A0";
+        terminalCyan = "#F8A07E";
+        terminalWhite = "#F3E79B";
+        terminalBrightBlack = "#A059A0";
+        terminalBrightRed = "#EB7F86";
+        terminalBrightGreen = "#FAC484";
+        terminalBrightYellow = "#F3E79B";
+        terminalBrightBlue = "#F8A07E";
+        terminalBrightMagenta = "#CE6693";
+        terminalBrightCyan = "#FAC484";
+        terminalBrightWhite = "#F4F4F5";
+      };
+    };
 
     tokyo-night = {
-
       name = "Tokyo Night";
-
       description = "Deep blue violet night theme";
-
+      swatches = [ "#E4E9FF" "#B7C3F3" "#7AA2F7" "#565F89" "#3B4261" "#24283B" "#1A1B26" ];
       colors = {
-
-        # Base
+        accent = "#7AA2F7";
+        accentActive = "#BB9AF7";
+        accentForeground = "#1A1B26";
+        accentHover = "#8DB0FF";
+        accentMuted = "#414868";
         background = "#1A1B26";
-
-        # Surfaces
-        surface = "#24283B";
-        surfaceHover = "#292E42";
-
-        # Borders
         border = "#3B4261";
         borderFocus = "#7AA2F7";
-        separator = "#292E42";
-
-        # Text
-        text = "#C0CAF5";
-        textSecondary = "#A9B1D6";
-        textMuted = "#7982A9";
-
-        # Accent
-        accent = "#7AA2F7";
-        accentHover = "#8DB0FF";
-        accentActive = "#BB9AF7";
-        accentMuted = "#414868";
-        accentForeground = "#1A1B26";
-
-        # Semantic
-        success = "#9ECE6A";
-        warning = "#E0AF68";
         error = "#F7768E";
         info = "#7DCFFF";
-
-        # ANSI
+        separator = "#292E42";
+        success = "#9ECE6A";
+        surface = "#24283B";
+        surfaceHover = "#292E42";
         terminalBlack = "#414868";
-        terminalRed = "#F7768E";
-        terminalGreen = "#9ECE6A";
-        terminalYellow = "#E0AF68";
         terminalBlue = "#7AA2F7";
-        terminalMagenta = "#BB9AF7";
-        terminalCyan = "#7DCFFF";
-        terminalWhite = "#7982A9";
-
         terminalBrightBlack = "#565F89";
-        terminalBrightRed = "#FF899D";
-        terminalBrightGreen = "#9FE044";
-        terminalBrightYellow = "#FABA4A";
         terminalBrightBlue = "#8DB0FF";
-        terminalBrightMagenta = "#C7A9FF";
         terminalBrightCyan = "#A4DAFF";
+        terminalBrightGreen = "#9FE044";
+        terminalBrightMagenta = "#C7A9FF";
+        terminalBrightRed = "#FF899D";
         terminalBrightWhite = "#C0CAF5";
+        terminalBrightYellow = "#FABA4A";
+        terminalCyan = "#7DCFFF";
+        terminalGreen = "#9ECE6A";
+        terminalMagenta = "#BB9AF7";
+        terminalRed = "#F7768E";
+        terminalWhite = "#7982A9";
+        terminalYellow = "#E0AF68";
+        text = "#C0CAF5";
+        textMuted = "#7982A9";
+        textSecondary = "#A9B1D6";
+        warning = "#E0AF68";
       };
     };
   };

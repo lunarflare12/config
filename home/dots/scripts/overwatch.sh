@@ -31,7 +31,7 @@ if [ "$in_box" -eq 0 ]; then
   if ! game_hypr_broken; then
     game_compositor_game 1
     if [ -x "${BASH_SOURCE[0]%/*}/ow-stretch-plugin.sh" ]; then
-      "${BASH_SOURCE[0]%/*}/ow-stretch-plugin.sh" load >/dev/null 2>&1 || true
+      FORCE=1 "${BASH_SOURCE[0]%/*}/ow-stretch-plugin.sh" --force >/dev/null 2>&1 || true
     fi
   fi
 
@@ -62,7 +62,7 @@ game_low_latency
 # Do not call gamemode-start / gamemoderun: aurora-game toggles kill HDMI,
 # hyprsunset, and decorations — user wants both monitors untouched.
 if [ "$ow_safe" -eq 0 ] && [ -x "${BASH_SOURCE[0]%/*}/ow-stretch-plugin.sh" ]; then
-  "${BASH_SOURCE[0]%/*}/ow-stretch-plugin.sh" load >/dev/null 2>&1 || true
+  FORCE=1 "${BASH_SOURCE[0]%/*}/ow-stretch-plugin.sh" --force >/dev/null 2>&1 || true
 fi
 if [ "$ow_safe" -eq 0 ]; then
   game_compositor_game 1

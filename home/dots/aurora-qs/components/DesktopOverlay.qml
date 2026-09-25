@@ -25,7 +25,22 @@ PanelWindow {
             root.gameFullscreen = next;
     }
     Component.onCompleted: root.syncGameFullscreen()
-    readonly property bool shown: !root.gameFullscreen && !Core.Session.overviewOpen
+    readonly property bool workspaceCovered: {
+        const _ = Core.Session.clientsTick + Core.Session.fsTick;
+        const ws = Core.Session.activeWorkspaceOnMonitor(root.monitorName);
+        if (!(ws >= 1))
+            return false;
+        const clients = Core.Session.openClients || [];
+        for (let i = 0; i < clients.length; i++) {
+            const row = clients[i];
+            if (Number(row.workspace) !== Number(ws))
+                continue;
+            if (Number(row.w) * Number(row.h) >= 80000)
+                return true;
+        }
+        return false;
+    }
+    readonly property bool shown: !root.gameFullscreen && !Core.Session.overviewOpen && !root.workspaceCovered
     readonly property bool desktopHost: Core.Session.isDesktopMonitor(root.monitorName)
     readonly property bool widgetHost: Core.Session.isWidgetMonitor(root.monitorName)
 
@@ -269,7 +284,7 @@ PanelWindow {
     Item {
         id: passBar
         anchors.fill: parent
-        anchors.topMargin: Core.Theme.barHeight
+        anchors.topMargin: 0
     }
 
     Item {
@@ -374,23 +389,23 @@ PanelWindow {
         }
 
         Repeater {
-            model: (root.editing && (root.desktopHost || root.widgetHost)) ? root.cols * root.rows : 0
+            model: root.shown && root.editing && (root.widgetHost || root.desktopHost) ? root.cols * root.rows : 0
 
             Rectangle {
                 required property int index
                 readonly property int col: index % root.cols
                 readonly property int row: Math.floor(index / root.cols)
 
-                x: root.posX(col) + 3
-                y: root.posY(row) + 3
-                width: root.cellW - 6
-                height: root.cellH - 6
+                x: root.posX(col) + 2
+                y: root.posY(row) + 2
+                width: root.cellW - 4
+                height: root.cellH - 4
                 z: 1
-                radius: 12
+                radius: 4
                 visible: !root.cellTaken(col, row)
-                color: Qt.alpha(Core.Theme.foreground, 0.12)
-                border.width: 1
-                border.color: Qt.alpha(Core.Theme.foreground, root.arranging ? 0.55 : 0.38)
+                color: Qt.alpha(Core.Theme.foreground, 0.1)
+                border.width: 2
+                border.color: Qt.alpha(Core.Theme.foreground, 0.72)
                 enabled: false
             }
         }
@@ -400,15 +415,6 @@ PanelWindow {
             repeat: true
             running: root.widgetHost && root.widgetGate < 4
             onTriggered: root.widgetGate += 1
-        }
-
-        Component {
-            id: clockComp
-            DesktopClock {
-                host: root
-                modelData: root.modelData
-                z: 6
-            }
         }
 
         Component {
@@ -436,13 +442,6 @@ PanelWindow {
                 modelData: root.modelData
                 z: 6
             }
-        }
-
-        Loader {
-            anchors.fill: parent
-            active: root.widgetGate >= 1
-            asynchronous: true
-            sourceComponent: clockComp
         }
 
         Loader {

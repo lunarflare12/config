@@ -1,4 +1,4 @@
-local WS_PER = 6
+local WS_PER = 12
 local MONITORS = { "DP-1", "HDMI-A-1" }
 
 for i, name in ipairs(MONITORS) do

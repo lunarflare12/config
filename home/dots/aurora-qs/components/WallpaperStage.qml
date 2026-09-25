@@ -20,11 +20,27 @@ Item {
     readonly property int selected: stage.picker ? stage.picker.selectedIndex : 0
     readonly property string poster: (Quickshell.env("HOME") || "/home/dd") + "/.local/state/aurora/wallpaper-poster.jpg"
 
-    readonly property int viewW: Math.max(stage.width, 1600)
-    readonly property int viewH: Math.max(stage.height, 900)
-    readonly property int cardW: Math.round(Math.min(520, stage.viewW * 0.34))
+    readonly property int viewW: Math.max(stage.width, 1)
+    readonly property int viewH: Math.max(stage.height, 1)
+    readonly property int cardW: Math.round(Math.min(500, stage.viewW * 0.28))
     readonly property int cardH: Math.round(stage.cardW * 9 / 16)
-    readonly property int span: 5
+    readonly property int span: 10
+
+    function scrollBy(dy, step) {
+        if (!stage.picker || dy === 0)
+            return;
+        stage.picker.wheelAccumulator += dy;
+        const notch = step > 0 ? step : 120;
+        while (Math.abs(stage.picker.wheelAccumulator) >= notch) {
+            if (stage.picker.wheelAccumulator > 0) {
+                stage.picker.move(-1);
+                stage.picker.wheelAccumulator -= notch;
+            } else {
+                stage.picker.move(1);
+                stage.picker.wheelAccumulator += notch;
+            }
+        }
+    }
 
     function stillOf(path) {
         const raw = String(path || "");
@@ -51,11 +67,11 @@ Item {
     }
 
     function slotX(offset) {
-        return offset * Math.min(stage.viewW * 0.148, 248);
+        return offset * Math.min(stage.viewW * 0.092, 176);
     }
 
     function slotY(offset) {
-        return offset * offset * Math.min(stage.viewH * 0.016, 16);
+        return offset * offset * Math.min(stage.viewH * 0.006, 7);
     }
 
     function slotScale(offset) {
@@ -63,31 +79,45 @@ Item {
         if (a <= 0)
             return 1;
         if (a <= 1)
-            return 0.90;
+            return 0.88;
         if (a <= 2)
-            return 0.70;
+            return 0.76;
         if (a <= 3)
-            return 0.52;
+            return 0.66;
         if (a <= 4)
-            return 0.40;
+            return 0.56;
+        if (a <= 6)
+            return 0.46;
+        if (a <= 8)
+            return 0.38;
         return 0.32;
     }
 
     function slotRoll(offset) {
-        return -offset * 5.2;
+        return -offset * 3.6;
     }
 
     function slotOpacity(offset) {
         const a = Math.abs(offset);
         if (a <= 1)
             return 1;
-        if (a <= 2)
-            return 0.92;
         if (a <= 3)
-            return 0.72;
-        if (a <= 4)
-            return 0.50;
-        return 0.34;
+            return 0.90;
+        if (a <= 5)
+            return 0.74;
+        if (a <= 8)
+            return 0.52;
+        return 0.36;
+    }
+
+    function luma(hex) {
+        const h = String(hex || "").replace("#", "");
+        if (h.length < 6)
+            return 0;
+        const r = parseInt(h.slice(0, 2), 16) / 255;
+        const g = parseInt(h.slice(2, 4), 16) / 255;
+        const b = parseInt(h.slice(4, 6), 16) / 255;
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
     }
 
     function emptyText() {
@@ -142,20 +172,20 @@ Item {
             if (stage.picker)
                 stage.picker.dismiss();
         }
-        onWheel: function (event) {
-            if (!stage.picker)
-                return;
-            stage.picker.wheelAccumulator += event.angleDelta.y;
-            while (Math.abs(stage.picker.wheelAccumulator) >= 120) {
-                if (stage.picker.wheelAccumulator > 0) {
-                    stage.picker.move(-1);
-                    stage.picker.wheelAccumulator -= 120;
-                } else {
-                    stage.picker.move(1);
-                    stage.picker.wheelAccumulator += 120;
-                }
+    }
+
+    Item {
+        anchors.fill: parent
+        z: 30
+
+        WheelHandler {
+            onWheel: function (event) {
+                if (!stage.picker)
+                    return;
+                const angled = event.angleDelta.y;
+            const dy = angled !== 0 ? angled : event.pixelDelta.y;
+            stage.scrollBy(dy, angled !== 0 ? 120 : 48);
             }
-            event.accepted = true;
         }
     }
 
@@ -280,7 +310,7 @@ Item {
                 Text {
                     id: liveLabel
                     anchors.centerIn: parent
-                    text: "Live"
+                    text: "Animated"
                     color: stage.picker && stage.picker.liveOnly ? "#FFFFFF" : Qt.rgba(1, 1, 1, 0.78)
                     font.family: Core.Theme.fontFamily
                     font.pixelSize: 12
@@ -395,6 +425,29 @@ Item {
                 readonly property bool on: card.offset === 0
                 readonly property bool shown: Math.abs(card.offset) <= stage.span
                 readonly property var swatch: card.item && card.item.colors ? card.item.colors : ({})
+                readonly property var bands: {
+                    const item = card.item;
+                    if (!item)
+                        return [];
+                    const given = item.swatches;
+                    if (given && given.length >= 2)
+                        return given;
+                    const colors = item.colors || ({});
+                    const raw = [colors.text, colors.accentHover, colors.accent, colors.info, colors.success, colors.warning, colors.error, colors.accentMuted, colors.border, colors.surface, colors.background];
+                    const seen = ({});
+                    const out = [];
+                    for (let i = 0; i < raw.length; i++) {
+                        const value = String(raw[i] || "");
+                        if (value.length < 4 || seen[value])
+                            continue;
+                        seen[value] = true;
+                        out.push(value);
+                    }
+                    out.sort(function (a, b) {
+                        return stage.luma(b) - stage.luma(a);
+                    });
+                    return out.slice(0, 7);
+                }
                 readonly property string wallPath: card.item ? String(card.item.path || "") : ""
                 readonly property bool live: stage.walls && !!card.wallPath && Services.WallpaperService.isLivePath(card.wallPath)
                 readonly property bool gif: card.live && card.wallPath.toLowerCase().endsWith(".gif")
@@ -405,20 +458,15 @@ Item {
                         return card.item.thumb || "";
                     if (!stage.walls)
                         return "";
-                    const path = card.wallPath;
-                    // Live selected card plays via Video/AnimatedImage below.
-                    if (card.live)
-                        return card.item.thumb || stage.stillOf(path);
-                    if (Math.abs(card.offset) <= 2 && path.length)
-                        return path;
-                    return card.item.thumb || stage.stillOf(path);
+                    return card.item.thumb || stage.stillOf(card.wallPath);
                 }
+                readonly property bool warm: Math.abs(card.offset) <= stage.span + 6
 
                 visible: card.shown && !!card.item
                 width: stage.cardW
                 height: stage.cardH
-                x: Math.max(ring.width, stage.viewW) / 2 - width / 2 + stage.slotX(card.offset)
-                y: Math.max(ring.height, stage.viewH) * 0.38 - height / 2 + stage.slotY(card.offset)
+                x: ring.width / 2 - width / 2 + stage.slotX(card.offset)
+                y: ring.height * 0.42 - height / 2 + stage.slotY(card.offset)
                 z: 50 - Math.abs(card.offset)
                 opacity: card.shown ? stage.slotOpacity(card.offset) : 0
                 scale: stage.slotScale(card.offset)
@@ -467,10 +515,11 @@ Item {
 
                 Rectangle {
                     anchors.fill: parent
-                    radius: 16
+                    radius: stage.themes ? 22 : 16
                     color: Qt.rgba(0.08, 0.08, 0.10, 0.72)
                     clip: true
-                    border.width: 0
+                    border.width: stage.themes ? 1 : 0
+                    border.color: Qt.rgba(1, 1, 1, card.on ? 0.55 : 0.22)
 
                     Image {
                         id: stillThumb
@@ -480,11 +529,11 @@ Item {
                         asynchronous: true
                         cache: true
                         smooth: true
-                        mipmap: true
+                        mipmap: false
                         fillMode: Image.PreserveAspectCrop
-                        sourceSize.width: 1280
-                        sourceSize.height: 720
-                        source: stage.walls && card.shown && card.file.length ? ("file://" + card.file) : ""
+                        sourceSize.width: 640
+                        sourceSize.height: 360
+                        source: stage.walls && card.warm && card.file.length ? ("file://" + card.file) : ""
                     }
 
                     // Only the selected live card decodes. Thumb stays until playback is ready
@@ -542,66 +591,62 @@ Item {
                         anchors.fill: parent
                         visible: stage.themes
 
-                        Rectangle {
-                            anchors.fill: parent
-                            color: stage.picker ? stage.picker.shade(card.swatch, "background", "#1c1c1e") : "#1c1c1e"
+                        Repeater {
+                            model: card.bands
+
+                            Rectangle {
+                                required property int index
+                                required property string modelData
+                                readonly property int n: Math.max(1, card.bands.length)
+                                x: Math.round(index * parent.width / n)
+                                width: Math.round((index + 1) * parent.width / n) - x
+                                height: parent.height
+                                color: modelData
+                            }
                         }
 
                         Rectangle {
                             anchors.left: parent.left
                             anchors.right: parent.right
                             anchors.top: parent.top
-                            height: 28
-                            color: stage.picker ? stage.picker.shade(card.swatch, "surface", "#2c2c2e") : "#2c2c2e"
-
-                            Rectangle {
-                                anchors.left: parent.left
-                                anchors.leftMargin: 14
-                                anchors.verticalCenter: parent.verticalCenter
-                                width: 36
-                                height: 8
-                                radius: 4
-                                color: stage.picker ? stage.picker.shade(card.swatch, "accent", Core.Theme.accent) : Core.Theme.accent
+                            height: parent.height * 0.38
+                            gradient: Gradient {
+                                GradientStop { position: 0; color: Qt.rgba(1, 1, 1, 0.28) }
+                                GradientStop { position: 1; color: Qt.rgba(1, 1, 1, 0) }
                             }
                         }
 
-                        Column {
+                        Rectangle {
                             anchors.left: parent.left
-                            anchors.leftMargin: 18
-                            anchors.verticalCenter: parent.verticalCenter
-                            spacing: 8
-
-                            Rectangle {
-                                width: 92
-                                height: 6
-                                radius: 3
-                                color: stage.picker ? stage.picker.shade(card.swatch, "text", "#f5f5f7") : "#f5f5f7"
-                            }
-
-                            Rectangle {
-                                width: 58
-                                height: 6
-                                radius: 3
-                                color: stage.picker ? stage.picker.shade(card.swatch, "textMuted", "#98989d") : "#98989d"
-                            }
-                        }
-
-                        Row {
-                            anchors.left: parent.left
-                            anchors.leftMargin: 18
+                            anchors.right: parent.right
                             anchors.bottom: parent.bottom
-                            anchors.bottomMargin: 16
-                            spacing: 6
+                            height: parent.height * 0.42
+                            gradient: Gradient {
+                                GradientStop { position: 0; color: Qt.rgba(0, 0, 0, 0) }
+                                GradientStop { position: 1; color: Qt.rgba(0, 0, 0, 0.28) }
+                            }
+                        }
 
-                            Repeater {
-                                model: ["terminalRed", "terminalYellow", "terminalGreen", "terminalCyan", "terminalBlue", "terminalMagenta"]
-                                delegate: Rectangle {
-                                    required property var modelData
-                                    width: 12
-                                    height: 12
-                                    radius: 6
-                                    color: stage.picker ? stage.picker.shade(card.swatch, modelData, "#3a3a3c") : "#3a3a3c"
-                                }
+                        Rectangle {
+                            id: nameChip
+                            anchors.right: parent.right
+                            anchors.bottom: parent.bottom
+                            anchors.margins: 16
+                            radius: 12
+                            color: Qt.rgba(0, 0, 0, 0.42)
+                            border.width: 1
+                            border.color: Qt.rgba(1, 1, 1, 0.28)
+                            implicitWidth: nameLabel.implicitWidth + 24
+                            implicitHeight: nameLabel.implicitHeight + 14
+
+                            Text {
+                                id: nameLabel
+                                anchors.centerIn: parent
+                                text: stage.picker ? stage.picker.labelOf(card.item) : ""
+                                color: "#FFFFFF"
+                                font.family: Core.Theme.fontFamily
+                                font.pixelSize: 13
+                                font.weight: Font.DemiBold
                             }
                         }
                     }
@@ -629,6 +674,7 @@ Item {
                         anchors.right: parent.right
                         anchors.bottom: parent.bottom
                         anchors.margins: 10
+                        visible: !stage.themes
                         text: stage.picker ? stage.picker.labelOf(card.item) : ""
                         color: "#FFFFFF"
                         font.family: Core.Theme.fontFamily
@@ -647,6 +693,12 @@ Item {
                             return;
                         stage.picker.selectedIndex = card.index;
                         stage.picker.applyItem(card.item);
+                    }
+                    onWheel: function (event) {
+                        const angled = event.angleDelta.y;
+                        const dy = angled !== 0 ? angled : event.pixelDelta.y;
+                        stage.scrollBy(dy, angled !== 0 ? 120 : 48);
+                        event.accepted = true;
                     }
                 }
             }

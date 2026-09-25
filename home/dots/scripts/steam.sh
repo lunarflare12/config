@@ -30,7 +30,7 @@ uri="${1:-}"
 case "$uri" in
   *105600*) exec "${BASH_SOURCE[0]%/*}/terraria.sh" ;;
   *761890*) exec "${BASH_SOURCE[0]%/*}/albion.sh" ;;
-  *2357570*) exec "${BASH_SOURCE[0]%/*}/overwatch.sh" ;;
+  *33100*) exec "${BASH_SOURCE[0]%/*}/alien-shooter.sh" ;;
 esac
 
 mkdir -p "${HOME}/programs/steam"

@@ -148,9 +148,9 @@ in
     (shim "telegram-1" "telegram-1.sh")
     (shim "telegram" "telegram-1.sh")
     (shim "steam" "steam.sh")
-    (shim "overwatch" "overwatch.sh")
     (shim "terraria" "terraria.sh")
     (shim "albion" "albion.sh")
+    (shim "alien-shooter" "alien-shooter.sh")
     (shim "code" "code.sh")
     (shim "obsidian" "obsidian.sh")
     (shim "openlens" "openlens.sh")
@@ -256,14 +256,6 @@ in
       ];
       terminal = false;
     };
-    overwatch = {
-      name = "Overwatch";
-      exec = "${scripts}/overwatch.sh";
-      icon = "steam_icon_2357570";
-      categories = [ "Game" ];
-      terminal = false;
-      settings.StartupWMClass = "steam_app_2357570";
-    };
     "albion-online" = {
       name = "Albion Online";
       exec = "${scripts}/albion.sh";
@@ -279,6 +271,14 @@ in
       categories = [ "Game" ];
       terminal = false;
       settings.StartupWMClass = "steam_app_105600";
+    };
+    alien-shooter = {
+      name = "Alien Shooter";
+      exec = "${scripts}/alien-shooter.sh";
+      icon = "steam_icon_33100";
+      categories = [ "Game" ];
+      terminal = false;
+      settings.StartupWMClass = "steam_app_33100";
     };
     discord = {
       name = "Discord";

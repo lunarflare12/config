@@ -18,6 +18,55 @@ Item {
 
     // Hidden system tray applications
 
+    function iconFor(item) {
+        const id = String(item.id || "").toLowerCase();
+        const title = String(item.title || "").toLowerCase();
+        const icon = String(item.icon || "");
+        if (id === "steam" || title === "steam" || icon.indexOf("steam_tray") >= 0)
+            return Qt.resolvedUrl("../assets/bar/steam.png");
+        if (id.indexOf("spotify") >= 0 || title.indexOf("spotify") >= 0 || icon.indexOf("spotify") >= 0)
+            return Qt.resolvedUrl("../assets/bar/spotify.svg");
+        return icon;
+    }
+
+    function trayBlob(item) {
+        if (!item)
+            return "";
+        return String((item.id || "") + " " + (item.title || "") + " " + (item.tooltip || "") + " " + (item.icon || "")).toLowerCase();
+    }
+
+    function hasSpotifySni() {
+        const model = SystemTray.items;
+        const items = model && model.values ? model.values : [];
+        for (let i = 0; i < items.length; i++) {
+            if (root.trayBlob(items[i]).indexOf("spotify") >= 0)
+                return true;
+        }
+        return false;
+    }
+
+    readonly property int clientsWatch: Core.Session.clientsTick
+    readonly property bool spotifyRunning: {
+        const _ = root.clientsWatch;
+        const classes = Core.Session.openClasses || [];
+        for (let i = 0; i < classes.length; i++) {
+            const c = String(classes[i] || "");
+            if (c === "spotify" || c === "spotify-client")
+                return true;
+        }
+        const clients = Core.Session.openClients || [];
+        for (let j = 0; j < clients.length; j++) {
+            const blob = String((clients[j].class || "") + " " + (clients[j].title || "")).toLowerCase();
+            if (blob.indexOf("spotify") >= 0)
+                return true;
+        }
+        return false;
+    }
+    readonly property bool showSpotify: {
+        const _ = SystemTray.items;
+        return root.spotifyRunning && !root.hasSpotifySni();
+    }
+
     function isHidden(item) {
         const id = String(item.id || "").toLowerCase();
         const title = String(item.title || "").toLowerCase();
@@ -59,15 +108,17 @@ Item {
                 Image {
                     anchors.centerIn: parent
 
-                    width: 17
-                    height: 17
+                    width: Core.Theme.iconSize
+                    height: Core.Theme.iconSize
 
-                    source: modelData.icon
+                    source: root.iconFor(modelData)
+                    sourceSize.width: Core.Theme.iconSize
+                    sourceSize.height: Core.Theme.iconSize
 
                     fillMode: Image.PreserveAspectFit
 
-                    smooth: true
-                    mipmap: true
+                    smooth: false
+                    mipmap: false
                 }
 
                 QsMenuAnchor {
@@ -76,7 +127,7 @@ Item {
                     anchor.window: root.barWindow
                     anchor.item: trayItem
                     anchor.edges: Edges.Bottom | Edges.Left
-                    anchor.gravity: Edges.Bottom | Edges.Right
+                    anchor.gravity: Edges.Top | Edges.Left
                     onOpened: root.menuOpen = true
                     onClosed: root.menuOpen = false
                     onVisibleChanged: root.menuOpen = trayMenu.visible
@@ -104,6 +155,14 @@ Item {
                         }
 
                         if (event.button === Qt.LeftButton) {
+                            const id = String(trayItem.modelData.id || "").toLowerCase();
+                            const title = String(trayItem.modelData.title || "").toLowerCase();
+                            const icon = String(trayItem.modelData.icon || "");
+                            const steam = id === "steam" || title === "steam" || icon.indexOf("steam_tray") >= 0;
+                            if (steam && Core.Session.focusClass("steam"))
+                                return;
+                            if ((id.indexOf("spotify") >= 0 || title.indexOf("spotify") >= 0) && Core.Session.focusClass("spotify"))
+                                return;
                             if (trayItem.modelData.onlyMenu && trayItem.modelData.hasMenu) {
                                 Qt.callLater(function () {
                                     trayMenu.open();
@@ -119,6 +178,40 @@ Item {
                         }
                     }
                 }
+            }
+        }
+
+        // Spotify runs in an isolated box and never registers StatusNotifier.
+        Item {
+            visible: root.showSpotify
+            implicitWidth: visible ? 26 : 0
+            implicitHeight: Core.Theme.moduleHeight
+
+            Components.Tactile {
+                anchors.fill: parent
+                hovered: spotifyMouse.containsMouse
+                pressed: spotifyMouse.pressed
+            }
+
+            Image {
+                anchors.centerIn: parent
+                width: Core.Theme.iconSize
+                height: Core.Theme.iconSize
+                source: Qt.resolvedUrl("../assets/bar/spotify.svg")
+                sourceSize.width: Core.Theme.iconSize
+                sourceSize.height: Core.Theme.iconSize
+                fillMode: Image.PreserveAspectFit
+                smooth: false
+                mipmap: false
+            }
+
+            MouseArea {
+                id: spotifyMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                acceptedButtons: Qt.LeftButton
+                onClicked: Core.Session.focusClass("spotify")
             }
         }
     }

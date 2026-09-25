@@ -32,13 +32,13 @@ PanelWindow {
         right: true
     }
 
-    implicitHeight: root.maxCardHeight + 320
+    implicitHeight: root.sheetHeight + 48
 
     color: "transparent"
 
     exclusionMode: ExclusionMode.Ignore
 
-    visible: root.open
+    visible: root.windowVisible
     screen: Core.PopupManager.anchorScreen || (Quickshell.screens.length ? Quickshell.screens[0] : null)
 
     WlrLayershell.layer: WlrLayer.Overlay
@@ -46,30 +46,65 @@ PanelWindow {
 
     WlrLayershell.keyboardFocus: root.open ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
+    property bool windowVisible: false
+    property bool sheetOpen: false
+
     property Region noInput: Region {
         width: 0
         height: 0
     }
 
-    mask: root.open ? null : root.noInput
+    mask: root.windowVisible ? null : root.noInput
 
-    onOpenChanged: {
-        if (root.open) {
-            root.didOpen();
-            Qt.callLater(function () {
-                escapeSink.forceActiveFocus();
-            });
-        } else {
-            menuLayer.close();
-            root.didClose();
+    function publishExtent() {
+        if (root.fromCenter)
+            return;
+        if (root.open || root.sheetOpen) {
+            Core.PopupManager.rightSheetExtent = card.height;
+            Core.PopupManager.rightSheetWidth = card.width;
+        } else if (Core.PopupManager.current === "" || Core.PopupManager.current === root.popupId) {
+            Core.PopupManager.rightSheetExtent = 0;
+            Core.PopupManager.rightSheetWidth = 0;
         }
     }
 
-    readonly property real barBottomY: Core.Theme.barHeight + Core.Theme.popupGap
+    onOpenChanged: {
+        if (root.open) {
+            closeTimer.stop();
+            root.windowVisible = true;
+            root.didOpen();
+            root.publishExtent();
+            Qt.callLater(function () {
+                if (root.open) {
+                    root.sheetOpen = true;
+                    escapeSink.forceActiveFocus();
+                }
+            });
+        } else {
+            root.sheetOpen = false;
+            menuLayer.close();
+            root.didClose();
+            root.publishExtent();
+            closeTimer.restart();
+        }
+    }
 
+    Timer {
+        id: closeTimer
+        interval: Core.Theme.animDuration + 20
+        onTriggered: {
+            if (!root.open)
+                root.windowVisible = false;
+        }
+    }
+
+    readonly property bool fromCenter: root.popupId === "calendar"
+    readonly property int fw: Core.Theme.notchRadius
     readonly property real naturalHeight: contentHost.implicitHeight + Core.Theme.padding * 2
-
     readonly property real targetHeight: Math.min(root.naturalHeight, root.maxCardHeight)
+    readonly property int sheetWidth: root.fromCenter ? Core.Theme.centerSheetWidth : root.cardWidth
+    readonly property int sheetHeight: Core.Theme.notchHeight + root.targetHeight + 24
+    readonly property int closedWidth: root.fromCenter ? Core.Theme.cNotchMinWidth : Core.Theme.rNotchMinWidth
 
     MouseArea {
         anchors.fill: parent
@@ -101,88 +136,85 @@ PanelWindow {
         }
     }
 
-    Rectangle {
+    Item {
         id: card
+        x: root.fromCenter ? Math.round((parent.width - width) / 2) : parent.width - width
+        y: 0
+        clip: true
+        width: root.sheetOpen ? root.sheetWidth : root.closedWidth
+        height: root.sheetOpen ? root.sheetHeight : 0
 
-        width: root.cardWidth
+        Behavior on width {
+            NumberAnimation {
+                duration: Core.Theme.animDuration
+                easing.type: Easing.InOutCubic
+            }
+        }
+        Behavior on height {
+            NumberAnimation {
+                duration: Core.Theme.animDuration
+                easing.type: Easing.InOutCubic
+            }
+        }
 
-        x: Math.round(Math.max(Core.Theme.popupGap, Math.min(root.width - root.cardWidth - Core.Theme.popupGap, Core.PopupManager.anchorCenter - root.cardWidth / 2)))
+        onHeightChanged: root.publishExtent()
+        onWidthChanged: root.publishExtent()
 
-        y: Math.round(root.barBottomY + Core.Theme.popupGap)
+        MouseArea {
+            anchors.fill: parent
+            onClicked: {}
+        }
 
-        height: root.targetHeight
+        PopupShape {
+            anchors.fill: parent
+            attachedEdge: root.fromCenter ? "notch-center" : "notch-right"
+            fill: Core.Theme.background
+            radius: Core.Theme.frameRadius
+        }
 
-        color: "transparent"
-
-        antialiasing: true
+        MouseArea {
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            height: Core.Theme.notchHeight
+            enabled: root.sheetOpen
+            cursorShape: Qt.PointingHandCursor
+            onClicked: Core.PopupManager.close()
+        }
 
         Item {
-            id: visual
-
-            anchors.fill: parent
-
-            // No transform animation here on purpose.
-            //
-            // This is a layer surface, so Hyprland already animates it on map via
-            // layersIn + fadeLayersIn (see hyprland/config/animation.lua). Scaling
-            // it again from QML meant two independent scale animations running on
-            // the same window with different durations and curves, which is what
-            // made the motion read as unstable. The compositor owns the entrance;
-            // the card just draws itself at its final size.
-            opacity: root.open ? 1.0 : 0.0
-
-            Rectangle {
-                anchors.fill: parent
-
-                radius: Core.Theme.radiusMenu
-
-                color: "transparent"
-
-                border.width: Core.Theme.borderWidth
-                border.color: Core.Theme.borderActive
-
-                antialiasing: true
-
-                Glass {
-                    anchors.fill: parent
-                    radius: parent.radius
-                    strength: 1.0
+            id: contentHost
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.leftMargin: 16
+            anchors.rightMargin: 16
+            anchors.topMargin: Core.Theme.notchHeight + 8
+            implicitHeight: contentLoader.item ? (contentLoader.item as Item).implicitHeight : 0
+            height: contentHost.implicitHeight
+            clip: false
+            opacity: root.sheetOpen ? 1 : 0
+            Behavior on opacity {
+                NumberAnimation {
+                    duration: root.sheetOpen ? Core.Theme.animDuration * 0.5 : Core.Theme.animDuration * 0.15
                 }
             }
 
-            Item {
-                id: contentHost
-
+            Loader {
+                id: contentLoader
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.top: parent.top
+                active: true
+                sourceComponent: root.contentComponent
 
-                anchors.margins: Core.Theme.padding
+                onWidthChanged: contentLoader.pinWidth()
+                onLoaded: contentLoader.pinWidth()
 
-                implicitHeight: contentLoader.item ? (contentLoader.item as Item).implicitHeight : 0
-
-                height: contentHost.implicitHeight
-
-                opacity: root.open ? 1.0 : 0.0
-
-                Behavior on opacity {
-                    NumberAnimation {
-                        duration: root.open ? 150 : 100
-                        easing.type: Easing.OutCubic
-                    }
-                }
-
-                Loader {
-                    id: contentLoader
-
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.top: parent.top
-
-                    // Keep metric boards mounted so canvases do not flash
-                    // "Collecting samples" on every open.
-                    active: true
-                    sourceComponent: root.contentComponent
+                function pinWidth() {
+                    const child = contentLoader.item as Item;
+                    if (child && child.width !== contentLoader.width)
+                        child.width = contentLoader.width;
                 }
             }
         }

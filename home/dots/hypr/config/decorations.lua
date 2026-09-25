@@ -8,15 +8,15 @@ hl.config({
     general = {
         -- Keep desktop chrome even if aurora-game is left behind. Games already
         -- get border_size 0 + fullscreen via window rules.
-        gaps_in = 4,
-        gaps_out = { top = 10, right = 10, bottom = 10, left = 10 },
+        gaps_in = 6,
+        gaps_out = 10,
         border_size = 4,
         resize_on_border = false,
         allow_tearing = true,
         layout = "dwindle",
     },
     decoration = {
-        rounding = 0,
+        rounding = 16,
         rounding_power = 2,
         active_opacity = 1,
         fullscreen_opacity = 1,

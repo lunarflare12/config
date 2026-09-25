@@ -26,6 +26,7 @@ Singleton {
     readonly property bool enabled: root.consumers > 0
 
     property var values: root.silence()
+    property real _lastPush: 0
 
     readonly property bool running: proc.running
 
@@ -101,6 +102,10 @@ Singleton {
             splitMarker: "\n"
 
             onRead: function (line) {
+                const now = Date.now();
+                if (now - root._lastPush < 50)
+                    return;
+                root._lastPush = now;
                 const parts = line.split(";");
 
                 const out = [];

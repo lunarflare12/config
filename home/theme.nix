@@ -9,7 +9,14 @@
 
 let
   themeData = import ../lib/themes.nix;
-  themeNames = builtins.attrNames themeData.themes;
+  themeOrder = [
+    "burg"
+    "brain-shell"
+    "tokyo-night"
+    "emrld"
+    "sunset"
+  ];
+  themeNames = themeOrder ++ lib.filter (name: !lib.elem name themeOrder) (builtins.attrNames themeData.themes);
   toLua = import ../lib/to-lua.nix { inherit lib; };
   env = desktopEnv;
   defaultTheme = themeData.global.activeTheme;

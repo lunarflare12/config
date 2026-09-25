@@ -121,6 +121,27 @@ func videoAlive() bool {
 		execx.RunOK(400*time.Millisecond, "pgrep", "-x", ".mpvpaper-wrapp")
 }
 
+func videoStopped() bool {
+	_, out := execx.Run(400*time.Millisecond, "ps", "-o", "stat=", "-C", "mpvpaper")
+	if strings.Contains(out, "T") {
+		return true
+	}
+	_, out = execx.Run(400*time.Millisecond, "ps", "-o", "stat=", "-C", ".mpvpaper-wrapp")
+	return strings.Contains(out, "T")
+}
+
+func videoOnThisCompositor() bool {
+	_, layers := execx.Run(2*time.Second, "hyprctl", "layers")
+	if layers == "" {
+		return videoAlive() && !videoStopped()
+	}
+	return strings.Contains(layers, "mpvpaper")
+}
+
+func videoHealthy() bool {
+	return videoAlive() && !videoStopped() && videoOnThisCompositor()
+}
+
 func dropVideo() {
 	_ = execx.RunOK(2*time.Second, "systemctl", "--user", "kill", "--kill-whom=all", "-s", "KILL", "aurora-wallpaper.service")
 	_ = execx.RunOK(2*time.Second, "systemctl", "--user", "stop", "--no-block", "aurora-wallpaper.service")
@@ -232,6 +253,13 @@ func Running() bool {
 }
 
 func Ensure() int {
+	path := resolve()
+	if path != "" && isVideo(path) {
+		if videoHealthy() {
+			return 0
+		}
+		return Load()
+	}
 	if Running() {
 		return 0
 	}

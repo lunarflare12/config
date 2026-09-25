@@ -29,7 +29,7 @@ QtObject {
 
     // Active Theme ID
 
-    readonly property string activeTheme: activeThemeFile.loaded ? activeThemeFile.text().trim() : "catppuccin-mocha"
+    readonly property string activeTheme: activeThemeFile.loaded ? activeThemeFile.text().trim() : "brain-shell"
 
     // Active Theme JSON
 
@@ -38,6 +38,7 @@ QtObject {
 
         watchChanges: true
         blockLoading: true
+        printErrors: false
 
         onFileChanged: {
             this.reload();
@@ -67,41 +68,41 @@ QtObject {
 
     // Background
 
-    readonly property color background: colors.background || "#181D25"
+    readonly property color background: colors.background || "#1A282A"
 
     // Surfaces
 
-    readonly property color surface: colors.surface || "#282E37"
+    readonly property color surface: colors.surface || "#243538"
 
-    readonly property color surfaceHover: colors.surfaceHover || "#303743"
+    readonly property color surfaceHover: colors.surfaceHover || "#2D4244"
 
     // Borders
 
-    readonly property color border: colors.border || "#3B4350"
+    readonly property color border: colors.border || "#2F8D97"
 
-    readonly property color borderActive: colors.accent || "#A970FF"
+    readonly property color borderActive: colors.accent || "#A6D0F7"
 
-    readonly property color separator: colors.separator || "#343B47"
+    readonly property color separator: colors.separator || "#2A3C3E"
 
     // Text
 
-    readonly property color text: colors.text || "#F2F3F7"
+    readonly property color text: colors.text || "#CDD6F4"
 
-    readonly property color textSecondary: colors.textSecondary || "#B9BEC8"
+    readonly property color textSecondary: colors.textSecondary || "#94E2D5"
 
-    readonly property color textMuted: colors.textMuted || "#858D9A"
+    readonly property color textMuted: colors.textMuted || "#7AA8A0"
 
     // Accent
 
-    readonly property color accent: colors.accent || "#A970FF"
+    readonly property color accent: colors.accent || "#A6D0F7"
 
-    readonly property color accentHover: colors.accentHover || "#B98AFF"
+    readonly property color accentHover: colors.accentHover || "#C4E2FB"
 
-    readonly property color accentActive: colors.accentActive || "#C7A6FF"
+    readonly property color accentActive: colors.accentActive || "#94E2D5"
 
-    readonly property color accentMuted: colors.accentMuted || "#55406F"
+    readonly property color accentMuted: colors.accentMuted || "#2F8D97"
 
-    readonly property color accentForeground: colors.accentForeground || "#181D25"
+    readonly property color accentForeground: colors.accentForeground || "#1A282A"
 
     // Semantic States
 
@@ -170,7 +171,7 @@ QtObject {
     // Same `!== undefined` idiom as the glass knobs above: `0 || 10` is 10, so
     // `||` would make radius = 0 (square corners) or borderWidth = 0 impossible.
 
-    readonly property int borderWidth: ui.borderWidth !== undefined ? ui.borderWidth : 3
+    readonly property int borderWidth: ui.borderWidth !== undefined ? ui.borderWidth : 2
 
     readonly property int radius: ui.radius !== undefined ? ui.radius : 0
 
@@ -178,7 +179,10 @@ QtObject {
 
     readonly property int radiusLarge: ui.radiusLarge !== undefined ? ui.radiusLarge : 0
 
-    readonly property int iconSize: Math.max(8, ui.iconSize !== undefined ? ui.iconSize : 16)
+    readonly property int iconSize: {
+        const n = Math.max(8, ui.iconSize !== undefined ? ui.iconSize : 16);
+        return n % 2 === 0 ? n : n - 1;
+    }
 
     // Glyph sizes were spread across ten different expressions from 10px to 26px,
     // several taken from FONT tokens, which is why some icons looked large and
@@ -191,15 +195,73 @@ QtObject {
     readonly property int fontSizeSmall: Math.max(8, ui.fontSizeSmall !== undefined ? ui.fontSizeSmall : 10)
     readonly property int fontSizeLarge: Math.max(8, ui.fontSizeLarge !== undefined ? ui.fontSizeLarge : 15)
 
-    // Geometry
+    // Geometry — Brain Shell notches + melting side frames
 
-    readonly property int barHeight: 24
+    readonly property int notchHeight: 40
 
-    // 8px inset + 64px glass. Extra reserve here leaves wallpaper
-    // between the dock and tiled windows.
-    readonly property int dockReserve: 72
+    readonly property int notchRadius: 15
 
-    readonly property int moduleHeight: 22
+    readonly property int notchPadding: 16
+
+    readonly property int exclusionGap: 34
+
+    readonly property int outerGap: 10
+
+    readonly property int barHeight: notchHeight
+
+    readonly property int lNotchMinWidth: 180
+
+    readonly property int lNotchMaxWidth: 360
+
+    readonly property int cNotchMinWidth: 108
+
+    readonly property int cNotchMaxWidth: 460
+
+    readonly property int rNotchMinWidth: 280
+
+    readonly property int rNotchMaxWidth: 520
+
+    readonly property int networkPopupWidth: 480
+
+    readonly property int networkPopupHeight: 648
+
+    readonly property int rightSheetWidth: 360
+
+    readonly property int centerSheetWidth: 320
+
+    readonly property int animDuration: 320
+
+    readonly property int notchGap: 64
+
+    readonly property int frameWidth: 6
+
+    readonly property int frameRadius: 17
+
+    readonly property color wsBackground: Qt.rgba(0, 0, 0, 0.22)
+
+    readonly property color wsActive: "#FFFFFF"
+
+    readonly property color wsOccupied: Qt.rgba(1, 1, 1, 0.5)
+
+    readonly property color wsEmpty: Qt.rgba(1, 1, 1, 0.19)
+
+    readonly property color wsUrgent: error
+
+    readonly property int wsDotSize: 10
+
+    readonly property int wsActiveWidth: 24
+
+    readonly property int wsSpacing: 6
+
+    readonly property int wsPadding: 8
+
+    readonly property int wsRadius: 16
+
+    // Dock glass sits 16px from the left and is 76px wide. Exclusive zone
+    // stops at that outer edge — window gaps_out is measured from here.
+    readonly property int dockReserve: 92
+
+    readonly property int moduleHeight: 28
 
     readonly property int barMarginTop: 0
 

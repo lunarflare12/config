@@ -304,7 +304,7 @@ Rectangle {
                     color: "#A0A0A5"
                     font.family: Core.Theme.fontFamily
                     font.pixelSize: Core.Theme.fontSizeSmall
-                    renderType: Text.NativeRendering
+                    renderType: Text.QtRendering
                 }
 
                 Row {
@@ -329,7 +329,7 @@ Rectangle {
                         font.family: Core.Theme.fontFamily
                         font.pixelSize: Core.Theme.fontSizeSmall
                         font.bold: true
-                        renderType: Text.NativeRendering
+                        renderType: Text.QtRendering
                         anchors.verticalCenter: parent.verticalCenter
                     }
                 }
@@ -356,7 +356,7 @@ Rectangle {
                         font.family: Core.Theme.fontFamily
                         font.pixelSize: Core.Theme.fontSizeSmall
                         font.bold: true
-                        renderType: Text.NativeRendering
+                        renderType: Text.QtRendering
                         anchors.verticalCenter: parent.verticalCenter
                     }
                 }
@@ -381,7 +381,7 @@ Rectangle {
             color: Core.Theme.foregroundFaint
             font.family: Core.Theme.fontFamily
             font.pixelSize: Core.Theme.fontSizeSmall
-            renderType: Text.NativeRendering
+            renderType: Text.QtRendering
         }
 
         Text {
@@ -391,7 +391,7 @@ Rectangle {
             color: Core.Theme.foregroundFaint
             font.family: Core.Theme.fontFamily
             font.pixelSize: Core.Theme.fontSizeSmall
-            renderType: Text.NativeRendering
+            renderType: Text.QtRendering
         }
 
         Row {
@@ -413,7 +413,7 @@ Rectangle {
                     color: Core.Theme.foreground
                     font.family: Core.Theme.fontFamily
                     font.pixelSize: Core.Theme.fontSizeSmall
-                    renderType: Text.NativeRendering
+                    renderType: Text.QtRendering
                     anchors.verticalCenter: parent.verticalCenter
                 }
             }
@@ -432,7 +432,7 @@ Rectangle {
                     color: Core.Theme.foreground
                     font.family: Core.Theme.fontFamily
                     font.pixelSize: Core.Theme.fontSizeSmall
-                    renderType: Text.NativeRendering
+                    renderType: Text.QtRendering
                     anchors.verticalCenter: parent.verticalCenter
                 }
             }

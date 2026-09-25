@@ -24,6 +24,8 @@ PanelWindow {
     exclusionMode: ExclusionMode.Ignore
     exclusiveZone: 0
 
+    visible: root.dim > 0.01
+
     WlrLayershell.namespace: "aurora-dim"
     WlrLayershell.layer: WlrLayer.Top
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None

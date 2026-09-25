@@ -43,16 +43,26 @@ game_stop_other_boxes() {
       pkill -x Terraria.bin >/dev/null 2>&1 || true
       pkill -x Albion-Online >/dev/null 2>&1 || true
       pkill -x AlbionOnline >/dev/null 2>&1 || true
+      pkill -x AlienShooter.exe >/dev/null 2>&1 || true
       ;;
     terraria)
       pkill -x Overwatch.exe >/dev/null 2>&1 || true
       pkill -x Albion-Online >/dev/null 2>&1 || true
       pkill -x AlbionOnline >/dev/null 2>&1 || true
+      pkill -x AlienShooter.exe >/dev/null 2>&1 || true
       ;;
     albion)
       pkill -x Overwatch.exe >/dev/null 2>&1 || true
       pkill -x Terraria.exe >/dev/null 2>&1 || true
       pkill -x Terraria.bin >/dev/null 2>&1 || true
+      pkill -x AlienShooter.exe >/dev/null 2>&1 || true
+      ;;
+    alien-shooter)
+      pkill -x Overwatch.exe >/dev/null 2>&1 || true
+      pkill -x Terraria.exe >/dev/null 2>&1 || true
+      pkill -x Terraria.bin >/dev/null 2>&1 || true
+      pkill -x Albion-Online >/dev/null 2>&1 || true
+      pkill -x AlbionOnline >/dev/null 2>&1 || true
       ;;
   esac
 }
@@ -170,9 +180,27 @@ game_gamescope() {
   return 1
 }
 
-# Compositor layout only. Never xrandr: rootless XWayland forwards RandR
-# to the real CRTCs, and Overwatch then modesets HDMI (X output 0).
+# Re-modeset only when a monitor actually drifted. hl.monitor on an
+# already-correct HDMI is a full DRM modeset — that is what made the
+# Philips change resolution every Overwatch launch.
+game_outputs_ok() {
+  game_host hyprctl monitors -j 2>/dev/null | awk '
+    /"name": "HDMI-A-1"/ { t="h" }
+    /"name": "DP-1"/ { t="d" }
+    t=="h" && /"width": 1920/ { hw=1 }
+    t=="h" && /"height": 1080/ { hh=1 }
+    t=="h" && /"refreshRate": 60/ { hr=1 }
+    t=="h" && /"x": 2560/ { hx=1 }
+    t=="d" && /"width": 2560/ { dw=1 }
+    t=="d" && /"height": 1080/ { dh=1 }
+    t=="d" && /"refreshRate": 200/ { dr=1 }
+    t=="d" && /"x": 0,/ { dx=1 }
+    END { exit !(hw && hh && hr && hx && dw && dh && dr && dx) }
+  '
+}
+
 game_pin_outputs() {
+  game_outputs_ok && return 0
   game_host hyprctl eval '
 hl.monitor({ output = "DP-1", mode = "2560x1080@200.00Hz", position = "0x0", scale = 1, bitdepth = 8, disabled = false })
 hl.monitor({ output = "HDMI-A-1", mode = "1920x1080@60.00Hz", position = "2560x0", scale = 1, bitdepth = 8, disabled = false })
@@ -203,34 +231,9 @@ game_host() {
 }
 
 game_place_overwatch() {
-  (
-    local i
-    # A few silent pins while Proton maps. Do not focus workspace 4 — that
-    # yanked every desktop onto the game. Stop once the client is gone so
-    # this loop cannot fight Alt+F4 / Steam stop.
-    for i in 1 2 3 4 5; do
-      sleep 0.5
-      game_pin_outputs
-      game_host hyprctl eval '
-local w
-for _, x in ipairs(hl.get_windows()) do
-  local c = string.lower(tostring(x.initial_class or "") .. " " .. tostring(x.class or ""))
-  if c:find("steam", 1, true) and not c:find("steam_app_", 1, true) then
-    -- Steam library title is often "Overwatch 2"
-  elseif c:find("steam_app_2357570", 1, true) or c:find("overwatch", 1, true) then
-    w = x
-    break
-  end
-end
-if not w then
-  return false
-end
-pcall(function()
-  hl.dispatch(hl.dsp.window.fullscreen_state({ window = w, internal = 2, client = 0 }))
-end)
-' >/dev/null 2>&1 || true
-    done
-  ) &
+  # Repeating a move+fullscreen while Proton mapped a second surface put
+  # the game on two workspaces. The compositor rule fullscreens one window.
+  return 0
 }
 
 game_monitor() {
@@ -287,6 +290,15 @@ game_wine_warp() {
   fi
   if grep -q 'GrabFullscreen' "$reg"; then
     sed -i 's/"GrabFullscreen"="[^"]*"/"GrabFullscreen"="N"/' "$reg"
+  fi
+  # XWayland lists HDMI as output 0. Wine RandR then modesets the Philips.
+  if grep -q 'UseXRandR' "$reg"; then
+    sed -i 's/"UseXRandR"="[^"]*"/"UseXRandR"="N"/' "$reg"
+  elif grep -q '\[Software\\\\Wine\\\\X11 Driver\]' "$reg"; then
+    sed -i '/\[Software\\\\Wine\\\\X11 Driver\]/a "UseXRandR"="N"\n"UseXVidMode"="N"' "$reg"
+  fi
+  if grep -q 'UseXVidMode' "$reg"; then
+    sed -i 's/"UseXVidMode"="[^"]*"/"UseXVidMode"="N"/' "$reg"
   fi
 }
 

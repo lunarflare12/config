@@ -43,6 +43,9 @@ SKIP_NAME = re.compile(
     re.I,
 )
 
+# Dropped from the shader menu / bar — still may sit on disk.
+HIDDEN_APPIDS = frozenset({"570", "2357570"})
+
 # SteamKit EAppState. Bit 2 is "update required". Shader depots often
 # leave BytesToDownload != BytesDownloaded while StateFlags stays 4 —
 # Steam's UI still shows that as an update. Treat the byte gap as live.
@@ -201,6 +204,10 @@ def find_manifest(appid: str) -> Path | None:
 def is_tool(name: str, installdir: str) -> bool:
     blob = f"{name} {installdir}"
     return bool(SKIP_NAME.search(blob))
+
+
+def is_hidden(appid: str) -> bool:
+    return appid in HIDDEN_APPIDS
 
 
 def game_kind(appid: str, steamapps: Path, installdir: str) -> str:
@@ -513,7 +520,7 @@ def collect() -> dict:
         vals = acf_values(man.read_text(errors="replace"))
         name = vals.get("name") or appid
         installdir = vals.get("installdir") or ""
-        if is_tool(name, installdir):
+        if is_hidden(appid) or is_tool(name, installdir):
             continue
         last_updated = int(vals.get("LastUpdated") or 0)
         state = int(vals.get("StateFlags") or 0)
@@ -778,8 +785,9 @@ def busy_game(appid: str | None = None) -> str | None:
             continue
         vals = acf_values(man.read_text(errors="replace"))
         name = vals.get("name") or mid
-        if not is_tool(name, vals.get("installdir") or ""):
-            return name
+        if is_hidden(mid) or is_tool(name, vals.get("installdir") or ""):
+            continue
+        return name
     return None
 
 

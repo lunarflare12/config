@@ -6,7 +6,7 @@ import Quickshell.Wayland
 import "../core" as Core
 import "../modules" as Modules
 
-// macOS menu bar: Arch + app on the left, status extras + clock on the right.
+// Brain Shell notches: workspaces left, island center, status right.
 PanelWindow {
     id: root
 
@@ -20,9 +20,9 @@ PanelWindow {
         right: true
     }
 
-    implicitHeight: Core.Theme.barHeight
-    exclusiveZone: (root.gameFullscreen || root.hideHold) ? 0 : Core.Theme.barHeight
-    color: "#000000"
+    implicitHeight: Core.Theme.notchHeight
+    exclusiveZone: (root.gameFullscreen || root.hideHold) ? 0 : Core.Theme.notchHeight
+    color: "transparent"
 
     readonly property string monitorName: Core.Session.monitorNameForScreen(root.screen)
     readonly property bool onMain: Core.Session.isDesktopMonitor(root.monitorName)
@@ -55,116 +55,206 @@ PanelWindow {
         onTriggered: root.hideHold = false
     }
 
-    // Dock exclusive insets this panel. Pull back over the reserved
-    // strip so the menu bar is continuous (no wallpaper hole).
-    margins.left: root.onMain && !root.gameFullscreen && !root.hideHold ? -Core.Theme.dockReserve : 0
-
     visible: !root.gameFullscreen && !root.hideHold
 
+    WlrLayershell.layer: WlrLayer.Top
     WlrLayershell.namespace: "aurora-bar"
     WlrLayershell.keyboardFocus: tray.menuOpen ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
 
     readonly property bool osd: Core.OsdController.active
 
-    Rectangle {
-        id: surface
+    readonly property bool networkOpen: Core.PopupManager.isOpen("network")
+    readonly property bool brightnessOpen: Core.PopupManager.isOpen("brightness")
+    readonly property bool audioOpen: Core.PopupManager.isOpen("audio")
+    readonly property bool calendarOpen: Core.PopupManager.isOpen("calendar")
+    readonly property bool rightDrawer: root.networkOpen || root.brightnessOpen || root.audioOpen
+    readonly property int lWidth: Math.max(Core.Theme.lNotchMinWidth, Math.min(Core.Theme.lNotchMaxWidth, leftRow.implicitWidth + Core.Theme.notchPadding * 2))
+    property int cWidth: root.calendarOpen ? Core.Theme.centerSheetWidth : Math.max(Core.Theme.cNotchMinWidth, Math.min(Core.Theme.cNotchMaxWidth, island.implicitWidth + Core.Theme.notchPadding))
 
+    Behavior on cWidth {
+        NumberAnimation {
+            duration: Core.Theme.animDuration
+            easing.type: Easing.InOutCubic
+        }
+    }
+    property int rWidth: {
+        if (root.networkOpen || root.brightnessOpen || root.audioOpen)
+            return Core.Theme.rightSheetWidth;
+        const raw = Math.max(Core.Theme.rNotchMinWidth, Math.min(Core.Theme.rNotchMaxWidth, rightRow.implicitWidth + Core.Theme.notchPadding * 2));
+        const budget = root.width - root.lWidth - root.cWidth - Core.Theme.notchGap * 2;
+        return Math.max(Core.Theme.rNotchMinWidth, Math.min(raw, budget));
+    }
+
+    Behavior on rWidth {
+        NumberAnimation {
+            duration: Core.Theme.animDuration
+            easing.type: Easing.InOutCubic
+        }
+    }
+
+    SeamlessBarShape {
+        id: barShape
         anchors.fill: parent
-        color: "#000000"
+        leftWidth: root.lWidth
+        centerWidth: root.cWidth
+        rightWidth: root.rWidth
+    }
 
-        Item {
-            id: leftCluster
+    Item {
+        id: leftNotch
+        width: root.lWidth
+        height: Core.Theme.notchHeight
+        anchors.left: parent.left
 
-            anchors.left: parent.left
-            anchors.verticalCenter: parent.verticalCenter
-            anchors.leftMargin: 14
+        Row {
+            id: leftRow
+            anchors.centerIn: parent
+            spacing: 8
 
-            width: leftRow.implicitWidth
-            height: Core.Theme.moduleHeight
-
-            Row {
-                id: leftRow
-                spacing: 8
+            ThemeIcon {
                 anchors.verticalCenter: parent.verticalCenter
+                name: "nix"
+                width: 22
+                height: 22
+                sourceSize.width: 88
+                sourceSize.height: 88
+                smooth: true
 
-                Modules.AppName {
-                    id: appName
+                MouseArea {
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: Core.PopupManager.toggle("launcher")
                 }
             }
-        }
-
-        Item {
-            id: centerCluster
-
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.verticalCenter: parent.verticalCenter
-            width: Math.max(workspacesModule.implicitWidth, osdView.implicitWidth)
-            height: Core.Theme.moduleHeight
 
             Modules.Workspaces {
                 id: workspacesModule
-                anchors.centerIn: parent
                 screen: root.screen
-                opacity: root.osd || osdView.opacity > 0.01 ? 0 : 1
-                visible: opacity > 0.01
+                from: 1
+                span: 6
+            }
 
-                Behavior on opacity {
-                    NumberAnimation {
-                        duration: 140
-                        easing.type: Easing.OutCubic
-                    }
+            Modules.Tray {
+                id: tray
+                barWindow: root
+                anchors.verticalCenter: parent.verticalCenter
+            }
+        }
+    }
+
+    Item {
+        id: centerNotch
+        width: root.cWidth
+        height: Core.Theme.notchHeight
+        anchors.horizontalCenter: parent.horizontalCenter
+        clip: true
+
+        Text {
+            anchors.centerIn: parent
+            text: "▾"
+            color: Core.Theme.accent
+            font.pixelSize: 14
+            opacity: root.calendarOpen ? 1 : 0
+            visible: opacity > 0
+            z: 2
+            Behavior on opacity {
+                NumberAnimation {
+                    duration: 150
                 }
             }
 
-            BarOsd {
-                id: osdView
-                anchors.centerIn: parent
+            MouseArea {
+                anchors.fill: parent
+                anchors.margins: -12
+                enabled: root.calendarOpen
+                cursorShape: Qt.PointingHandCursor
+                onClicked: Core.PopupManager.close()
             }
         }
 
-        Item {
-            id: rightCluster
+        CenterIsland {
+            id: island
+            anchors.centerIn: parent
+            screen: root.screen
+            osd: root.osd
+            opacity: root.calendarOpen ? 0 : 1
+            visible: opacity > 0
+            Behavior on opacity {
+                NumberAnimation {
+                    duration: 150
+                }
+            }
+        }
+    }
 
+    Item {
+        id: rightNotch
+        width: root.rWidth
+        height: Core.Theme.notchHeight
+        anchors.right: parent.right
+        clip: true
+
+        Text {
+            anchors.centerIn: parent
+            text: "▾"
+            color: Core.Theme.accent
+            font.pixelSize: 14
+            opacity: root.rightDrawer ? 1 : 0
+            visible: opacity > 0
+            z: 2
+            Behavior on opacity {
+                NumberAnimation {
+                    duration: 150
+                }
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                anchors.margins: -12
+                enabled: root.rightDrawer
+                cursorShape: Qt.PointingHandCursor
+                onClicked: Core.PopupManager.close()
+            }
+        }
+
+        Row {
+            id: rightRow
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
-            anchors.rightMargin: 12
-
-            width: rightRow.implicitWidth
-            height: Core.Theme.moduleHeight
-
-            Row {
-                id: rightRow
-                spacing: 2
-                anchors.verticalCenter: parent.verticalCenter
-
-                Modules.Tray {
-                    id: tray
-                    barWindow: root
+            anchors.rightMargin: Core.Theme.notchPadding
+            spacing: 6
+            opacity: root.rightDrawer ? 0 : 1
+            visible: opacity > 0
+            Behavior on opacity {
+                NumberAnimation {
+                    duration: 150
                 }
-
-                Modules.DesktopEdit {}
-
-                Modules.Volume {
-                    iconOnly: true
-                }
-
-                Modules.Brightness {
-                    iconOnly: true
-                }
-
-                Modules.Network {
-                    iconOnly: true
-                }
-
-                Modules.Update {}
-
-                Modules.Clock {
-                    id: clockModule
-                    reveal: 1
-                }
-
-                Modules.NotificationCenter {}
             }
+
+            Modules.DesktopEdit {}
+
+            Modules.Volume {
+                iconOnly: true
+            }
+
+            Modules.Brightness {
+                iconOnly: true
+            }
+
+            Modules.Network {
+                iconOnly: true
+            }
+
+            Modules.Update {}
+
+            Modules.Workspaces {
+                screen: root.screen
+                from: 7
+                span: 6
+            }
+
+            Modules.NotificationCenter {}
         }
     }
 }

@@ -243,8 +243,8 @@ Item {
             onPhaseChanged: wave.requestPaint()
 
             Timer {
-                interval: 33
-                running: root.svc.playing
+                interval: 80
+                running: root.wantCava && root.visible
                 repeat: true
                 onTriggered: body.phase += 0.16 + root.cava.bass * 0.28
             }
@@ -253,11 +253,10 @@ Item {
                 id: card
 
                 anchors.fill: parent
-                anchors.margins: 6
-                radius: 0
+                radius: Core.Theme.frameRadius
                 color: Core.Theme.background
                 border.width: Core.Theme.borderWidth
-                border.color: Core.Theme.borderActive
+                border.color: Core.Theme.border
                 clip: true
 
                 Item {
@@ -303,15 +302,15 @@ Item {
                                 gradient: Gradient {
                                     GradientStop {
                                         position: 0
-                                        color: "#7EB2FF"
+                                        color: Core.Theme.accent
                                     }
                                     GradientStop {
                                         position: 0.4
-                                        color: "#5B6CFF"
+                                        color: Core.Theme.accentActive
                                     }
                                     GradientStop {
                                         position: 1
-                                        color: "#3A3E88"
+                                        color: Core.Theme.accentMuted
                                     }
                                 }
 

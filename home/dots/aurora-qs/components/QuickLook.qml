@@ -44,7 +44,7 @@ PanelWindow {
     exclusiveZone: 0
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
-    visible: true
+    visible: root.open
 
     WlrLayershell.namespace: "aurora-preview"
     WlrLayershell.layer: WlrLayer.Overlay

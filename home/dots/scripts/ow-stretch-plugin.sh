@@ -28,21 +28,8 @@ fi
 
 find_so() {
   local dirf="${XDG_CONFIG_HOME}/hypr/ow-vkfix-dir" dir cand
-  # State file is the .so that keeps the 1920 client at x=0.
-  # ow-vkfix-dir can still be the older build until the next nixos-rebuild.
-  if [ -f "$STATE" ]; then
-    cand=$(tr -d '[:space:]' <"$STATE")
-    if [ -f "$cand" ]; then
-      printf '%s\n' "$cand"
-      return 0
-    fi
-  fi
-  for cand in "$LOCAL_SO"; do
-    if [ -f "$cand" ]; then
-      printf '%s\n' "$cand"
-      return 0
-    fi
-  done
+  # Flake plugin first. A leftover ~/.local .so is what used to fail
+  # the load after a Hyprland bump and leave 16:9 in the middle.
   if [ -f "$dirf" ]; then
     dir=$(tr -d '[:space:]' <"$dirf")
     for cand in "$dir/lib/libcsgo-vulkan-fix.so" "$dir/lib/hyprland/libcsgo-vulkan-fix.so"; do
@@ -58,6 +45,17 @@ find_so() {
       return 0
     fi
   done
+  if [ -f "$STATE" ]; then
+    cand=$(tr -d '[:space:]' <"$STATE")
+    if [ -f "$cand" ]; then
+      printf '%s\n' "$cand"
+      return 0
+    fi
+  fi
+  if [ -f "$LOCAL_SO" ]; then
+    printf '%s\n' "$LOCAL_SO"
+    return 0
+  fi
   return 1
 }
 
@@ -78,10 +76,16 @@ unload_cooling() {
 }
 
 unload() {
-  # Unload/load is what Hyprland toasts as "plugin restarted" and what
-  # stalls the game on the way in and out. The hook only matches
-  # Overwatch, so leaving it loaded is safe.
-  return 0
+  # Leaving the hook loaded with no game is what SIGSEGVs Hyprland on
+  # layer commit → setFullscreenMode (watchdog --safe-mode).
+  if ! plugin_loaded; then
+    return 0
+  fi
+  local so
+  so=$(find_so || true)
+  [ -n "$so" ] || return 0
+  "$HYPRCTL" plugin unload "$so" >/dev/null 2>&1 || true
+  date +%s >"$UNLOAD_STAMP"
 }
 
 register() {
@@ -106,11 +110,15 @@ end
 }
 
 load() {
+  # `load` is explicit (launcher / window.open). Do not wait for the
+  # client class — that race left the 1920 buffer in the middle of 2560.
   if plugin_loaded; then
     register
     return 0
   fi
-  unload_cooling && return 0
+  if [ "${FORCE:-0}" != 1 ] && unload_cooling; then
+    return 0
+  fi
   local so
   so=$(find_so || true)
   [ -n "$so" ] || return 0
@@ -135,7 +143,10 @@ case "$cmd" in
   unload)
     unload
     ;;
-  --force | load)
+  --force)
+    FORCE=1 load
+    ;;
+  load)
     load
     ;;
   sync | *)

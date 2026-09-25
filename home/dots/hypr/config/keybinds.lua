@@ -8,7 +8,8 @@ if not ok_programs or type(programs) ~= "table" then
     }
 end
 local mod = "SUPER"
-local WS_PER = 6
+local WS_PER = 12
+local WS_KEYS = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "minus", "equal" }
 local MONITORS = { "DP-1", "HDMI-A-1" }
 
 local function cursor_monitor()
@@ -82,8 +83,6 @@ hl.bind(mod .. " + SHIFT + F", hl.dsp.window.float({ action = "toggle" }))
 hl.bind(mod .. " + F", hl.dsp.window.fullscreen({ mode = "fullscreen", action = "toggle", layout_aware = false }))
 hl.bind(mod .. " + SHIFT + R", hl.dsp.exec_cmd(programs.scripts .. "/reload-hypr.sh"))
 hl.bind(mod .. " + SHIFT + W", hl.dsp.exec_cmd("qs ipc call wallpaper toggle"))
-hl.bind(mod .. " + SHIFT + T", hl.dsp.exec_cmd("qs ipc call theme toggle"))
-hl.bind(mod .. " + SHIFT + C", hl.dsp.exec_cmd("qs ipc call cursor toggle"))
 hl.bind(mod .. " + SHIFT + G", hl.dsp.exec_cmd("qs ipc call shaders toggle"))
 hl.bind(mod .. " + ALT + L", hl.dsp.exec_cmd("qs ipc call lock lock"))
 hl.bind("F24", hl.dsp.exec_cmd("hyprctl switchxkblayout all next"))
@@ -92,8 +91,7 @@ for key, direction in pairs({ h = "l", l = "r", j = "u", k = "d" }) do
     hl.bind(mod .. " + " .. key, hl.dsp.focus({ direction = direction }))
 end
 
-for local_ws = 1, WS_PER do
-    local key = local_ws % 10
+for local_ws, key in ipairs(WS_KEYS) do
     hl.bind(mod .. " + " .. key, function()
         go_workspace(cursor_base() + local_ws)
     end)
@@ -108,6 +106,8 @@ end
 
 hl.bind(mod .. " + mouse:272", hl.dsp.window.drag(), { mouse = true })
 hl.bind(mod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
+hl.bind(mod .. " + mouse_down", hl.dsp.exec_cmd("qs ipc call island next"))
+hl.bind(mod .. " + mouse_up", hl.dsp.exec_cmd("qs ipc call island prev"))
 
 for key, command in pairs({
     XF86AudioRaiseVolume = "wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+",

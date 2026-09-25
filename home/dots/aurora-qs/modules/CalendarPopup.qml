@@ -85,6 +85,11 @@ Components.PopupSurface {
         Column {
             id: body
 
+            // Pin to the card. Without this, width: parent.width on the
+            // children binds through the column and the seconds land at the
+            // screen edge, outside the card.
+            width: parent.width
+
             spacing: Core.Theme.spacing
 
             // Big clock
@@ -98,18 +103,36 @@ Components.PopupSurface {
 
                     spacing: 2
 
-                    Text {
+                    Row {
                         anchors.horizontalCenter: parent.horizontalCenter
+                        spacing: 6
 
-                        text: Qt.formatDateTime(popup.now, "HH:mm")
+                        Text {
+                            id: timeLabel
 
-                        font.family: Core.Theme.fontFamily
-                        font.pixelSize: 34
-                        font.weight: Font.DemiBold
+                            text: Qt.formatDateTime(popup.now, "HH:mm")
 
-                        color: Core.Theme.foreground
+                            font.family: Core.Theme.fontFamily
+                            font.pixelSize: 34
+                            font.weight: Font.DemiBold
 
-                        renderType: Text.NativeRendering
+                            color: Core.Theme.foreground
+
+                            renderType: Text.NativeRendering
+                        }
+
+                        Text {
+                            anchors.baseline: timeLabel.baseline
+
+                            text: Qt.formatDateTime(popup.now, "ss")
+
+                            font.family: Core.Theme.fontFamily
+                            font.pixelSize: Core.Theme.fontSizeSmall
+
+                            color: Core.Theme.foregroundFaint
+
+                            renderType: Text.NativeRendering
+                        }
                     }
 
                     Text {
@@ -122,21 +145,6 @@ Components.PopupSurface {
 
                         color: Core.Theme.foregroundMuted
                     }
-                }
-
-                // Seconds ring in the corner, purely decorative.
-                Text {
-                    anchors.right: parent.right
-                    anchors.rightMargin: 4
-                    anchors.top: parent.top
-                    anchors.topMargin: 4
-
-                    text: Qt.formatDateTime(popup.now, "ss")
-
-                    font.family: Core.Theme.fontFamily
-                    font.pixelSize: Core.Theme.fontSizeSmall
-
-                    color: Core.Theme.foregroundFaint
                 }
             }
 

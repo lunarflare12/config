@@ -25,7 +25,7 @@ PanelWindow {
 
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
-    visible: !(Core.Session.overviewOpen && !root.launcherOpen)
+    visible: (root.launcherOpen || root.intro > 0.01) && !Core.Session.overviewOpen
     exclusiveZone: 0
 
     WlrLayershell.namespace: "aurora-launcher"
@@ -64,8 +64,6 @@ PanelWindow {
     readonly property bool stripOpen: root.host && appearancePicker.open
     readonly property bool showLaunchpad: root.launchpadOpen || (root.closingLaunchpad && root.intro > 0.01)
     readonly property bool showCard: root.launcherOpen && !root.showLaunchpad && !root.stripOpen
-    readonly property bool onMain: Core.Session.isDesktopMonitor(Core.Session.monitorNameForScreen(root.screen))
-    readonly property bool showLaunchpadDock: root.showLaunchpad && root.onMain
 
     Behavior on intro {
         NumberAnimation {
@@ -81,7 +79,15 @@ PanelWindow {
             if (cur !== "") {
                 root.host = root.onFocused;
                 root.closingLaunchpad = false;
-                root.intro = (root.host && cur === "launcher") ? 1 : 0;
+                if (root.host && cur === "launcher") {
+                    root.intro = 0;
+                    Qt.callLater(function () {
+                        if (Core.PopupManager.current === "launcher")
+                            root.intro = 1;
+                    });
+                } else {
+                    root.intro = 0;
+                }
                 return;
             }
             if (root.intro > 0.01) {
@@ -116,6 +122,7 @@ PanelWindow {
         id: frost
         anchors.fill: parent
         visible: root.intro > 0.01
+        opacity: root.intro
         clip: true
 
         readonly property bool live: {
@@ -202,25 +209,12 @@ PanelWindow {
     Modules.AppLauncher {
         id: appLauncher
         anchors.fill: parent
-        anchors.leftMargin: root.showLaunchpadDock ? 96 : 0
         z: 2
         intro: root.intro
-        opacity: root.showLaunchpad ? 1 : 0
-        dockTarget: launchpadDock
-    }
-
-    DockBar {
-        id: launchpadDock
-        z: 4
-        anchors.left: parent.left
-        anchors.leftMargin: 8
-        anchors.verticalCenter: parent.verticalCenter
-        intro: root.intro
-        fadeWithIntro: false
-        interactive: true
-        visible: root.showLaunchpadDock
-        enabled: root.showLaunchpadDock
-        onLaunched: Core.PopupManager.close()
+        opacity: root.showLaunchpad ? root.intro : 0
+        scale: 0.94 + 0.06 * root.intro
+        transformOrigin: Item.Center
+        dockTarget: null
     }
 
     Item {

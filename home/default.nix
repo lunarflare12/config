@@ -97,7 +97,9 @@
     apps="$HOME/.local/share/applications"
     for name in cursor.desktop idea-ultimate.desktop idea-oss.desktop com.obsproject.Studio.desktop steam.desktop \
       google-chrome.desktop com.google.Chrome.desktop chrome-az.desktop chrome-hika.desktop chrome-sciencesoft.desktop \
-      "Albion Online.desktop" albion-online.desktop Overwatch.desktop Terraria.desktop \
+      "Albion Online.desktop" albion-online.desktop Overwatch.desktop overwatch.desktop \
+      "Dota 2.desktop" dota-2.desktop dota2.desktop com.valvesoftware.Steam.dota2.desktop \
+      Terraria.desktop \
       firefox.desktop zen.desktop code.desktop code-url-handler.desktop obsidian.desktop \
       openlens.desktop spotify.desktop telegram-1.desktop telegram-2.desktop \
       org.telegram.desktop.desktop \

@@ -52,6 +52,7 @@ Item {
         host: root.host
         widgetId: "memory"
         onDesktop: root.onDesktop
+        fitHeight: true
         spanW: 4
         spanH: 4
         defaultCol: Math.max(0, (root.host ? root.host.cols : 12) - root.span)
@@ -72,7 +73,7 @@ Item {
                 Layout.minimumHeight: 48
                 icon: "cpu"
                 title: Services.SystemMonitor.cpuName !== "" ? Services.SystemMonitor.cpuName : "CPU"
-                seriesColor: "#CBA6F7"
+                seriesColor: Core.Theme.accent
                 values: Services.SystemMonitor.cpuHistory
                 currentValue: Services.SystemMonitor.cpu
                 detailText: Services.SystemMonitor.temperature < 0 ? "--" : Services.SystemMonitor.temperature + "°C"
@@ -84,7 +85,7 @@ Item {
                 Layout.minimumHeight: 48
                 icon: "gpu"
                 title: Services.SystemMonitor.gpuName !== "" ? Services.SystemMonitor.gpuName : "GPU"
-                seriesColor: "#89B4FA"
+                seriesColor: Core.Theme.info
                 values: Services.SystemMonitor.gpuHistory
                 currentValue: Services.SystemMonitor.gpu
                 detailText: Services.SystemMonitor.gpuTemperature < 0 ? "--" : Services.SystemMonitor.gpuTemperature + "°C"
@@ -97,52 +98,42 @@ Item {
 
         ColumnLayout {
             anchors.fill: parent
-            spacing: Core.Theme.spacing
+            spacing: 8
 
-            DiskBar {
-                Layout.fillWidth: true
-                Layout.preferredHeight: implicitHeight
-                icon: "ram"
-                barColor: "#A6E3A1"
-                label: "RAM"
-                usedBytes: Services.SystemMonitor.ramUsedBytes
-                totalBytes: Services.SystemMonitor.ramTotalBytes
+            implicitHeight: {
+                const n = bars.length;
+                return n < 1 ? 0 : n * 52 + (n - 1) * spacing;
             }
 
-            DiskBar {
-                Layout.fillWidth: true
-                Layout.preferredHeight: implicitHeight
-                icon: "gpu"
-                barColor: "#89B4FA"
-                label: "VRAM"
-                usedBytes: Services.SystemMonitor.vramUsedBytes
-                totalBytes: Services.SystemMonitor.vramTotalBytes
+            readonly property var bars: {
+                const m = Services.SystemMonitor;
+                const rows = [];
+                if (m.ramTotalBytes > 0)
+                    rows.push({ icon: "ram", color: Core.Theme.success, label: "RAM", used: m.ramUsedBytes, total: m.ramTotalBytes });
+                if (m.vramTotalBytes > 0)
+                    rows.push({ icon: "gpu", color: Core.Theme.info, label: "VRAM", used: m.vramUsedBytes, total: m.vramTotalBytes });
+                if (m.swapTotalBytes > 0)
+                    rows.push({ icon: "swap", color: "#F9E2AF", label: "SWAP", used: m.swapUsedBytes, total: m.swapTotalBytes });
+                if (m.diskTotalBytes > 0)
+                    rows.push({ icon: "disk", color: Core.Theme.accent, label: "/", used: m.diskUsedBytes, total: m.diskTotalBytes });
+                if (m.homeDiskTotalBytes > 0)
+                    rows.push({ icon: "disk", color: Core.Theme.accent, label: "/home", used: m.homeDiskUsedBytes, total: m.homeDiskTotalBytes });
+                return rows;
             }
 
-            DiskBar {
-                Layout.fillWidth: true
-                Layout.preferredHeight: implicitHeight
-                icon: "swap"
-                barColor: "#F9E2AF"
-                label: "SWAP"
-                usedBytes: Services.SystemMonitor.swapUsedBytes
-                totalBytes: Services.SystemMonitor.swapTotalBytes
-            }
+            Repeater {
+                model: parent.bars
 
-            DiskBar {
-                Layout.fillWidth: true
-                Layout.preferredHeight: implicitHeight
-                label: "/"
-                usedBytes: Services.SystemMonitor.diskUsedBytes
-                totalBytes: Services.SystemMonitor.diskTotalBytes
-            }
-
-            DiskBar {
-                Layout.fillWidth: true
-                Layout.preferredHeight: implicitHeight
-                label: "/home"
-                usedBytes: Services.SystemMonitor.homeDiskUsedBytes
-                totalBytes: Services.SystemMonitor.homeDiskTotalBytes
+                DiskBar {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    icon: modelData.icon
+                    barColor: modelData.color
+                    label: modelData.label
+                    usedBytes: modelData.used
+                    totalBytes: modelData.total
+                }
             }
         }
     }

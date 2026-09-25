@@ -189,7 +189,7 @@ Rectangle {
             font.family: Core.Theme.fontFamily
             font.pixelSize: Core.Theme.fontSize
             font.weight: root.active ? Font.DemiBold : Font.Medium
-            renderType: Text.NativeRendering
+            renderType: Text.QtRendering
 
             color: Core.Theme.foreground
         }
@@ -205,7 +205,7 @@ Rectangle {
 
             font.family: Core.Theme.fontFamily
             font.pixelSize: Core.Theme.fontSizeSmall
-            renderType: Text.NativeRendering
+            renderType: Text.QtRendering
 
             color: root.active ? Core.Theme.accent : Core.Theme.foregroundMuted
         }
@@ -248,7 +248,7 @@ Rectangle {
             font.family: Core.Theme.fontFamily
             font.pixelSize: Core.Theme.fontSizeSmall
             font.weight: Font.DemiBold
-            renderType: Text.NativeRendering
+            renderType: Text.QtRendering
             color: root.trailingColor
         }
 

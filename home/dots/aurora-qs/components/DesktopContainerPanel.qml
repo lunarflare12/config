@@ -12,6 +12,20 @@ Item {
     property string heading: "Containers"
     property string emptyHint: "No Docker containers."
     property bool appIcons: false
+    property string filterKey: "containers"
+    readonly property bool runningOnly: panel.filterKey === "apps" ? panel.svc.appsRunningOnly : panel.svc.containersRunningOnly
+
+    readonly property var visibleRows: {
+        const all = panel.rows || [];
+        if (!panel.runningOnly)
+            return all;
+        const out = [];
+        for (let i = 0; i < all.length; i++) {
+            if (all[i] && all[i].state === "running")
+                out.push(all[i]);
+        }
+        return out;
+    }
 
     property string tipMonitor: ""
     property var hoverCt: null
@@ -48,12 +62,23 @@ Item {
             title: panel.heading
             leadingIcon: Qt.resolvedUrl("../assets/docker.svg")
             subtitle: {
+                if (panel.runningOnly) {
+                    const n = panel.visibleRows.length;
+                    return n === 0 ? "None running" : (n + " running");
+                }
                 const n = panel.rows ? panel.rows.length : 0;
                 if (n === 0)
                     return "None";
                 return n + " total";
             }
-            showToggle: false
+            showToggle: true
+            toggled: panel.runningOnly
+            onToggleRequested: {
+                if (panel.filterKey === "apps")
+                    panel.svc.appsRunningOnly = !panel.svc.appsRunningOnly;
+                else
+                    panel.svc.containersRunningOnly = !panel.svc.containersRunningOnly;
+            }
         }
 
         Rectangle {
@@ -82,7 +107,7 @@ Item {
                     spacing: 2
 
                     Repeater {
-                        model: panel.rows
+                        model: panel.visibleRows
 
                         ListRow {
                             id: ctRow
@@ -116,10 +141,10 @@ Item {
                     }
 
                     Text {
-                        visible: !panel.rows || panel.rows.length === 0
+                        visible: !panel.visibleRows || panel.visibleRows.length === 0
                         width: parent.width
                         wrapMode: Text.WordWrap
-                        text: panel.emptyHint
+                        text: panel.runningOnly ? "None running." : panel.emptyHint
                         color: Core.Theme.foregroundMuted
                         font.family: Core.Theme.fontFamily
                         font.pixelSize: Core.Theme.fontSizeSmall

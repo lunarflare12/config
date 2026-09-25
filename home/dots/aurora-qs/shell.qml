@@ -13,6 +13,18 @@ Scope {
     id: root
 
     IpcHandler {
+        target: "island"
+
+        function next(): void {
+            Services.IslandService.cycle(1);
+        }
+
+        function prev(): void {
+            Services.IslandService.cycle(-1);
+        }
+    }
+
+    IpcHandler {
         target: "overview"
 
         function toggle(): void {
@@ -112,10 +124,11 @@ Scope {
         target: "wallpaper"
 
         function toggle(): void {
-            Core.PopupManager.toggle("wallpaper");
+            Core.PopupManager.toggleAppearance("wallpaper");
         }
 
         function open(): void {
+            Core.PopupManager.appearanceMode = "wallpaper";
             Core.PopupManager.open("wallpaper");
         }
 
@@ -128,10 +141,11 @@ Scope {
         target: "theme"
 
         function toggle(): void {
-            Core.PopupManager.toggle("theme");
+            Core.PopupManager.toggleAppearance("theme");
         }
 
         function open(): void {
+            Core.PopupManager.appearanceMode = "theme";
             Core.PopupManager.open("theme");
         }
 
@@ -144,10 +158,11 @@ Scope {
         target: "cursor"
 
         function toggle(): void {
-            Core.PopupManager.toggle("cursor");
+            Core.PopupManager.toggleAppearance("cursor");
         }
 
         function open(): void {
+            Core.PopupManager.appearanceMode = "cursor";
             Core.PopupManager.open("cursor");
         }
 
@@ -235,7 +250,25 @@ Scope {
     Variants {
         model: Quickshell.screens
 
-        Dock {}
+        ScreenBorder {
+            edge: "left"
+        }
+    }
+
+    Variants {
+        model: Quickshell.screens
+
+        ScreenBorder {
+            edge: "right"
+        }
+    }
+
+    Variants {
+        model: Quickshell.screens
+
+        ScreenBorder {
+            edge: "bottom"
+        }
     }
 
     Variants {
@@ -266,6 +299,18 @@ Scope {
         model: Quickshell.screens
 
         LauncherOverlay {}
+    }
+
+    Variants {
+        model: Quickshell.screens
+
+        EdgeWallpaper {}
+    }
+
+    Variants {
+        model: Quickshell.screens
+
+        EdgeAudio {}
     }
 
     Lock {}

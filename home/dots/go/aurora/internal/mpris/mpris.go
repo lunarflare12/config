@@ -477,11 +477,17 @@ func prefer(list []*snap) *snap {
 	}
 	best := list[0]
 	for _, s := range list[1:] {
-		if strings.Contains(blob(best), "spotify") && !strings.Contains(blob(s), "spotify") {
+		// Prefer Spotify over Chrome/browser tabs when both have media.
+		if strings.Contains(blob(s), "spotify") && !strings.Contains(blob(best), "spotify") {
 			best = s
 		}
 	}
 	return best
+}
+
+func isBrowser(s *snap) bool {
+	b := blob(s)
+	return strings.Contains(b, "chrome") || strings.Contains(b, "chromium") || strings.Contains(b, "firefox") || strings.Contains(b, "zen")
 }
 
 func poll() snap {
@@ -491,6 +497,27 @@ func poll() snap {
 			if s := snapshotPlayer(c, name); s != nil {
 				found = append(found, s)
 			}
+		}
+	}
+	// Spotify with a real track wins over browser media (YouTube in Chrome
+	// was stealing the bar while Spotify sat paused with a track loaded).
+	var spotify *snap
+	for _, s := range found {
+		if strings.Contains(blob(s), "spotify") && !idleLabel(s) {
+			spotify = s
+			break
+		}
+	}
+	if spotify != nil {
+		browserOnly := true
+		for _, s := range found {
+			if s.Playing && !idleLabel(s) && !strings.Contains(blob(s), "spotify") && !isBrowser(s) {
+				browserOnly = false
+				break
+			}
+		}
+		if spotify.Playing || browserOnly {
+			return *spotify
 		}
 	}
 	var playing []*snap

@@ -11,7 +11,7 @@ Components.PopupSurface {
 
     popupId: "audio"
 
-    cardWidth: 350
+    cardWidth: Core.Theme.rightSheetWidth
     maxCardHeight: 520
 
     readonly property var svc: Services.AudioService

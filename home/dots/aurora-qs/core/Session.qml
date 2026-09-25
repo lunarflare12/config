@@ -61,7 +61,7 @@ QtObject {
     }
 
     readonly property string scripts: Quickshell.env("HOME") + "/.config/scripts"
-    readonly property int workspacesPerMonitor: 6
+    readonly property int workspacesPerMonitor: 12
     readonly property var monitorOrder: ["DP-1", "HDMI-A-1"]
     property bool forceHideGameBar: false
     property bool activeWindowFullscreen: false
@@ -95,9 +95,10 @@ QtObject {
                     const fsc = Number(o.fullscreenClient || 0);
                     const cls = String(o.class || o.initialClass || "").toLowerCase();
                     const exclusive = fs >= 2 || fsc >= 2;
+                    const vm = cls.indexOf("virt-viewer") !== -1 || cls.indexOf("remote-viewer") !== -1 || cls.indexOf("looking-glass") !== -1;
                     const game = cls.indexOf("steam_app_") !== -1 || cls.indexOf("gamescope") !== -1 || cls.indexOf("dota2") !== -1 || cls.indexOf("minecraft") !== -1 || cls.indexOf("albion") !== -1;
                     const media = cls.indexOf("google-chrome") !== -1 || cls === "chrome" || cls.indexOf("firefox") !== -1 || cls.indexOf("zen") !== -1 || cls === "mpv" || cls.indexOf("vlc") !== -1 || cls.indexOf("celluloid") !== -1;
-                    root.activeWindowFullscreen = exclusive || (media && (fs >= 1 || fsc >= 1));
+                    root.activeWindowFullscreen = !vm && (exclusive || (media && (fs >= 1 || fsc >= 1)));
                     const at = o.at || [0, 0];
                     const size = o.size || [0, 0];
                     let covers = false;
@@ -123,7 +124,7 @@ QtObject {
                             }
                         }
                     }
-                    root.activeWindowCovers = covers;
+                    root.activeWindowCovers = vm ? false : covers;
                     root.activeWindowMonitor = monName;
                     root.fsTick += 1;
                 } catch (e) {}
@@ -624,6 +625,22 @@ QtObject {
 
     // Wallpaper widgets (clock, metrics, labs, now-playing) live on the
     // second screen. Dock/icons stay on DP-1 via isDesktopMonitor.
+    function monitorHasTiledCover(monitorName) {
+        const _ = root.clientsTick + root.fsTick;
+        const ws = root.activeWorkspaceOnMonitor(monitorName);
+        if (!(ws >= 1))
+            return false;
+        const clients = root.openClients || [];
+        for (let i = 0; i < clients.length; i++) {
+            const row = clients[i];
+            if (Number(row.workspace) !== Number(ws))
+                continue;
+            if (Number(row.w) * Number(row.h) >= 80000)
+                return true;
+        }
+        return false;
+    }
+
     function isWidgetMonitor(name) {
         const screens = Quickshell.screens;
         if (screens && screens.length === 1)
@@ -1126,22 +1143,46 @@ QtObject {
         root.activateToplevel(t);
     }
 
-    function focusClass(cls) {
-        const raw = String(cls || "");
-        const c = raw.toLowerCase();
-        if (!c)
-            return;
+    function pickClient(cls) {
+        const want = String(cls || "").toLowerCase();
+        if (!want)
+            return null;
         const clients = root.openClients || [];
+        let fallback = null;
         for (let i = 0; i < clients.length; i++) {
             const row = clients[i];
             const rc = String(row.class || "");
-            if (rc === c || rc.indexOf(c) === 0 || c.indexOf(rc) === 0) {
-                if (Number(row.workspace) >= 1)
-                    root.focusWorkspace(row.workspace);
-                break;
+            if (want === "steam") {
+                if (rc !== "steam")
+                    continue;
+                if (String(row.title || "") === "Steam")
+                    return row;
+                if (!fallback)
+                    fallback = row;
+                continue;
+            }
+            if (rc === want || (rc.indexOf(want) === 0 && rc.indexOf("steam_app_") !== 0) || (want.indexOf(rc) === 0 && rc.length >= 3)) {
+                if (!fallback)
+                    fallback = row;
             }
         }
-        Quickshell.execDetached(["hyprctl", "dispatch", "focuswindow", "class:" + raw]);
+        return fallback;
+    }
+
+    function focusClass(cls) {
+        const row = root.pickClient(cls);
+        if (!row)
+            return false;
+        if (Number(row.workspace) >= 1)
+            root.focusWorkspace(row.workspace);
+        let addr = String(row.address || "");
+        if (addr) {
+            if (addr.indexOf("0x") !== 0 && addr.indexOf("0X") !== 0)
+                addr = "0x" + addr;
+            Quickshell.execDetached(["hyprctl", "eval", root.hyprFocusLua("address:" + addr)]);
+            return true;
+        }
+        return false;
     }
 
     // Launch from the current workspace: move the window here. Do not

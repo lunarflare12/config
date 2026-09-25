@@ -8,7 +8,7 @@ Components.PopupSurface {
     id: popup
 
     popupId: "network"
-    cardWidth: 360
+    cardWidth: Core.Theme.rightSheetWidth
     maxCardHeight: 420
 
     readonly property var svc: Services.NetworkService
@@ -16,23 +16,7 @@ Components.PopupSurface {
     contentComponent: Component {
         Column {
             id: body
-            spacing: Core.Theme.spacing
-
-            Components.PopupHeader {
-                width: parent.width
-                title: ""
-                subtitle: ""
-                showToggle: false
-                actions: [
-                    {
-                        icon: Core.Icons.gear,
-                        action: function () {
-                            popup.svc.openEditor();
-                            Core.PopupManager.close();
-                        }
-                    }
-                ]
-            }
+            spacing: 8
 
             Components.ListRow {
                 width: parent.width
@@ -44,16 +28,12 @@ Components.PopupSurface {
                         const parts = ["Connected"];
                         if (popup.svc.ethIp !== "")
                             parts.push(popup.svc.ethIp);
-                        if (mac !== "")
-                            parts.push(mac);
-                        if (popup.svc.ethDevice !== "")
-                            parts.push(popup.svc.ethDevice);
                         return parts.join(" · ");
                     }
                     if (popup.svc.ethState === "unavailable")
-                        return mac !== "" ? "Unplugged · " + mac : "Cable unplugged";
+                        return "Unplugged";
                     if (popup.svc.ethAvailable)
-                        return mac !== "" ? "Disconnected · " + mac : "Disconnected";
+                        return "Disconnected";
                     return "No ethernet adapter";
                 }
                 trailingName: popup.svc.ethConnected ? "check" : ""
@@ -64,15 +44,9 @@ Components.PopupSurface {
                 onActivated: popup.svc.toggleEthernet()
             }
 
-            Rectangle {
-                width: parent.width
-                height: 1
-                color: Core.Theme.separator
-            }
-
             Components.NetworkBoard {
                 width: parent.width
-                height: 168
+                height: 200
             }
         }
     }

@@ -60,12 +60,10 @@ Item {
 
     readonly property string scriptPath: (Quickshell.env("HOME") || "") + "/.config/scripts/system-monitor.sh"
 
-    // Full nvidia-smi only while a metrics popup or the desktop boards are visible.
+    // Full nvidia-smi and disk stats while a metrics popup or the desktop boards are visible.
     readonly property bool metricsOpen: {
-        if (Core.Session.showDesktopMetrics)
-            return true;
         const id = Core.PopupManager.current;
-        return id === "network" || id === "cpu" || id === "memory";
+        return Core.Session.showDesktopMetrics || id === "network" || id === "cpu" || id === "memory";
     }
 
     function append(history, value) {

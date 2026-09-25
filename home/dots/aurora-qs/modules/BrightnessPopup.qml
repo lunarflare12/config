@@ -8,7 +8,7 @@ Components.PopupSurface {
     id: popup
 
     popupId: "brightness"
-    cardWidth: 350
+    cardWidth: Core.Theme.rightSheetWidth
     maxCardHeight: 520
 
     readonly property var svc: Services.BrightnessService

@@ -53,7 +53,7 @@ PanelWindow {
     exclusiveZone: -1
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
-    visible: true
+    visible: root.catching
 
     WlrLayershell.namespace: "aurora-screenshot"
     WlrLayershell.layer: WlrLayer.Overlay

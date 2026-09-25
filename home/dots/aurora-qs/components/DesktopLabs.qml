@@ -85,16 +85,38 @@ Item {
         id: vmContent
 
         ColumnLayout {
+            id: vmBox
             anchors.fill: parent
             spacing: Core.Theme.spacing
+
+            readonly property var visibleVms: {
+                const all = root.svc.vms || [];
+                if (!root.svc.vmsRunningOnly)
+                    return all;
+                const out = [];
+                for (let i = 0; i < all.length; i++) {
+                    if (all[i] && (all[i].state === "running" || all[i].state === "paused"))
+                        out.push(all[i]);
+                }
+                return out;
+            }
 
             PopupHeader {
                 Layout.fillWidth: true
                 Layout.preferredHeight: implicitHeight
                 title: "Virtual machines"
                 leadingIcon: Qt.resolvedUrl("../assets/server.svg")
-                subtitle: root.svc.vmCount === 0 ? "None running" : (root.svc.vmCount + " running")
-                showToggle: false
+                subtitle: {
+                    if (root.svc.vmsRunningOnly) {
+                        const n = vmBox.visibleVms.length;
+                        return n === 0 ? "None running" : (n + " running");
+                    }
+                    const n = root.svc.vms.length;
+                    return n === 0 ? "None" : (n + " total");
+                }
+                showToggle: true
+                toggled: root.svc.vmsRunningOnly
+                onToggleRequested: root.svc.vmsRunningOnly = !root.svc.vmsRunningOnly
             }
 
             Rectangle {
@@ -117,26 +139,29 @@ Item {
                     spacing: 2
 
                     Repeater {
-                        model: root.svc.vms
+                        model: vmBox.visibleVms
 
                         ListRow {
                             required property var modelData
+                            readonly property bool up: modelData.state === "running" || modelData.state === "paused"
                             width: vmCol.width
                             iconSource: Qt.resolvedUrl("../assets/server.svg")
                             title: String(modelData.name || "")
-                            subtitle: String(modelData.state || "running")
-                            trailing: "ON"
-                            trailingColor: Core.Theme.accent
-                            active: true
-                            onActivated: root.svc.openVm(modelData.name)
+                            subtitle: String(modelData.state || "shut off")
+                            trailing: up ? "ON" : "OFF"
+                            trailingColor: up ? Core.Theme.accent : Core.Theme.foregroundMuted
+                            active: up
+                            dimmed: !up
+                            busy: root.svc.busyName === modelData.name
+                            onActivated: root.svc.activateVm(modelData)
                         }
                     }
 
                     Text {
-                        visible: root.svc.vmCount === 0
+                        visible: !vmBox.visibleVms.length
                         width: parent.width
                         wrapMode: Text.WordWrap
-                        text: "No running libvirt guests."
+                        text: root.svc.vmsRunningOnly ? "None running." : "No libvirt guests."
                         color: Core.Theme.foregroundMuted
                         font.family: Core.Theme.fontFamily
                         font.pixelSize: Core.Theme.fontSizeSmall
@@ -167,6 +192,7 @@ Item {
             emptyHint: "No system containers."
             tipMonitor: root.monitorName
             appIcons: true
+            filterKey: "apps"
         }
     }
 
@@ -258,10 +284,10 @@ Item {
         z: 90
         width: tipCol.implicitWidth + 20
         height: tipCol.implicitHeight + 16
-        radius: 6
-        color: "#000000"
-        border.width: 1
-        border.color: "#333333"
+        radius: Core.Theme.frameRadius
+        color: Core.Theme.surface
+        border.width: Core.Theme.borderWidth
+        border.color: Core.Theme.border
         x: {
             const t = hoverTip.tip;
             if (!t)

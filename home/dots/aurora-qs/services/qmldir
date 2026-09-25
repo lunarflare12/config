@@ -5,6 +5,7 @@ singleton NetworkService 1.0 NetworkService.qml
 singleton SystemMonitor 1.0 SystemMonitor.qml
 singleton AudioService 1.0 AudioService.qml
 singleton MprisService 1.0 MprisService.qml
+singleton RecordService 1.0 RecordService.qml
 singleton CavaService 1.0 CavaService.qml
 singleton BrightnessService 1.0 BrightnessService.qml
 singleton AppsService 1.0 AppsService.qml
@@ -20,3 +21,4 @@ singleton DesktopGrid 1.0 DesktopGrid.qml
 singleton ShaderService 1.0 ShaderService.qml
 singleton LabService 1.0 LabService.qml
 singleton UpdateService 1.0 UpdateService.qml
+singleton IslandService 1.0 IslandService.qml

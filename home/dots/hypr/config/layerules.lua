@@ -69,7 +69,18 @@ hl.layer_rule({
     name = "aurora-popup",
     match = { namespace = "^aurora-popup$" },
     blur = false,
+    -- The card slides out of the bar in QML. A compositor fade on the
+    -- whole layer hides that motion.
+    no_anim = true,
     order = 6,
+})
+
+hl.layer_rule({
+    name = "aurora-frame",
+    match = { namespace = "^aurora-frame-" },
+    blur = false,
+    no_anim = true,
+    order = 15,
 })
 
 hl.layer_rule({

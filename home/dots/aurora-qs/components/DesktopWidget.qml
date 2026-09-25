@@ -19,6 +19,8 @@ Item {
     property int spanH: 4
     property bool framed: true
     property bool fitContent: false
+    // Keep the grid width, but let the card height follow its content.
+    property bool fitHeight: false
     property bool onDesktop: true
     property Component contentComponent: null
 
@@ -39,10 +41,12 @@ Item {
             return Math.max(1, root.spanW);
         return root.grid.spanW(root.contentW + 12, root.cellW);
     }
+    readonly property int chrome: Math.floor(root.grid.gap / 2) * 2 + (root.framed ? Core.Theme.padding * 2 : 0)
+    readonly property bool hugHeight: root.fitContent || root.fitHeight
     readonly property int usedSpanH: {
-        if (!root.fitContent)
+        if (!root.hugHeight)
             return Math.max(1, root.spanH);
-        return root.grid.spanH(root.contentH + 12, root.cellH);
+        return root.grid.spanH(Math.max(root.contentH, 1) + root.chrome, root.cellH);
     }
     property int col: 0
     property int row: 0
@@ -53,6 +57,7 @@ Item {
 
     visible: root.onDesktop
     width: root.fitContent ? Math.max(1, Math.ceil(root.contentW + 12)) : root.usedSpanW * root.cellW
+    // fitHeight still occupies whole cells, so the card lines up with the grid.
     height: root.fitContent ? Math.max(1, Math.ceil(root.contentH + 12)) : root.usedSpanH * root.cellH
     x: root.dragging ? root.dragX : root.grid.posX(root.col, root.cellW)
     y: root.dragging ? root.dragY : root.grid.posY(root.row, root.cellH)
@@ -150,11 +155,11 @@ Item {
         id: card
 
         anchors.fill: parent
-        anchors.margins: 6
-        radius: 0
+        anchors.margins: Math.floor(root.grid.gap / 2)
+        radius: Core.Theme.frameRadius
         color: root.framed ? Core.Theme.background : "transparent"
-        border.width: root.framed ? Core.Theme.borderWidth : 0
-        border.color: root.framed ? Core.Theme.borderActive : "transparent"
+        border.width: root.framed ? 2 : 0
+        border.color: root.framed ? Qt.alpha(Core.Theme.foreground, 0.9) : "transparent"
         clip: root.framed
 
         Item {
@@ -173,7 +178,7 @@ Item {
                 asynchronous: true
                 sourceComponent: root.contentComponent
                 onLoaded: {
-                    if (root.fitContent)
+                    if (root.hugHeight)
                         Qt.callLater(root.applySavedOrDefault);
                 }
             }

@@ -18,6 +18,62 @@ Singleton {
     property string lastError: ""
     property var hoverTip: null
     property int viewers: 0
+    property bool vmsRunningOnly: false
+    property bool containersRunningOnly: false
+    property bool appsRunningOnly: false
+    property bool togglesHydrating: false
+
+    readonly property string togglesPath: (Quickshell.env("HOME") || "") + "/.config/aurora/lab-toggles.json"
+
+    property FileView togglesFile: FileView {
+        path: root.togglesPath
+        blockLoading: true
+        printErrors: false
+        watchChanges: false
+        onLoadedChanged: {
+            if (loaded)
+                root.loadToggles();
+        }
+    }
+
+    function loadToggles() {
+        const raw = String(root.togglesFile.text() || "").trim();
+        if (!raw)
+            return;
+        try {
+            const data = JSON.parse(raw);
+            root.togglesHydrating = true;
+            if (data.vms !== undefined)
+                root.vmsRunningOnly = !!data.vms;
+            if (data.containers !== undefined)
+                root.containersRunningOnly = !!data.containers;
+            if (data.apps !== undefined)
+                root.appsRunningOnly = !!data.apps;
+            Qt.callLater(function () {
+                root.togglesHydrating = false;
+            });
+        } catch (e) {}
+    }
+
+    function persistToggles() {
+        if (root.togglesHydrating)
+            return;
+        root.togglesFile.setText(JSON.stringify({
+            vms: root.vmsRunningOnly,
+            containers: root.containersRunningOnly,
+            apps: root.appsRunningOnly
+        }));
+    }
+
+    onVmsRunningOnlyChanged: toggleSave.restart()
+    onContainersRunningOnlyChanged: toggleSave.restart()
+    onAppsRunningOnlyChanged: toggleSave.restart()
+
+    property Timer toggleSave: Timer {
+        interval: 80
+        repeat: false
+        onTriggered: root.persistToggles()
+    }
 
     function retain() {
         root.viewers += 1;
@@ -305,6 +361,22 @@ Singleton {
         Quickshell.execDetached(["systemd-run", "--user", "--scope", "--collect", "--quiet", "--", "virt-viewer", "--connect", "qemu:///system", "--attach", name]);
     }
 
+    function vmDo(action, name) {
+        if (!root.validCt(name) || root.busy)
+            return;
+        root.run(["python3", root.ctl, "vm", action, name], action + ":" + name);
+    }
+
+    function activateVm(vm) {
+        if (!vm || !vm.name)
+            return;
+        if (vm.state === "running" || vm.state === "paused") {
+            root.openVm(vm.name);
+            return;
+        }
+        root.vmDo("start", vm.name);
+    }
+
     function validCt(name) {
         return /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(String(name || ""));
     }
@@ -439,6 +511,7 @@ Singleton {
     }
 
     Component.onCompleted: {
+        root.loadToggles();
         if (root.viewers > 0)
             root.refresh();
     }

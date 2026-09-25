@@ -16,11 +16,10 @@ Rectangle {
 
     visible: root.totalBytes > 0
     implicitHeight: root.visible ? 52 : 0
-    height: implicitHeight
-    radius: 0
+    radius: Core.Theme.frameRadius
     color: Core.Theme.surface
-    border.color: Core.Theme.accent
-    border.width: 1
+    border.color: Core.Theme.border
+    border.width: Core.Theme.borderWidth
 
     Column {
         anchors.fill: parent
@@ -73,7 +72,7 @@ Rectangle {
 
         Rectangle {
             width: parent.width
-            height: 8
+            height: Math.max(8, parent.height - 22)
             radius: 4
             color: Qt.rgba(Core.Theme.foreground.r, Core.Theme.foreground.g, Core.Theme.foreground.b, 0.12)
 

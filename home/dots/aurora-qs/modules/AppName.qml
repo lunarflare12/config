@@ -8,7 +8,9 @@ import "../components" as Components
 Item {
     id: root
 
-    implicitWidth: Math.min(row.implicitWidth + 16, 296)
+    property bool showIcon: true
+
+    implicitWidth: Math.min(row.implicitWidth + (root.showIcon ? 16 : 8), 296)
     implicitHeight: Core.Theme.moduleHeight
     clip: true
 
@@ -40,12 +42,13 @@ Item {
         id: row
         anchors.verticalCenter: parent.verticalCenter
         anchors.left: parent.left
-        anchors.leftMargin: 8
+        anchors.leftMargin: root.showIcon ? 8 : 0
         spacing: 6
 
         Components.ThemeIcon {
             anchors.verticalCenter: parent.verticalCenter
-            name: "arch"
+            visible: root.showIcon
+            name: "nix"
             width: 16
             height: 16
         }

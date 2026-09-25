@@ -186,11 +186,6 @@ FocusScope {
             event.accepted = true;
             return;
         }
-        if (event.key === Qt.Key_Tab && !picker.searchFocused) {
-            picker.setMode(picker.showingWalls ? "theme" : (picker.showingThemes ? "cursor" : "wallpaper"));
-            event.accepted = true;
-            return;
-        }
         if (picker.searchFocused && (event.key === Qt.Key_Left || event.key === Qt.Key_Right))
             return;
         if (event.key === Qt.Key_Right || event.key === Qt.Key_L) {

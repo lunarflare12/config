@@ -75,6 +75,8 @@ for _, rule in ipairs({
     { name = "float-thunar-create", match = { class = "^(thunar|Thunar)$", title = "^(Create.*)$" }, float = true, center = true },
     { name = "float-thunar-properties", match = { class = "^(thunar|Thunar)$", title = "^(.*Properties)$" }, float = true, size = "600 500", center = true },
     { name = "float-opencluely", match = { title = "^OpenCluely$" }, float = true, pin = true, size = "520 680", center = true, no_anim = true },
+    -- Keep guests inside the blue frame. Exclusive FS hides the chrome.
+    { name = "virt-viewer", match = { class = "^(virt-viewer|Virt-viewer|remote-viewer|org\\.virt-manager\\.virt-viewer|looking-glass-client)$" }, tile = true, sync_fullscreen = true, no_max_size = true, opaque = true, no_blur = true, rounding = 16 },
 }) do
     hl.window_rule(rule)
 end
@@ -121,22 +123,29 @@ game_rule("gamescope-initial-class", { initial_class = GAMESCOPE_CLASS }, { conf
 -- draws 16:9 on the left of 2560 and leaves a black strip on the right.
 local OW_CLASS = "^(steam_app_2357570|[Oo]verwatch\\.exe|[Oo]verwatch)$"
 game_rule("overwatch-class", { class = OW_CLASS }, {
-    confine_pointer = true,
+    -- Pointer stays free so Super+arrows and the other monitor work.
+    -- no_max_size let the client grow past DP-1 and sit on both desktops.
+    confine_pointer = false,
     fullscreen_state = "2 0",
-    no_max_size = true,
-    -- Wine/Battle.net spam activate; do not yank the current workspace.
     focus_on_activate = false,
-    -- Keep the compositor window at 2560. The game still renders 1920;
-    -- csgo-vulkan-fix stretches that buffer. Without this, Wine parks the
-    -- 1920 window on the right of the ultrawide (black bar on the left).
     suppress_event = "x11configurerequest",
 })
 game_rule("overwatch-initial-class", { initial_class = OW_CLASS }, {
-    confine_pointer = true,
+    confine_pointer = false,
     fullscreen_state = "2 0",
-    no_max_size = true,
     focus_on_activate = false,
     suppress_event = "x11configurerequest",
+})
+-- Wine activate was pulling the desktop back onto the game.
+hl.window_rule({
+    name = "overwatch-suppress-activate",
+    match = { class = OW_CLASS },
+    suppress_event = "activate",
+})
+hl.window_rule({
+    name = "overwatch-suppress-activate-initial",
+    match = { initial_class = OW_CLASS },
+    suppress_event = "activate",
 })
 
 -- Plugin is compositor-global. Never register from aurora-game alone:
@@ -425,8 +434,47 @@ end
 local ow_plugin_script = (os.getenv("HOME") or "/home/dd") .. "/.config/scripts/ow-stretch-plugin.sh"
 _G.aurora_ow_plugin_loaded = _G.aurora_ow_plugin_loaded or false
 
+local function output_ok()
+    local ok, mons = pcall(function()
+        if hl.get_monitors then
+            return hl.get_monitors()
+        end
+        return {}
+    end)
+    if not ok or type(mons) ~= "table" then
+        return true
+    end
+    local hdmi, dp
+    for _, m in ipairs(mons) do
+        local n = tostring(m.name or m.output or "")
+        if n == "HDMI-A-1" then
+            hdmi = m
+        elseif n == "DP-1" then
+            dp = m
+        end
+    end
+    if not hdmi or not dp then
+        return false
+    end
+    local function n(v)
+        return tonumber(v) or 0
+    end
+    local hrate = n(hdmi.refresh or hdmi.refresh_rate or hdmi.refreshRate)
+    local drate = n(dp.refresh or dp.refresh_rate or dp.refreshRate)
+    return n(hdmi.width) == 1920
+        and n(hdmi.height) == 1080
+        and math.abs(hrate - 60) < 1.5
+        and n(hdmi.x) == 2560
+        and n(dp.width) == 2560
+        and n(dp.height) == 1080
+        and math.abs(drate - 200) < 2
+        and n(dp.x) == 0
+end
+
 local function pin_outputs()
-    -- OW / XWayland RandR must not leave HDMI on a fallback mode.
+    if output_ok() then
+        return
+    end
     pcall(function()
         hl.monitor({ output = "DP-1", mode = "2560x1080@200.00Hz", position = "0x0", scale = 1, bitdepth = 8, disabled = false })
         hl.monitor({ output = "HDMI-A-1", mode = "1920x1080@60.00Hz", position = "2560x0", scale = 1, bitdepth = 8, disabled = false })
@@ -440,8 +488,7 @@ local function ow_plugin_load(w)
     -- Always re-register. hypr reload clears vkfix apps but leaves the
     -- plugin loaded, so a one-shot flag would skip stretch forever.
     _G.aurora_ow_plugin_loaded = true
-    pin_outputs()
-    hl.exec_cmd(ow_plugin_script .. " load")
+    hl.exec_cmd(ow_plugin_script .. " --force")
 end
 
 local function ow_plugin_unload(_)
@@ -544,27 +591,60 @@ if _G.aurora_media_fs_active then
 end
 _G.aurora_media_fs_active = hl.on("window.active", promote_media_fs)
 
--- Client fullscreen leaves the 16:9 picture on the left and black on
--- the right. Keep the compositor covering the panel, client windowed.
+-- One Overwatch surface keeps the compositor fullscreen. A second Wine
+-- surface used to fullscreen as well and took the next workspace, so
+-- switching desks just bounced between those two.
 local ow_fs_busy = false
-local function pin_ow_windowed(win)
-    local w = win and (win.window or win) or nil
-    if not is_overwatch(w) or ow_fs_busy then
+local function ow_area(w)
+    local sx = tonumber(w.width) or tonumber(w.w) or 0
+    local sy = tonumber(w.height) or tonumber(w.h) or 0
+    local sz = w.size
+    if type(sz) == "table" then
+        sx = tonumber(sz.x or sz[1]) or sx
+        sy = tonumber(sz.y or sz[2]) or sy
+    end
+    return sx * sy
+end
+local function settle_overwatch()
+    if ow_fs_busy then
         return
     end
-    local internal = tonumber(w.fullscreen) or 0
-    local client = tonumber(w.fullscreen_client) or 0
-    if internal == 2 and client == 0 then
+    local ok, wins = pcall(function()
+        return hl.get_windows()
+    end)
+    if not ok or type(wins) ~= "table" then
         return
+    end
+    local list = {}
+    for _, x in ipairs(wins) do
+        if is_overwatch(x) then
+            list[#list + 1] = x
+        end
+    end
+    if #list < 2 then
+        return
+    end
+    local primary = list[1]
+    local best = ow_area(primary)
+    for i = 2, #list do
+        local area = ow_area(list[i])
+        if area > best then
+            primary = list[i]
+            best = area
+        end
     end
     ow_fs_busy = true
-    pcall(function()
-        hl.dispatch(hl.dsp.window.fullscreen_state({
-            window = w,
-            internal = 2,
-            client = 0,
-        }))
-    end)
+    for _, x in ipairs(list) do
+        if x ~= primary and (tonumber(x.fullscreen) or 0) ~= 0 then
+            pcall(function()
+                hl.dispatch(hl.dsp.window.fullscreen_state({
+                    window = x,
+                    internal = 0,
+                    client = 0,
+                }))
+            end)
+        end
+    end
     ow_fs_busy = false
 end
 if _G.aurora_ow_fs then
@@ -572,21 +652,19 @@ if _G.aurora_ow_fs then
         _G.aurora_ow_fs:remove()
     end)
 end
-_G.aurora_ow_fs = hl.on("window.fullscreen", pin_ow_windowed)
+_G.aurora_ow_fs = hl.on("window.fullscreen", settle_overwatch)
 if _G.aurora_ow_fs_active then
     pcall(function()
         _G.aurora_ow_fs_active:remove()
     end)
+    _G.aurora_ow_fs_active = nil
 end
--- Client FS flips back without a fullscreen event (Wine activate). Re-pin
--- when the window is focused, or the 1920 mouse map runs inside a 2560 client.
-_G.aurora_ow_fs_active = hl.on("window.active", pin_ow_windowed)
 if _G.aurora_ow_fs_open then
     pcall(function()
         _G.aurora_ow_fs_open:remove()
     end)
 end
-_G.aurora_ow_fs_open = hl.on("window.open", pin_ow_windowed)
+_G.aurora_ow_fs_open = hl.on("window.open", settle_overwatch)
 if _G.aurora_ow_mon then
     pcall(function()
         _G.aurora_ow_mon:remove()

@@ -400,7 +400,9 @@ QtObject {
         // Full catalog only: partial waves after a flake rebuild used to drop
         // every pin not yet scanned and rewrite launchpad in alpha order.
         const catalogWarm = list.length >= 12;
-        const pruneMissing = list.length >= 40;
+        // Once the catalog is warm, drop pins whose .desktop is gone. The old
+        // threshold (>=40) + lpShrunk guard left ghosts like Overwatch forever.
+        const pruneMissing = catalogWarm;
         const hadPins = root.launchpadOrder.length > 0;
         const diskHadPins = !!(root.readLayoutRaw() && root.readLayoutRaw().length > 2);
 
@@ -492,7 +494,7 @@ QtObject {
                 root.dockConfigured = true;
                 dockChanged = true;
             }
-        } else if (dock.length < prevDock.length && prevDock.length > 2) {
+        } else if (dock.length < prevDock.length && prevDock.length > 2 && !pruneMissing) {
             // Desktop entries arrive in waves. A short catalog used to persist
             // an empty dock and wipe pins across restarts.
         } else if (!root.sameIds(root.dockOrder, dock)) {
@@ -500,17 +502,15 @@ QtObject {
             dockChanged = true;
         }
 
-        // Same wave-guard for launchpad: never persist a shrunk grid.
-        const lpShrunk = prevLp.length > 2 && lp.length < prevLp.length;
+        // Block shrink only while the catalog is still arriving in waves.
+        // After pruneMissing, allow removals to stick and rewrite disk.
+        const lpShrunk = !pruneMissing && prevLp.length > 2 && lp.length < prevLp.length;
         const lpChanged = !lpShrunk && !root.sameLaunchpad(root.launchpadOrder, lp);
         if (lpChanged)
             root.launchpadOrder = lp;
 
-        // CRITICAL: sync must not rewrite the on-disk layout after rebuilds.
-        // Empty-memory → full catalog dumps were wiping folders/pins. Only seed
-        // the file when it truly does not exist yet.
         const seeding = !hadPins && !diskHadPins && root.launchpadOrder.length > 0;
-        if (seeding || (dockChanged && !diskHadPins && !hadPins))
+        if (seeding || (dockChanged && !diskHadPins && !hadPins) || (pruneMissing && (lpChanged || dockChanged)))
             root.saveLayout(true);
     }
 
@@ -947,10 +947,12 @@ QtObject {
         }
 
         const id = String(entry && entry.id || "").replace(/\.desktop$/i, "");
-        if (id === "Overwatch" || id === "Terraria" || id === "Albion Online" || id === "org.telegram.desktop")
+        if (id === "Overwatch" || id === "overwatch" || id === "Terraria" || id === "Albion Online" || id === "org.telegram.desktop")
+            return true;
+        if (id === "dota2" || id === "dota-2" || id === "Dota 2" || id === "com.valvesoftware.Steam.dota2")
             return true;
         const exec = String(entry && (entry.execString || entry.exec) || "");
-        if (exec.indexOf("steam://rungameid/2357570") !== -1 || exec.indexOf("steam://rungameid/105600") !== -1 || exec.indexOf("steam://rungameid/761890") !== -1)
+        if (exec.indexOf("steam://rungameid/2357570") !== -1 || exec.indexOf("steam://rungameid/570") !== -1 || exec.indexOf("steam://rungameid/105600") !== -1 || exec.indexOf("steam://rungameid/761890") !== -1)
             return true;
 
         return false;
@@ -1454,6 +1456,8 @@ QtObject {
         // Tray Activate "succeeds" and cancels the spawn; window never rises.
         if (root.isCursor(app))
             return true;
+        if (root.isSpotify(app) || root.isDiscord(app))
+            return true;
         return false;
     }
 
@@ -1580,7 +1584,7 @@ QtObject {
             root.finishLaunch();
             return;
         }
-        if (root.isObs(app) || root.isObs(entry) || root.isCursor(app) || root.isCursor(entry) || root.isIdea(app) || root.isIdea(entry)) {
+        if (root.isObs(app) || root.isObs(entry) || root.isCursor(app) || root.isCursor(entry) || root.isIdea(app) || root.isIdea(entry) || root.isSpotify(app) || root.isSpotify(entry) || root.isDiscord(app) || root.isDiscord(entry)) {
             LaunchSplash.armLaunch(app, root.pendingWorkspace);
             root.runDirect(app, entry);
             root.finishLaunch();
@@ -1715,6 +1719,10 @@ QtObject {
             return ["openlens", "open-lens"];
         if (c === "jetbrains-idea" || c === "idea-ultimate" || c === "idea")
             return ["jetbrains-idea", "idea-ultimate", "idea"];
+        if (c === "vesktop" || c === "discord")
+            return ["vesktop", "discord"];
+        if (c === "spotify" || c === "spotify-client")
+            return ["spotify", "spotify-client"];
         if (c.indexOf("libreoffice") === 0)
             return ["libreoffice-startcenter", "libreoffice", c];
         return [c];

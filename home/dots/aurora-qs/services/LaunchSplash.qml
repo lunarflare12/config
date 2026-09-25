@@ -478,6 +478,14 @@ Singleton {
         const steamId = AppsService.steamAppId(app);
         if (steamId)
             add("steam_app_" + steamId);
+        if (AppsService.isDiscord(app)) {
+            add("vesktop");
+            add("discord");
+        }
+        if (AppsService.isSpotify(app)) {
+            add("spotify");
+            add("spotify-client");
+        }
         const name = String(app.name || "").toLowerCase();
         const icon = String(app.icon || "").toLowerCase().split("/").pop().replace(/\.(png|svg|xpm)$/, "");
         const kind = root.chromeKind(app.startupWmClass || app.id || "");

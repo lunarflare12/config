@@ -32,8 +32,9 @@ Item {
     // 7 × 2px + 6 × 1px = 20px
     readonly property int visualWidth: (root.visualBarCount * root.barWidth) + ((root.visualBarCount - 1) * root.barSpacing)
 
+    implicitWidth: root.visualWidth
+    implicitHeight: root.eqHeight
     width: root.visualWidth
-
     height: root.eqHeight
 
     // --------------------------------------------------

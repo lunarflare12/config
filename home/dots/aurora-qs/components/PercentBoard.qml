@@ -13,10 +13,10 @@ Rectangle {
     property string detailText: ""
     property int hoverIndex: -1
 
-    radius: 0
+    radius: Core.Theme.frameRadius
     color: Core.Theme.surface
-    border.color: Core.Theme.accent
-    border.width: 1
+    border.color: Core.Theme.border
+    border.width: Core.Theme.borderWidth
     clip: true
 
     function indexAtX(x, width) {

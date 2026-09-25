@@ -438,15 +438,48 @@ def configs(dirs: list[str]) -> list[dict]:
 
 
 def vms() -> list[dict]:
-    code, text, _ = run(["virsh", "-c", "qemu:///system", "list", "--state-running", "--name"])
+    code, text, _ = run(["virsh", "-c", "qemu:///system", "list", "--all"], timeout=8.0)
     if code != 0:
         return []
     items = []
     for line in text.splitlines():
-        name = line.strip()
-        if name:
-            items.append({"name": name, "state": "running"})
+        raw = line.strip()
+        if not raw or raw.startswith("Id") or set(raw) <= {"-", " "}:
+            continue
+        parts = raw.split()
+        if len(parts) < 3 or not (parts[0] == "-" or parts[0].isdigit()):
+            continue
+        name = parts[1]
+        state_raw = " ".join(parts[2:]).lower()
+        if "running" in state_raw:
+            state = "running"
+        elif "paused" in state_raw:
+            state = "paused"
+        else:
+            state = "shut off"
+        items.append({"name": name, "state": state})
     return items
+
+
+def vm_action(action: str, name: str) -> int:
+    if not NAME_RE.match(name):
+        print("invalid name", file=sys.stderr)
+        return 2
+    if action == "start":
+        cmd = ["virsh", "-c", "qemu:///system", "start", name]
+    elif action in ("stop", "shutdown"):
+        cmd = ["virsh", "-c", "qemu:///system", "shutdown", name]
+    elif action == "destroy":
+        cmd = ["virsh", "-c", "qemu:///system", "destroy", name]
+    else:
+        print("invalid vm action", file=sys.stderr)
+        return 2
+    code, out, err = run(cmd, timeout=40.0)
+    if out:
+        sys.stdout.write(out)
+    if err:
+        sys.stderr.write(err)
+    return code
 
 
 def parse_container_state(status: str, state: str) -> str:
@@ -866,7 +899,9 @@ def main() -> int:
         return gui_toggle(argv[1], argv[2])
     if argv[0] == "docker" and len(argv) >= 3:
         return docker_action(argv[1], argv[2])
-    print("usage: lab-ctl status|status-light | toggle wireguard|amnezia|vless NAME | docker start|stop|pause|unpause|restart|rm NAME", file=sys.stderr)
+    if argv[0] == "vm" and len(argv) >= 3:
+        return vm_action(argv[1], argv[2])
+    print("usage: lab-ctl status|status-light | toggle wireguard|amnezia|vless NAME | docker start|stop|pause|unpause|restart|rm NAME | vm start|stop|destroy NAME", file=sys.stderr)
     return 2
 
 
