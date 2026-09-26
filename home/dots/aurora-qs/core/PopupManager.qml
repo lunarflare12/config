@@ -22,6 +22,7 @@ Item {
     property string appearanceMode: "wallpaper"
     property real rightSheetExtent: 0
     property real rightSheetWidth: 0
+    property real rightNotchWidth: 0
 
     function toggleAppearance(mode, fromItem) {
         const next = (mode === "theme" || mode === "cursor") ? mode : "wallpaper";

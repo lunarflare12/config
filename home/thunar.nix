@@ -65,7 +65,7 @@ in
     last-show-hidden = false;
     last-sort-column = "THUNAR_COLUMN_NAME";
     last-sort-order = "GTK_SORT_ASCENDING";
-    last-location-bar = "ThunarLocationButtons";
+    last-location-bar = "";
     last-side-pane = "ThunarShortcutsPane";
     hidden-bookmarks = [
       "recent:///"
@@ -319,41 +319,29 @@ in
       border-radius: 8px;
     }
 
-    window.thunar .path-bar button,
-    .thunar .path-bar button,
-    window.thunar .linked.path-bar > button,
-    .thunar .linked.path-bar > button {
-      border-radius: 8px;
-      padding: 2px 11px;
-      font-weight: 600;
-      min-height: 24px;
-    }
-
-    /* Path-bar left chevron is always allocated (~slider_width) even at Home.
-       WhiteSur has no pan-start-symbolic, so it paints an empty pill. Thunar
-       also size-allocates that slot in C, so min-width:0 cannot collapse it —
-       hide the chrome and pull crumbs over the reserved width. */
-    window.thunar .path-bar.linked > *:first-child,
-    .thunar .path-bar.linked > *:first-child,
-    window.thunar thunarlocationbuttons > *:first-child,
-    .thunar thunarlocationbuttons > *:first-child {
+    /* Empty leftover path-bar pill (broken chevron / truncated crumbs). */
+    window.thunar .path-bar,
+    .thunar .path-bar,
+    window.thunar .linked.path-bar,
+    .thunar .linked.path-bar,
+    window.thunar thunarlocationbuttons,
+    .thunar thunarlocationbuttons {
       opacity: 0;
       min-width: 0;
       min-height: 0;
+      max-width: 0;
+      max-height: 0;
       padding: 0;
       margin: 0;
       border: none;
       background: none;
       background-image: none;
       box-shadow: none;
-      outline: none;
-      -gtk-icon-transform: scale(0);
     }
 
-    window.thunar .path-bar.linked > *:first-child image,
-    window.thunar .path-bar.linked > *:first-child label,
-    .thunar .path-bar.linked > *:first-child image,
-    .thunar .path-bar.linked > *:first-child label {
+    window.thunar .path-bar *,
+    .thunar .path-bar *,
+    window.thunar thunarlocationbuttons * {
       opacity: 0;
       min-width: 0;
       min-height: 0;
@@ -440,15 +428,6 @@ in
     window.thunar .standard-view treeview.view:hover {
       background-color: alpha(@theme_selected_bg_color, 0.18);
       border-radius: 0;
-    }
-
-    window.thunar .path-bar button:checked,
-    window.thunar .path-bar button:checked:hover,
-    .thunar .path-bar button:checked,
-    window.thunar .linked.path-bar > button:checked,
-    .thunar .linked.path-bar > button:checked {
-      background-color: alpha(@theme_selected_bg_color, 0.36);
-      color: @theme_selected_fg_color;
     }
 
     window.thunar entry selection,

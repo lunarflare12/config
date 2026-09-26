@@ -7,7 +7,7 @@ if [[ -x $xfq ]]; then
   "$xfq" -c thunar -p /last-side-pane -s ThunarShortcutsPane >/dev/null 2>&1 || true
   "$xfq" -c thunar -p /last-separator-position -s 220 >/dev/null 2>&1 || true
   "$xfq" -c thunar -p /last-menubar-visible -s false >/dev/null 2>&1 || true
-  "$xfq" -c thunar -p /last-location-bar -s ThunarLocationButtons >/dev/null 2>&1 || true
+  "$xfq" -c thunar -p /last-location-bar -s "" >/dev/null 2>&1 || true
   "$xfq" -c thunar -p /hidden-bookmarks -r >/dev/null 2>&1 || true
   "$xfq" -c thunar -p /hidden-bookmarks -n -a \
     -t string -s "recent:///" \

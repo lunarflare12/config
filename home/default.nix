@@ -71,6 +71,9 @@
         "application/vnd.openxmlformats-officedocument.presentationml.presentation" =
           "libreoffice-impress.desktop";
         "inode/directory" = "thunar.desktop";
+        "application/x-bittorrent" = "qbittorrent.desktop";
+        "x-scheme-handler/magnet" = "qbittorrent.desktop";
+        "x-scheme-handler/prismlauncher" = "prismlauncher.desktop";
       };
     };
     configFile."mimeapps.list".force = true;
@@ -100,11 +103,14 @@
       "Albion Online.desktop" albion-online.desktop Overwatch.desktop overwatch.desktop \
       "Dota 2.desktop" dota-2.desktop dota2.desktop com.valvesoftware.Steam.dota2.desktop \
       Terraria.desktop \
+      lutris.desktop net.lutris.Lutris.desktop \
       firefox.desktop zen.desktop code.desktop code-url-handler.desktop obsidian.desktop \
       openlens.desktop spotify.desktop telegram-1.desktop telegram-2.desktop \
       org.telegram.desktop.desktop \
       libreoffice-startcenter.desktop libreoffice-writer.desktop libreoffice-calc.desktop \
       libreoffice-impress.desktop libreoffice-draw.desktop \
+      org.qbittorrent.qBittorrent.desktop qbittorrent.desktop \
+      org.prismlauncher.PrismLauncher.desktop prismlauncher.desktop \
       writer.desktop calc.desktop impress.desktop draw.desktop startcenter.desktop \
       math.desktop base.desktop xsltfilter.desktop; do
       target="$apps/$name"

@@ -4,7 +4,7 @@ set -euo pipefail
 source "${HOME}/.config/scripts/space-lib.sh"
 
 space_load_apps_env
-compose="${HOME}/containers/apps/compose.yml"
+compose="${HOME}/.local/share/aurora/containers/apps/compose.yml"
 bin="${OBSIDIAN_BIN:?OBSIDIAN_BIN missing in containers/apps/.env}"
 docker compose -f "$compose" up -d --no-build obsidian
 if [ "$#" -gt 0 ]; then

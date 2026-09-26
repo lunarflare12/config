@@ -5,7 +5,7 @@ set -euo pipefail
 source "${HOME}/.config/scripts/space-lib.sh"
 
 url="${1:-}"
-compose="${HOME}/containers/telegram/compose.yml"
+compose="${HOME}/.local/share/aurora/containers/telegram/compose.yml"
 ipc="${HOME}/programs/telegram-1/ipc/telegram.url"
 running="$(docker inspect -f '{{.State.Running}}' telegram-1 2>/dev/null || echo false)"
 

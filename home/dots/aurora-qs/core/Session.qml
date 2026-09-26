@@ -648,6 +648,14 @@ QtObject {
         return name === (root.monitorOrder[1] || "HDMI-A-1");
     }
 
+    // Widgets stay on the first workspace of that monitor. Other workspaces
+    // keep a plain desktop.
+    function widgetsOnMonitor(name) {
+        if (!root.isWidgetMonitor(name))
+            return false;
+        return root.localId(root.activeWorkspaceOnMonitor(name)) === 1;
+    }
+
     function activeWorkspaceOnMonitor(monitorName) {
         const focused = Hyprland.focusedMonitor;
         if (focused && focused.name === monitorName) {

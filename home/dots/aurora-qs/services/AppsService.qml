@@ -154,10 +154,12 @@ QtObject {
                 root.dockConfigured = parsed && Object.prototype.hasOwnProperty.call(parsed, "dock");
             }
             // Migrate off HM-touched ~/.config and ensure state+backup exist.
+            // Never treat this as a user edit — that is how a flat in-memory
+            // grid used to overwrite folders on disk.
             if (root.launchpadOrder.length && root.layoutFile.text() !== raw)
-                root.saveLayout(true);
+                root.saveLayout(false);
             else if (root.launchpadOrder.length && !root.layoutBackupFile.text())
-                root.saveLayout(true);
+                root.saveLayout(false);
         } catch (e) {
             if (!root.launchpadOrder.length) {
                 root.launchpadOrder = [];
@@ -223,10 +225,6 @@ QtObject {
                 seen["app:" + id] = true;
                 apps.push(id);
             }
-            if (apps.length === 1) {
-                out.push(apps[0]);
-                continue;
-            }
             if (apps.length === 0)
                 continue;
             seen["folder:" + fid] = true;
@@ -288,9 +286,32 @@ QtObject {
         // Refuse to persist an empty grid — that is how hot-reload races wipe pins.
         if (!root.launchpadOrder.length && !root.dockOrder.length)
             return;
+        const nextLp = root.serializeLaunchpad();
+        if (!userEdit) {
+            const disk = root.readLayoutRaw();
+            if (disk && disk.length > 2) {
+                try {
+                    const parsed = JSON.parse(disk);
+                    const diskLp = root.normalizeLaunchpad(parsed && parsed.launchpad);
+                    let diskFolders = 0;
+                    let nextFolders = 0;
+                    for (let i = 0; i < diskLp.length; i++) {
+                        if (root.isFolderTile(diskLp[i]))
+                            diskFolders++;
+                    }
+                    for (let i = 0; i < nextLp.length; i++) {
+                        if (root.isFolderTile(nextLp[i]))
+                            nextFolders++;
+                    }
+                    if (diskFolders > 0 && nextFolders === 0)
+                        return;
+                } catch (e) {
+                }
+            }
+        }
         root.dockConfigured = true;
         const text = JSON.stringify({
-            "launchpad": root.serializeLaunchpad(),
+            "launchpad": nextLp,
             "dock": root.dockOrder
         });
         root.layoutWriting = true;
@@ -437,19 +458,22 @@ QtObject {
                 if (seenLp["app:" + id] || seenLp["app:" + raw])
                     continue;
                 const known = !!(have[id] || have[raw]);
-                if (!known && pruneMissing)
-                    continue;
+                // Never drop folder members on catalog sync — that flattened
+                // Games/Chat after a QS restart when a .desktop lagged.
                 seenLp["app:" + id] = true;
                 seenLp["app:" + raw] = true;
                 apps.push(known ? id : raw);
             }
-            if (apps.length === 1) {
-                lp.push(apps[0]);
-                continue;
-            }
             if (apps.length === 0)
                 continue;
-            item.apps = apps;
+            // Keep folders intact across catalog waves. Dissolving a 1-app
+            // folder here is what flattened the launchpad on QS restart.
+            item.apps = apps.length >= 2 ? apps : (item.apps || apps);
+            if ((item.apps || []).length < 2) {
+                if (apps.length === 1)
+                    lp.push(apps[0]);
+                continue;
+            }
             seenLp["folder:" + item.id] = true;
             lp.push(item);
         }
@@ -510,8 +534,10 @@ QtObject {
             root.launchpadOrder = lp;
 
         const seeding = !hadPins && !diskHadPins && root.launchpadOrder.length > 0;
-        if (seeding || (dockChanged && !diskHadPins && !hadPins) || (pruneMissing && (lpChanged || dockChanged)))
-            root.saveLayout(true);
+        if (seeding || (dockChanged && !diskHadPins && !hadPins))
+            root.saveLayout(false);
+        else if (pruneMissing && (lpChanged || dockChanged))
+            root.saveLayout(false);
     }
 
     function sameLaunchpad(a, b) {
@@ -707,7 +733,7 @@ QtObject {
         if (root.sameLaunchpad(next, root.launchpadOrder))
             return;
         root.launchpadOrder = next;
-        root.saveLayout();
+        root.saveLayout(true);
     }
 
     function mergeLaunchpad(from, to) {
@@ -740,7 +766,7 @@ QtObject {
             src[toOrder] = target;
             src.splice(fromOrder, 1);
             root.launchpadOrder = root.normalizeLaunchpad(src);
-            root.saveLayout();
+            root.saveLayout(true);
             return;
         }
         const otherId = root.tileId(target) || String(targetTile.id || "");
@@ -761,7 +787,7 @@ QtObject {
         next.splice(Math.max(0, Math.min(next.length, insertAt)), 0, folder);
         root.launchpadOrder = root.normalizeLaunchpad(next);
         root.openFolderId = folder.id;
-        root.saveLayout();
+        root.saveLayout(true);
     }
 
     function renameFolder(id, name) {
@@ -781,7 +807,7 @@ QtObject {
         if (!changed)
             return;
         root.launchpadOrder = src;
-        root.saveLayout();
+        root.saveLayout(true);
     }
 
     function moveInFolder(folderId, from, to) {
@@ -798,7 +824,7 @@ QtObject {
             tile.apps = next;
             src[i] = tile;
             root.launchpadOrder = src;
-            root.saveLayout();
+            root.saveLayout(true);
             return;
         }
     }
@@ -825,7 +851,7 @@ QtObject {
         root.launchpadOrder = root.normalizeLaunchpad(src);
         if (!root.findFolder(fid))
             root.openFolderId = "";
-        root.saveLayout();
+        root.saveLayout(true);
     }
 
     function closeFolder() {
@@ -842,7 +868,7 @@ QtObject {
         if (root.sameIds(next, root.dockOrder))
             return;
         root.dockOrder = next;
-        root.saveLayout();
+        root.saveLayout(true);
     }
 
     function toggleDockPin(id) {
@@ -856,7 +882,7 @@ QtObject {
         else
             dock.push(needle);
         root.dockOrder = dock;
-        root.saveLayout();
+        root.saveLayout(true);
     }
 
     property bool dockDropActive: false
@@ -883,7 +909,7 @@ QtObject {
         if (root.sameIds(dock, root.dockOrder))
             return;
         root.dockOrder = dock;
-        root.saveLayout();
+        root.saveLayout(true);
     }
 
     function unpinDock(id) {
@@ -896,7 +922,7 @@ QtObject {
         if (root.sameIds(dock, root.dockOrder))
             return;
         root.dockOrder = dock;
-        root.saveLayout();
+        root.saveLayout(true);
     }
 
     // Entries

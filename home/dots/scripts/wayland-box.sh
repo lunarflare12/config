@@ -95,7 +95,6 @@ BOX_HOME="${BOX_HOME:-$HOST_HOME/.local/share/wayland-box/$NAME}"
 SANDBOX_RT="$HOST_RT/wayland-box-$NAME"
 
 mkdir -p "$BOX_HOME" "$SANDBOX_RT"
-mkdir -p "$HOST_HOME/Downloads"
 
 cleanup() {
   if [[ -n "${PROXY_PID:-}" ]]; then
@@ -151,7 +150,6 @@ args=(
   --tmpfs /run/user
   --dir "$HOST_RT"
   --bind "$BOX_HOME" "$HOST_HOME"
-  --bind "$HOST_HOME/Downloads" "$HOST_HOME/Downloads"
   --ro-bind /nix /nix
   --ro-bind /run/current-system /run/current-system
   --ro-bind /etc /etc

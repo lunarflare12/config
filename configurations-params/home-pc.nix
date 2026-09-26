@@ -95,7 +95,6 @@
     "vagrant"
     "vlc"
     "xournalpp"
-    "prismlauncher"
   ];
 
   monitors = [

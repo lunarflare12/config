@@ -523,7 +523,7 @@ def container_stats() -> dict[str, dict]:
     return out
 
 
-# App-isolation boxes (compose under ~/containers). Not lab toys.
+# App-isolation boxes (compose under ~/.local/share/aurora/containers). Not lab toys.
 APP_PROJECTS = {
     "apps-isolated",
     "telegram-isolated",
@@ -891,6 +891,19 @@ def main() -> int:
         json.dump(status(full=False), sys.stdout, ensure_ascii=False, separators=(",", ":"))
         sys.stdout.write("\n")
         return 0
+    if argv[0] == "status-vpn":
+        json.dump(
+            {
+                "wireguard": public_tunnels(configs(WG_DIRS), "wireguard"),
+                "amnezia": public_tunnels(configs(AWG_DIRS), "amnezia"),
+                "vless": public_tunnels(vless_configs(), "vless"),
+            },
+            sys.stdout,
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+        sys.stdout.write("\n")
+        return 0
     if argv[0] == "toggle" and len(argv) >= 3:
         if os.geteuid() != 0:
             return gui_toggle(argv[1], argv[2])
@@ -901,7 +914,7 @@ def main() -> int:
         return docker_action(argv[1], argv[2])
     if argv[0] == "vm" and len(argv) >= 3:
         return vm_action(argv[1], argv[2])
-    print("usage: lab-ctl status|status-light | toggle wireguard|amnezia|vless NAME | docker start|stop|pause|unpause|restart|rm NAME | vm start|stop|destroy NAME", file=sys.stderr)
+    print("usage: lab-ctl status|status-light|status-vpn | toggle wireguard|amnezia|vless NAME | docker start|stop|pause|unpause|restart|rm NAME | vm start|stop|destroy NAME", file=sys.stderr)
     return 2
 
 

@@ -117,6 +117,20 @@ in
     SystemdService=quickshell.service
   '';
 
+  systemd.user.services.aurora-notify-proxy = {
+    Unit = {
+      Description = "Filtered D-Bus proxy so boxed apps share Aurora notifications";
+      After = [ "dbus.socket" ];
+      Requires = [ "dbus.socket" ];
+    };
+    Service = {
+      Type = "simple";
+      ExecStart = "${pkgs.xdg-dbus-proxy}/bin/xdg-dbus-proxy unix:path=%t/bus %t/aurora-notify.sock --filter --talk=org.freedesktop.Notifications";
+      Restart = "on-failure";
+    };
+    Install.WantedBy = [ "graphical-session.target" ];
+  };
+
   dconf.settings = {
     "org/gnome/nm-applet" = {
       disable-connected-notifications = true;

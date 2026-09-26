@@ -12,7 +12,7 @@ Item {
     property var host: parent
 
     readonly property string monitorName: root.host && root.host.monitorName ? root.host.monitorName : ""
-    readonly property bool onDesktop: Core.Session.isWidgetMonitor(root.monitorName)
+    readonly property bool onDesktop: Core.Session.widgetsOnMonitor(root.monitorName)
     readonly property var svc: Services.LabService
 
     property bool watching: false

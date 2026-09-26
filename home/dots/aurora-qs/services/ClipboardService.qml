@@ -91,7 +91,7 @@ Item {
         command: [
             "sh",
             "-c",
-            "\"$HOME/.config/scripts/aurora-kill-qs-helpers.sh\" >/dev/null 2>&1 || true; exec wl-paste --watch cliphist store"
+            "\"$HOME/.config/scripts/aurora-kill-qs-helpers.sh\" >/dev/null 2>&1 || true; exec wl-paste --watch \"$HOME/.config/scripts/clipboard-watch.sh\""
         ]
 
         running: true

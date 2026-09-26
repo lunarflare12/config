@@ -107,7 +107,21 @@ Rectangle {
                 const padTop = 4;
                 const padBottom = 4;
                 const chartHeight = height - padTop - padBottom;
-                const values = board.values.length >= 2 ? board.values : [board.currentValue, board.currentValue];
+                const raw = board.values.length >= 2 ? board.values : [board.currentValue, board.currentValue];
+                // A few seconds of average. Idle Ryzen samples jump hard enough
+                // that the raw polyline reads as a seismograph.
+                const radius = 4;
+                const values = raw.map((_, i) => {
+                    let sum = 0;
+                    let count = 0;
+                    const from = Math.max(0, i - radius);
+                    const to = Math.min(raw.length - 1, i + radius);
+                    for (let j = from; j <= to; j++) {
+                        sum += Number(raw[j]) || 0;
+                        count++;
+                    }
+                    return sum / count;
+                });
 
                 const xAt = index => index * (width - 1) / (values.length - 1);
                 const yAt = value => padTop + chartHeight - (Math.max(0, Math.min(100, value)) / 100) * chartHeight;
@@ -124,26 +138,37 @@ Rectangle {
                     }
                 }
 
+                function traceCurve() {
+                    if (values.length < 3) {
+                        for (let i = 1; i < values.length; i++)
+                            context.lineTo(xAt(i), yAt(values[i]));
+                        return;
+                    }
+                    for (let i = 1; i < values.length - 1; i++) {
+                        const xc = (xAt(i) + xAt(i + 1)) / 2;
+                        const yc = (yAt(values[i]) + yAt(values[i + 1])) / 2;
+                        context.quadraticCurveTo(xAt(i), yAt(values[i]), xc, yc);
+                    }
+                    const last = values.length - 1;
+                    context.quadraticCurveTo(xAt(last - 1), yAt(values[last - 1]), xAt(last), yAt(values[last]));
+                }
+
                 context.beginPath();
                 context.moveTo(xAt(0), height - padBottom);
-                for (let i = 0; i < values.length; i++)
-                    context.lineTo(xAt(i), yAt(values[i]));
+                context.lineTo(xAt(0), yAt(values[0]));
+                traceCurve();
                 context.lineTo(xAt(values.length - 1), height - padBottom);
                 context.closePath();
                 context.fillStyle = "rgba(" + cr + ", " + cg + ", " + cb + ", 0.16)";
                 context.fill();
 
                 context.beginPath();
-                for (let i = 0; i < values.length; i++) {
-                    const x = xAt(i);
-                    const y = yAt(values[i]);
-                    if (i === 0)
-                        context.moveTo(x, y);
-                    else
-                        context.lineTo(x, y);
-                }
+                context.moveTo(xAt(0), yAt(values[0]));
+                traceCurve();
                 context.strokeStyle = board.seriesColor;
                 context.lineWidth = 1.5;
+                context.lineJoin = "round";
+                context.lineCap = "round";
                 context.stroke();
 
                 if (board.hoverIndex >= 0 && board.hoverIndex < values.length) {

@@ -87,7 +87,7 @@ let
     };
     telegram-2 = {
       kind = "container";
-      compose = "containers/telegram/compose.yml";
+      compose = ".local/share/aurora/containers/telegram/compose.yml";
       startOnly = true;
     };
   };
@@ -151,11 +151,15 @@ in
     (shim "terraria" "terraria.sh")
     (shim "albion" "albion.sh")
     (shim "alien-shooter" "alien-shooter.sh")
+    (shim "old-games" "old-games.sh")
+    pkgs.lutris
     (shim "code" "code.sh")
     (shim "obsidian" "obsidian.sh")
     (shim "openlens" "openlens.sh")
     (shim "libreoffice" "libreoffice.sh")
     (shim "soffice" "libreoffice.sh")
+    (shim "qbittorrent" "qbittorrent.sh")
+    (shim "prismlauncher" "prismlauncher.sh")
     (pkgs.writeShellApplication {
       name = "wayland-box";
       text = ''exec ${./dots/scripts/wayland-box.sh} "$@"'';
@@ -173,13 +177,15 @@ in
     ${pkgs.obsidian}
     ${pkgs.openlens}
     ${pkgs.libreoffice}
+    ${pkgs.qbittorrent}
+    ${pkgs.prismlauncher}
     ${spiceSpotify}
     ${pkgs.openlens.extracted}
     ${pkgs.socat}
   '';
 
   # Compose interpolates these so a rebuild cannot leave stale /nix/store command paths.
-  home.file."containers/apps/.env" = {
+  home.file.".local/share/aurora/containers/apps/.env" = {
     text = ''
       CHROME_BIN=${pkgs.google-chrome}/bin/google-chrome-stable
       FIREFOX_BIN=${pkgs.firefox}/bin/firefox
@@ -189,6 +195,8 @@ in
       SPOTIFY_XPUI=${spiceXpui}
       OBSIDIAN_BIN=${pkgs.obsidian}/bin/obsidian
       LIBREOFFICE_BIN=${pkgs.libreoffice}/bin/soffice
+      QBITTORRENT_BIN=${pkgs.qbittorrent}/bin/qbittorrent
+      PRISM_BIN=${pkgs.prismlauncher}/bin/prismlauncher
       VSCODE_BIN=${pkgs.vscode}/bin/code
       VSCODE_ELECTRON=${pkgs.vscode}/lib/vscode/code
       OPENLENS_APP=${pkgs.openlens.extracted}
@@ -197,7 +205,7 @@ in
     force = true;
   };
 
-  home.file."containers/apps/launch-vscode.sh" = {
+  home.file.".local/share/aurora/containers/apps/launch-vscode.sh" = {
     executable = true;
     force = true;
     text = ''
@@ -218,7 +226,7 @@ in
     '';
   };
 
-  home.file."containers/apps/launch-openlens.sh" = {
+  home.file.".local/share/aurora/containers/apps/launch-openlens.sh" = {
     executable = true;
     force = true;
     text = ''
@@ -280,6 +288,21 @@ in
       terminal = false;
       settings.StartupWMClass = "steam_app_33100";
     };
+    old-games = {
+      name = "Old Games";
+      comment = "Classic games. Not GTA RP.";
+      exec = "${scripts}/old-games.sh";
+      icon = "lutris";
+      categories = [ "Game" ];
+      terminal = false;
+      settings.StartupWMClass = "lutris";
+    };
+    "net.lutris.Lutris" = {
+      name = "Hidden";
+      exec = "true";
+      noDisplay = true;
+      settings.Hidden = "true";
+    };
     discord = {
       name = "Discord";
       exec = "${scripts}/discord.sh";
@@ -340,6 +363,30 @@ in
       categories = [ "Development" ];
       startupNotify = true;
       settings.StartupWMClass = "open-lens";
+    };
+    prismlauncher = {
+      name = "Prism Launcher";
+      genericName = "Minecraft Launcher";
+      comment = "Discover, manage, and play Minecraft instances";
+      exec = "${scripts}/prismlauncher.sh %U";
+      icon = "${pkgs.prismlauncher}/share/icons/hicolor/scalable/apps/org.prismlauncher.PrismLauncher.svg";
+      categories = [ "Game" ];
+      mimeType = [ "x-scheme-handler/prismlauncher" ];
+      startupNotify = true;
+      settings.StartupWMClass = "PrismLauncher";
+    };
+    qbittorrent = {
+      name = "qBittorrent";
+      genericName = "BitTorrent Client";
+      exec = "${scripts}/qbittorrent.sh %U";
+      icon = "${pkgs.qbittorrent}/share/icons/hicolor/scalable/apps/qbittorrent.svg";
+      categories = [ "Network" ];
+      mimeType = [
+        "application/x-bittorrent"
+        "x-scheme-handler/magnet"
+      ];
+      startupNotify = true;
+      settings.StartupWMClass = "qbittorrent";
     };
     libreoffice-startcenter = {
       name = "LibreOffice";
@@ -652,6 +699,33 @@ in
       "${config.home.homeDirectory}/programs/firefox/ipc/telegram.url"
       "${config.home.homeDirectory}/programs/zen/ipc/telegram.url"
       "${config.home.homeDirectory}/programs/ipc/telegram.url"
+    ];
+    Install.WantedBy = [ "default.target" ];
+  };
+
+  systemd.user.services.container-open = {
+    Unit = {
+      Description = "Open a container download in Finder";
+      StartLimitIntervalSec = 0;
+    };
+    Service = {
+      Type = "oneshot";
+      ExecStart = "${config.home.homeDirectory}/.config/scripts/container-open-dispatch.sh";
+    };
+  };
+
+  systemd.user.paths.container-open = {
+    Unit = {
+      Description = "Watch for file opens from isolated browsers";
+      StartLimitIntervalSec = 0;
+    };
+    Path.PathChanged = [
+      "${config.home.homeDirectory}/programs/chrome-dd/ipc/open.path"
+      "${config.home.homeDirectory}/programs/chrome-az/ipc/open.path"
+      "${config.home.homeDirectory}/programs/chrome-hika/ipc/open.path"
+      "${config.home.homeDirectory}/programs/chrome-sciencesoft/ipc/open.path"
+      "${config.home.homeDirectory}/programs/firefox/ipc/open.path"
+      "${config.home.homeDirectory}/programs/zen/ipc/open.path"
     ];
     Install.WantedBy = [ "default.target" ];
   };

@@ -43,7 +43,7 @@ space_display_env() {
 }
 
 space_load_apps_env() {
-  local envf="${HOME}/containers/apps/.env"
+  local envf="${HOME}/.local/share/aurora/containers/apps/.env"
   if [[ -f "$envf" ]]; then
     set -a
     # shellcheck disable=SC1090

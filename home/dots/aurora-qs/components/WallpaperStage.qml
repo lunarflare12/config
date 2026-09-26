@@ -147,7 +147,8 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        color: Core.Theme.background
+        radius: Core.Theme.frameRadius
+        color: Qt.alpha(Core.Theme.background, 1)
     }
 
     MultiEffect {
@@ -194,8 +195,13 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        height: 72
+        height: 88
         z: 20
+
+        Rectangle {
+            anchors.fill: parent
+            color: Qt.alpha(Core.Theme.background, 1)
+        }
 
         Row {
             anchors.left: parent.left

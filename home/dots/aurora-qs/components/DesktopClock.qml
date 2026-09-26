@@ -11,7 +11,7 @@ Item {
     property var host: parent
 
     readonly property string monitorName: host && host.monitorName ? host.monitorName : ""
-    readonly property bool onDesktop: Core.Session.isWidgetMonitor(root.monitorName)
+    readonly property bool onDesktop: Core.Session.widgetsOnMonitor(root.monitorName)
 
     anchors.fill: parent
     visible: root.onDesktop

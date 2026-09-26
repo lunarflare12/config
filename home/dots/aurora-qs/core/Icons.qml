@@ -133,6 +133,10 @@ QtObject {
     readonly property string email: "\udb80\uddee"        // F01EE
     readonly property string message: "\udb80\udf61"      // F0361
     readonly property string musicNote: "\udb80\udf87"    // F0387
+    readonly property string play: "\udb81\udc0a"         // F040A
+    readonly property string pause: "\udb80\udfe4"        // F03E4
+    readonly property string skipPrev: "\udb81\udcae"     // F04AE
+    readonly property string skipNext: "\udb81\udcad"     // F04AD
     readonly property string download: "\udb80\uddda"     // F01DA
     readonly property string folder: "\udb80\ude4b"       // F024B
     readonly property string file: "\udb80\ude13"         // F0213

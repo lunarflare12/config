@@ -13,8 +13,12 @@ Item {
     property bool osd: false
 
     readonly property var island: Services.IslandService
-    readonly property bool music: Services.MprisService.playing
+    readonly property bool music: Services.MprisService.hasTrack
     readonly property bool recording: Services.RecordService.recording
+    readonly property bool spotify: {
+        const blob = (Services.MprisService.identity + " " + Services.MprisService.desktopEntry).toLowerCase();
+        return blob.indexOf("spotify") >= 0;
+    }
 
     onMusicChanged: root.island.sync(root.music, root.recording)
     onRecordingChanged: root.island.sync(root.music, root.recording)
@@ -54,13 +58,13 @@ Item {
     }
 
     implicitWidth: root.islandWidth
-    implicitHeight: Core.Theme.moduleHeight
+    implicitHeight: Core.Theme.notchHeight
 
     Item {
         id: inner
         anchors.centerIn: parent
         width: root.osd ? osdView.implicitWidth : (root.island.busy ? Math.max(root.widthOf(root.island.kind), root.widthOf(root.island.nextKind)) : root.widthOf(root.island.kind))
-        height: Core.Theme.moduleHeight
+        height: Core.Theme.notchHeight
         clip: true
 
         Modules.Clock {
@@ -183,49 +187,156 @@ Item {
                 id: musicInner
                 spacing: 8
 
-                Modules.NowPlaying {
-                    active: root.music
+                Item {
                     anchors.verticalCenter: parent.verticalCenter
+                    width: 22
+                    height: 28
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: Core.Icons.skipPrev
+                        color: prevMouse.containsMouse ? Core.Theme.text : Core.Theme.textMuted
+                        font.family: Core.Theme.iconFont
+                        font.pixelSize: 16
+                        opacity: Services.MprisService.canPrevious ? 1 : 0.28
+                    }
+
+                    MouseArea {
+                        id: prevMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        enabled: root.island.kind === "music" && !root.island.busy && Services.MprisService.canPrevious
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: Services.MprisService.previous()
+                    }
+                }
+
+                Item {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 28
+                    height: 28
+
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: 7
+                        clip: true
+                        color: Qt.rgba(0, 0, 0, 0.35)
+
+                        Image {
+                            id: artImg
+                            anchors.fill: parent
+                            fillMode: Image.PreserveAspectCrop
+                            asynchronous: true
+                            cache: true
+                            smooth: true
+                            sourceSize.width: 84
+                            sourceSize.height: 84
+                            source: {
+                                const src = Services.MprisService.artSource;
+                                if (src !== "")
+                                    return src;
+                                if (root.spotify)
+                                    return Qt.resolvedUrl("../assets/bar/spotify.svg");
+                                return "";
+                            }
+                        }
+
+                        Text {
+                            anchors.centerIn: parent
+                            visible: artImg.status !== Image.Ready
+                            text: Core.Icons.musicNote
+                            color: Core.Theme.textMuted
+                            font.family: Core.Theme.iconFont
+                            font.pixelSize: 14
+                        }
+                    }
                 }
 
                 Column {
+                    id: trackCol
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: 0
+                    spacing: 2
 
-                    Text {
-                        text: {
-                            const t = Services.MprisService.title || "";
-                            const a = Services.MprisService.artist || "";
-                            if (t && a)
-                                return t + "  ·  " + a;
-                            return t || a || "Now Playing";
+                    Row {
+                        spacing: 8
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: Services.MprisService.title || Services.MprisService.artist || "Now Playing"
+                            color: Core.Theme.text
+                            font.family: Core.Theme.fontFamily
+                            font.pixelSize: Core.Theme.fontSizeSmall
+                            font.weight: Font.DemiBold
+                            elide: Text.ElideRight
+                            width: Math.min(implicitWidth, 220)
+                            renderType: Text.QtRendering
                         }
-                        color: Core.Theme.text
-                        font.family: Core.Theme.fontFamily
-                        font.pixelSize: Core.Theme.fontSizeSmall
-                        font.weight: Font.DemiBold
-                        elide: Text.ElideRight
-                        width: Math.min(implicitWidth, 240)
-                        renderType: Text.QtRendering
+
+                        Modules.NowPlaying {
+                            active: root.music
+                            anchors.verticalCenter: parent.verticalCenter
+                        }
                     }
 
                     Text {
-                        text: Services.MprisService.playerLabel
+                        text: Services.MprisService.artist
                         color: Core.Theme.textMuted
                         font.family: Core.Theme.fontFamily
                         font.pixelSize: 10
                         elide: Text.ElideRight
-                        width: Math.min(implicitWidth, 240)
+                        width: Math.min(implicitWidth, 220)
+                        visible: text !== ""
                         renderType: Text.QtRendering
                     }
                 }
-            }
 
-            MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                enabled: root.island.kind === "music" && !root.island.busy
-                onClicked: Services.MprisService.toggle()
+                Item {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 22
+                    height: 28
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: Services.MprisService.playing ? Core.Icons.pause : Core.Icons.play
+                        color: playMouse.containsMouse ? Core.Theme.text : Core.Theme.textMuted
+                        font.family: Core.Theme.iconFont
+                        font.pixelSize: 15
+                        opacity: Services.MprisService.canToggle ? 1 : 0.28
+                    }
+
+                    MouseArea {
+                        id: playMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        enabled: root.island.kind === "music" && !root.island.busy && Services.MprisService.canToggle
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: Services.MprisService.toggle()
+                    }
+                }
+
+                Item {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 22
+                    height: 28
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: Core.Icons.skipNext
+                        color: nextMouse.containsMouse ? Core.Theme.text : Core.Theme.textMuted
+                        font.family: Core.Theme.iconFont
+                        font.pixelSize: 16
+                        opacity: Services.MprisService.canNext ? 1 : 0.28
+                    }
+
+                    MouseArea {
+                        id: nextMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        enabled: root.island.kind === "music" && !root.island.busy && Services.MprisService.canNext
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: Services.MprisService.next()
+                    }
+                }
             }
         }
 

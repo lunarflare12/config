@@ -11,4 +11,4 @@ if ! docker inspect -f '{{.State.Running}}' idea 2>/dev/null | grep -qx true; th
   rm -f "${HOME}/programs/idea/.cache/JetBrains/"IntelliJIdea*/.port
 fi
 
-exec docker compose -f "${HOME}/containers/apps/compose.yml" up -d --no-build idea
+exec docker compose -f "${HOME}/.local/share/aurora/containers/apps/compose.yml" up -d --no-build idea

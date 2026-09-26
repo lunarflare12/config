@@ -16,7 +16,7 @@ fi
 # Host: own container. Inside the box this file is the Steam launch wrapper.
 if [ "$in_box" -eq 0 ]; then
   HOME="${HOME:-/home/dd}"
-  COMPOSE="${HOME}/containers/steam/compose.yml"
+  COMPOSE="${HOME}/.local/share/aurora/containers/steam/compose.yml"
   if [ -x "${BASH_SOURCE[0]%/*}/protect-shader-caches.sh" ]; then
     "${BASH_SOURCE[0]%/*}/protect-shader-caches.sh" >/dev/null 2>&1 || true
   fi

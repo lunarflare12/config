@@ -389,7 +389,7 @@ PanelWindow {
         }
 
         Repeater {
-            model: root.shown && root.editing && (root.widgetHost || root.desktopHost) ? root.cols * root.rows : 0
+            model: root.shown && root.editing && (root.desktopHost || Core.Session.widgetsOnMonitor(root.monitorName)) ? root.cols * root.rows : 0
 
             Rectangle {
                 required property int index

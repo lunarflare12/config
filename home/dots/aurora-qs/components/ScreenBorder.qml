@@ -18,6 +18,8 @@ PanelWindow {
     readonly property int thickness: Core.Theme.frameWidth
     readonly property int radius: Core.Theme.frameRadius
     readonly property color fillColor: Core.Theme.background
+    readonly property int strokeWidth: Core.Theme.borderWidth
+    readonly property color strokeColor: Core.Theme.borderActive
     readonly property int hit: 28
     readonly property bool mine: {
         const a = Core.PopupManager.anchorScreen;
@@ -86,7 +88,7 @@ PanelWindow {
     margins.top: root.edge !== "bottom" ? Core.Theme.notchHeight : 0
 
     WlrLayershell.namespace: "aurora-frame-" + root.edge
-    WlrLayershell.layer: WlrLayer.Overlay
+    WlrLayershell.layer: WlrLayer.Top
 
     mask: passMask
     property Region passMask: Region {}
@@ -100,6 +102,12 @@ PanelWindow {
         Connections {
             target: root
             function onFillColorChanged() {
+                shape.requestPaint();
+            }
+            function onStrokeColorChanged() {
+                shape.requestPaint();
+            }
+            function onStrokeWidthChanged() {
                 shape.requestPaint();
             }
             function onWrapRightChanged() {
@@ -122,6 +130,22 @@ PanelWindow {
             const h = height;
             const t = root.thickness;
             const r = root.radius;
+            const sw = root.strokeWidth;
+
+            function strokeInner(draw) {
+                if (sw <= 0)
+                    return;
+                ctx.save();
+                ctx.clip();
+                ctx.beginPath();
+                draw();
+                ctx.lineWidth = sw * 2;
+                ctx.strokeStyle = root.strokeColor;
+                ctx.lineJoin = "round";
+                ctx.lineCap = "butt";
+                ctx.stroke();
+                ctx.restore();
+            }
 
             if (root.edge === "left") {
                 ctx.beginPath();
@@ -132,6 +156,12 @@ PanelWindow {
                 ctx.lineTo(0, h);
                 ctx.closePath();
                 ctx.fill();
+                // Meet the bar at (t+r, 0), then turn down the desktop edge.
+                strokeInner(function () {
+                    ctx.moveTo(t + r, 0);
+                    ctx.arcTo(t, 0, t, r, r);
+                    ctx.lineTo(t, h);
+                });
                 return;
             }
 
@@ -185,6 +215,11 @@ PanelWindow {
                 ctx.lineTo(w, h);
                 ctx.closePath();
                 ctx.fill();
+                strokeInner(function () {
+                    ctx.moveTo(w - (t + r), 0);
+                    ctx.arcTo(w - t, 0, w - t, r, r);
+                    ctx.lineTo(w - t, h);
+                });
                 return;
             }
 
@@ -200,6 +235,13 @@ PanelWindow {
             ctx.lineTo(t, 0);
             ctx.closePath();
             ctx.fill();
+            // Desktop-facing top of the bottom frame, left → right.
+            strokeInner(function () {
+                ctx.moveTo(t, 0);
+                ctx.arcTo(t, h - t, t + r, h - t, r);
+                ctx.lineTo(w - t - r, h - t);
+                ctx.arcTo(w - t, h - t, w - t, 0, r);
+            });
         }
     }
 }

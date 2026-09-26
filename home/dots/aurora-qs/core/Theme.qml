@@ -229,7 +229,7 @@ QtObject {
 
     readonly property int centerSheetWidth: 320
 
-    readonly property int animDuration: 320
+    readonly property int animDuration: 520
 
     readonly property int notchGap: 64
 
@@ -309,7 +309,7 @@ QtObject {
     // Motion is intentionally short and deterministic. Hover and press feel
     // lives in components/Tactile.qml, not here.
 
-    readonly property int durFast: 110
+    readonly property int durFast: 180
 
-    readonly property int durBase: 180
+    readonly property int durBase: 280
 }

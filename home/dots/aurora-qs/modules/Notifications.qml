@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Layouts
 
 import Quickshell
 import Quickshell.Wayland
@@ -21,7 +20,7 @@ PanelWindow {
 
     readonly property var toastModel: Services.NotificationServer.toastModel
 
-    readonly property int toastWidth: 380
+    readonly property int toastWidth: 320
 
     readonly property int toastGutter: 4
 
@@ -46,67 +45,6 @@ PanelWindow {
 
     mask: Region {
         item: column
-    }
-
-    function toneOf(n, critical) {
-        if (critical)
-            return "error";
-        let text = "";
-        try {
-            text = String(n.summary || "") + " " + String(n.body || "");
-        } catch (e) {}
-        text = text.toLowerCase();
-        if (/fail|error|couldn't|could not|denied/.test(text))
-            return "error";
-        if (/warn|attention|review/.test(text))
-            return "warning";
-        if (/stop|start|restart|removed|resumed|paused|completed|saved|success|toggled/.test(text))
-            return "success";
-        return "info";
-    }
-
-    function palette(tone) {
-        if (tone === "error")
-            return {
-                track: "#1A0C0E",
-                fill: "#3B1518",
-                ink: "#FFD5D8",
-                muted: "#E7A8AE",
-                icon: "#FF7F96"
-            };
-        if (tone === "warning")
-            return {
-                track: "#1A1608",
-                fill: "#3A3010",
-                ink: "#FFE7B0",
-                muted: "#E0C47A",
-                icon: "#FFD479"
-            };
-        if (tone === "success")
-            return {
-                track: "#0C1610",
-                fill: "#16351F",
-                ink: "#D8F3DE",
-                muted: "#9FD4AB",
-                icon: "#8FE3A5"
-            };
-        return {
-            track: "#0C1420",
-            fill: "#16304A",
-            ink: "#D7E6FF",
-            muted: "#9BB6DB",
-            icon: "#8FB8FF"
-        };
-    }
-
-    function toneIcon(tone) {
-        if (tone === "error")
-            return Core.Icons.closeCircle;
-        if (tone === "warning")
-            return Core.Icons.alertCircle;
-        if (tone === "success")
-            return Core.Icons.checkCircle;
-        return Core.Icons.info;
     }
 
     Column {
@@ -146,10 +84,6 @@ PanelWindow {
                 readonly property real cardHeight: Math.max(64, card.implicitHeight)
 
                 readonly property bool replying: Services.NotificationServer.isReplying(wrapper.modelData)
-
-                readonly property string tone: root.toneOf(wrapper.modelData, wrapper.critical)
-
-                readonly property var colors: root.palette(wrapper.tone)
 
                 property real progress: 1.0
 
@@ -286,7 +220,7 @@ PanelWindow {
                     anchors.leftMargin: root.toastGutter
                     anchors.rightMargin: root.toastGutter
                     anchors.topMargin: root.toastGutter
-                    implicitHeight: Math.max(68, contentRow.implicitHeight + 24)
+                    implicitHeight: note.implicitHeight
                     height: implicitHeight
 
                     transform: Translate {
@@ -295,29 +229,14 @@ PanelWindow {
 
                     clip: true
 
-                    Rectangle {
-                        anchors.fill: parent
-                        radius: 16
-                        color: wrapper.colors.track
-                    }
-
-                    Rectangle {
-                        id: timerFill
-
+                    Components.NotificationCard {
+                        id: note
                         anchors.left: parent.left
+                        anchors.right: parent.right
                         anchors.top: parent.top
-                        anchors.bottom: parent.bottom
-                        width: parent.width * Math.max(0, Math.min(1, wrapper.progress))
-                        radius: 16
-                        color: wrapper.colors.fill
-                    }
-
-                    Rectangle {
-                        anchors.fill: parent
-                        radius: 16
-                        color: "transparent"
-                        border.width: 1
-                        border.color: Qt.alpha(wrapper.colors.icon, 0.22)
+                        notification: wrapper.modelData
+                        compact: true
+                        progress: wrapper.progress
                     }
 
                     HoverHandler {
@@ -354,93 +273,23 @@ PanelWindow {
                         }
                     }
 
-                    RowLayout {
-                        id: contentRow
-                        anchors.left: parent.left
+                    Text {
                         anchors.right: parent.right
-                        anchors.verticalCenter: parent.verticalCenter
-                        anchors.leftMargin: 14
-                        anchors.rightMargin: 12
-                        spacing: 10
+                        anchors.top: parent.top
+                        anchors.rightMargin: 10
+                        anchors.topMargin: 8
+                        text: Core.Icons.close
+                        font.family: Core.Theme.iconFont
+                        font.pixelSize: 14
+                        color: Qt.rgba(1, 1, 1, 0.4)
+                        renderType: Text.QtRendering
+                        z: 2
 
-                        Text {
-                            Layout.alignment: Qt.AlignTop
-                            Layout.topMargin: 1
-                            text: root.toneIcon(wrapper.tone)
-                            font.family: Core.Theme.iconFont
-                            font.pixelSize: 18
-                            color: wrapper.colors.icon
-                            renderType: Text.QtRendering
-                        }
-
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 2
-
-                            Text {
-                                Layout.fillWidth: true
-                                text: {
-                                    const n = wrapper.modelData;
-                                    try {
-                                        if (n.summary)
-                                            return n.summary;
-                                    } catch (e) {}
-                                    return Services.NotificationServer.appLabel(wrapper.modelData);
-                                }
-                                font.family: Core.Theme.fontFamily
-                                font.pixelSize: 13
-                                font.weight: Font.DemiBold
-                                color: wrapper.colors.ink
-                                elide: Text.ElideRight
-                                wrapMode: Text.NoWrap
-                                renderType: Text.QtRendering
-                            }
-
-                            Text {
-                                Layout.fillWidth: true
-                                visible: text !== ""
-                                text: {
-                                    const n = wrapper.modelData;
-                                    try {
-                                        return n.body || "";
-                                    } catch (e) {}
-                                    return "";
-                                }
-                                font.family: Core.Theme.fontFamily
-                                font.pixelSize: 12
-                                color: wrapper.colors.muted
-                                wrapMode: Text.Wrap
-                                maximumLineCount: 3
-                                elide: Text.ElideRight
-                                textFormat: Text.StyledText
-                                linkColor: wrapper.colors.icon
-                                renderType: Text.QtRendering
-                                onLinkActivated: function (link) {
-                                    Quickshell.execDetached(["xdg-open", link]);
-                                }
-                            }
-
-                            Components.NotificationActions {
-                                Layout.fillWidth: true
-                                Layout.topMargin: visible ? 6 : 0
-                                notification: wrapper.modelData
-                            }
-                        }
-
-                        Text {
-                            Layout.alignment: Qt.AlignTop
-                            text: Core.Icons.close
-                            font.family: Core.Theme.iconFont
-                            font.pixelSize: 14
-                            color: Qt.alpha(wrapper.colors.ink, 0.45)
-                            renderType: Text.QtRendering
-
-                            MouseArea {
-                                anchors.fill: parent
-                                anchors.margins: -6
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: wrapper.dismissFully()
-                            }
+                        MouseArea {
+                            anchors.fill: parent
+                            anchors.margins: -6
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: wrapper.dismissFully()
                         }
                     }
                 }

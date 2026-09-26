@@ -269,7 +269,9 @@ func Ensure() int {
 func Daemon() int {
 	path := resolve()
 	if path != "" && isVideo(path) {
-		select {}
+		for {
+			time.Sleep(24 * time.Hour)
+		}
 	}
 	bin := execx.Look("awww-daemon")
 	if bin == "" {

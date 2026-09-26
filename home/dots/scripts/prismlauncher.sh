@@ -5,16 +5,18 @@ source "${HOME}/.config/scripts/space-lib.sh"
 
 space_load_apps_env
 compose="${HOME}/.local/share/aurora/containers/apps/compose.yml"
-bin="${LIBREOFFICE_BIN:?LIBREOFFICE_BIN missing in containers/apps/.env}"
-docker compose -f "$compose" up -d --no-build libreoffice
+if [[ -z "${PRISM_BIN:-}" && -e "${HOME}/.local/share/aurora/prismlauncher.gcroot" ]]; then
+  PRISM_BIN="$(readlink -f "${HOME}/.local/share/aurora/prismlauncher.gcroot")/bin/prismlauncher"
+fi
+bin="${PRISM_BIN:?PRISM_BIN missing in containers/apps/.env}"
+
+docker compose -f "$compose" up -d --no-build prismlauncher
 if [ "$#" -gt 0 ]; then
   # shellcheck disable=SC2046
   docker exec -u app \
     $(space_display_env) \
     $(space_docker_env) \
-    -e GDK_BACKEND=wayland \
-    -e SAL_USE_VCLPLUGIN=gtk3 \
-    libreoffice \
+    prismlauncher \
     "$bin" \
     "$@"
 fi

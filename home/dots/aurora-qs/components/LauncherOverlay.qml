@@ -279,20 +279,12 @@ PanelWindow {
         height: root.activeLauncher ? root.activeLauncher.viewHeight : 110
         radius: Core.Theme.radiusMenu
         color: "transparent"
+        border.width: Core.Theme.borderWidth
+        border.color: Core.Theme.borderActive
         antialiasing: true
         clip: true
         visible: root.showCard
         z: 3
-
-        Rectangle {
-            anchors.fill: parent
-            anchors.margins: -Core.Theme.borderWidth
-            radius: parent.radius + Core.Theme.borderWidth
-            color: "transparent"
-            border.width: Core.Theme.borderWidth
-            border.color: Core.Theme.borderActive
-            antialiasing: true
-        }
 
         Glass {
             anchors.fill: parent

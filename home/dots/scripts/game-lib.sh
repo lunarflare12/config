@@ -20,7 +20,7 @@ game_ensure_xwayland() {
 # One container (`steam`) owns the library. Games are processes inside it.
 # Drop the old per-game containers. Never stop the Steam client here.
 game_ensure_steam() {
-  local compose="${COMPOSE:-${HOME:-/home/dd}/containers/steam/compose.yml}"
+  local compose="${COMPOSE:-${HOME:-/home/dd}/.local/share/aurora/containers/steam/compose.yml}"
   local i
   docker rm -f overwatch terraria albion >/dev/null 2>&1 || true
   docker compose -f "$compose" up -d --no-deps --no-build steam

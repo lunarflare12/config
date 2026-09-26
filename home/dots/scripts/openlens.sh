@@ -3,7 +3,7 @@ set -euo pipefail
 # shellcheck disable=SC1091
 source "${HOME}/.config/scripts/space-lib.sh"
 space_load_apps_env
-compose="${HOME}/containers/apps/compose.yml"
+compose="${HOME}/.local/share/aurora/containers/apps/compose.yml"
 bin="${OPENLENS_BIN:-${OPENLENS_APP:+$OPENLENS_APP/open-lens}}"
 bin="${bin:?OPENLENS_APP missing in containers/apps/.env}"
 docker compose -f "$compose" up -d --no-build openlens

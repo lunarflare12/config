@@ -56,11 +56,11 @@ hl.config({
     },
     cursor = {
         hide_on_key_press = false,
-        -- Software cursor on the desktop. CPU-buffer HW cursors pass a -1x-1
-        -- damage rect on this NVIDIA driver and SIGSEGV Hyprland.
+        -- 0.56 defaults this to 2 (auto). On this NVIDIA driver a HW cursor
+        -- still sends a -1x-1 damage rect and SIGSEGV Hyprland — keep it off.
         no_hardware_cursors = true,
         use_cpu_buffer = false,
-        enable_hyprcursor = true,
+        enable_hyprcursor = false,
         default_monitor = "DP-1",
     },
     misc = {

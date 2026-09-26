@@ -11,6 +11,8 @@ Canvas {
     property int radius: Core.Theme.frameRadius
     property int flareWidth: Core.Theme.frameRadius
     property int flareHeight: Core.Theme.frameRadius
+    property int strokeWidth: Core.Theme.borderWidth
+    property color strokeColor: Core.Theme.borderActive
 
     onWidthChanged: requestPaint()
     onHeightChanged: requestPaint()
@@ -19,6 +21,8 @@ Canvas {
     onFlareWidthChanged: requestPaint()
     onFlareHeightChanged: requestPaint()
     onRadiusChanged: requestPaint()
+    onStrokeWidthChanged: requestPaint()
+    onStrokeColorChanged: requestPaint()
 
     onPaint: {
         const ctx = getContext("2d");
@@ -43,9 +47,8 @@ Canvas {
             ctx.arcTo(0, h, 0, h - nr, nr);
             ctx.closePath();
         } else if (root.attachedEdge === "notch-right") {
-            const nr = Math.max(1, r);
-            ctx.moveTo(0, nr);
-            ctx.arcTo(0, 0, nr, 0, nr);
+            const nr = Math.max(1, Math.min(r, h / 2));
+            ctx.moveTo(0, 0);
             ctx.lineTo(w, 0);
             ctx.lineTo(w, h - nr);
             ctx.arcTo(w, h, w - nr, h, nr);
@@ -104,5 +107,38 @@ Canvas {
             ctx.closePath();
         }
         ctx.fill();
+
+        if (root.strokeWidth <= 0)
+            return;
+        if (root.attachedEdge !== "notch-right" && root.attachedEdge !== "notch-center")
+            return;
+
+        // Desktop-facing edge only. The screen top and the outer side stay bare,
+        // same as the bar.
+        ctx.save();
+        ctx.clip();
+        ctx.beginPath();
+        const nr = Math.max(1, Math.min(r, h / 2));
+        if (root.attachedEdge === "notch-right") {
+            ctx.moveTo(0, 0);
+            ctx.lineTo(0, h - nr);
+            ctx.arcTo(0, h, nr, h, nr);
+            ctx.lineTo(w - nr, h);
+            ctx.arcTo(w, h, w, h - nr, nr);
+        } else {
+            ctx.moveTo(0, nr);
+            ctx.lineTo(0, h - nr);
+            ctx.arcTo(0, h, nr, h, nr);
+            ctx.lineTo(w - nr, h);
+            ctx.arcTo(w, h, w, h - nr, nr);
+            ctx.lineTo(w, nr);
+            ctx.arcTo(w, 0, w - nr, 0, nr);
+        }
+        ctx.lineWidth = root.strokeWidth * 2;
+        ctx.strokeStyle = root.strokeColor;
+        ctx.lineJoin = "round";
+        ctx.lineCap = "butt";
+        ctx.stroke();
+        ctx.restore();
     }
 }

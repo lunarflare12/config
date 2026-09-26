@@ -36,7 +36,10 @@ PanelWindow {
         if (root.gameFullscreen !== next)
             root.gameFullscreen = next;
     }
-    Component.onCompleted: root.syncGameFullscreen()
+    Component.onCompleted: {
+        root.syncGameFullscreen();
+        root.publishNotch();
+    }
     property bool hideHold: false
     onGameFullscreenChanged: {
         if (root.gameFullscreen) {
@@ -69,15 +72,15 @@ PanelWindow {
     readonly property bool calendarOpen: Core.PopupManager.isOpen("calendar")
     readonly property bool rightDrawer: root.networkOpen || root.brightnessOpen || root.audioOpen
     readonly property int lWidth: Math.max(Core.Theme.lNotchMinWidth, Math.min(Core.Theme.lNotchMaxWidth, leftRow.implicitWidth + Core.Theme.notchPadding * 2))
-    property int cWidth: root.calendarOpen ? Core.Theme.centerSheetWidth : Math.max(Core.Theme.cNotchMinWidth, Math.min(Core.Theme.cNotchMaxWidth, island.implicitWidth + Core.Theme.notchPadding))
+    property real cWidth: root.calendarOpen ? Core.Theme.centerSheetWidth : Math.max(Core.Theme.cNotchMinWidth, Math.min(Core.Theme.cNotchMaxWidth, island.implicitWidth + Core.Theme.notchPadding))
 
     Behavior on cWidth {
         NumberAnimation {
             duration: Core.Theme.animDuration
-            easing.type: Easing.InOutCubic
+            easing.type: Easing.OutCubic
         }
     }
-    property int rWidth: {
+    property real rWidth: {
         if (root.networkOpen || root.brightnessOpen || root.audioOpen)
             return Core.Theme.rightSheetWidth;
         const raw = Math.max(Core.Theme.rNotchMinWidth, Math.min(Core.Theme.rNotchMaxWidth, rightRow.implicitWidth + Core.Theme.notchPadding * 2));
@@ -88,9 +91,21 @@ PanelWindow {
     Behavior on rWidth {
         NumberAnimation {
             duration: Core.Theme.animDuration
-            easing.type: Easing.InOutCubic
+            easing.type: Easing.OutCubic
         }
     }
+
+    function publishNotch() {
+        const anchor = Core.PopupManager.anchorScreen;
+        if (anchor && anchor !== root.screen)
+            return;
+        if (!anchor && !root.onMain)
+            return;
+        Core.PopupManager.rightNotchWidth = root.rWidth;
+    }
+
+    onRWidthChanged: root.publishNotch()
+    onRightDrawerChanged: root.publishNotch()
 
     SeamlessBarShape {
         id: barShape
@@ -98,6 +113,7 @@ PanelWindow {
         leftWidth: root.lWidth
         centerWidth: root.cWidth
         rightWidth: root.rWidth
+        rightOpen: root.rightDrawer || Core.PopupManager.rightSheetExtent > Core.Theme.notchHeight
     }
 
     Item {
@@ -233,6 +249,8 @@ PanelWindow {
             }
 
             Modules.DesktopEdit {}
+
+            Modules.Vpn {}
 
             Modules.Volume {
                 iconOnly: true

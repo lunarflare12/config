@@ -79,6 +79,8 @@ Singleton {
     readonly property bool hostPlaying: root.active !== null && root.active.playbackState === MprisPlaybackState.Playing
 
     // Bridge owns container Spotify/Chrome. Prefer whichever source is Playing.
+    readonly property bool bridgeHasTrack: !!(root.bridge && root.bridge.available && (root.bridge.title || root.bridge.artist))
+
     readonly property bool useBridge: {
         const bridgePlay = !!(root.bridge && root.bridge.playing);
         if (bridgePlay && !root.hostPlaying)
@@ -89,6 +91,8 @@ Singleton {
             return true;
         if (root.hostPlaying)
             return false;
+        if (root.bridgeHasTrack)
+            return true;
         if (root.active && String(root.active.trackTitle || "") !== "")
             return false;
         return !!(root.bridge && root.bridge.available);
@@ -97,6 +101,8 @@ Singleton {
     readonly property bool available: root.useBridge ? !!root.bridge.available : root.active !== null
 
     readonly property bool playing: root.useBridge ? !!root.bridge.playing : root.hostPlaying
+
+    readonly property bool hasTrack: root.available && (root.title !== "" || root.artist !== "")
 
     // Track info
 
@@ -196,9 +202,13 @@ Singleton {
             const next = JSON.parse(line);
             if (!next || typeof next !== "object")
                 return;
-            root.bridge = next;
+            const prev = root.bridge;
+            const sameTrack = String(prev.title || "") === String(next.title || "") && String(prev.artist || "") === String(next.artist || "") && String(prev.artUrl || "") === String(next.artUrl || "") && !!prev.playing === !!next.playing;
             if (root.useBridge)
                 root.position = Number(next.position || 0);
+            if (sameTrack)
+                return;
+            root.bridge = next;
         } catch (e) {}
     }
 

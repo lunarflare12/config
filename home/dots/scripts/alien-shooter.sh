@@ -3,7 +3,7 @@
 set -euo pipefail
 
 HOME="${HOME:-/home/dd}"
-COMPOSE="${HOME}/containers/steam/compose.yml"
+COMPOSE="${HOME}/.local/share/aurora/containers/steam/compose.yml"
 # shellcheck source=/dev/null
 . "${BASH_SOURCE[0]%/*}/game-lib.sh"
 

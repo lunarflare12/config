@@ -158,10 +158,15 @@ func Watch() {
 	for {
 		if !Loaded() {
 			_ = Recover()
-		} else {
-			_ = wallpaper.Ensure()
+			time.Sleep(3 * time.Second)
+			continue
 		}
+		_ = wallpaper.Ensure()
 		pinIfDrifted()
+		if outputsOK() {
+			time.Sleep(15 * time.Second)
+			continue
+		}
 		time.Sleep(3 * time.Second)
 	}
 }

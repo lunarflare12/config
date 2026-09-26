@@ -39,4 +39,4 @@ fi
 if [[ -n "$state" ]]; then
   exec docker start spotify
 fi
-exec docker compose -f "${HOME}/containers/apps/compose.yml" up -d --no-build spotify
+exec docker compose -f "${HOME}/.local/share/aurora/containers/apps/compose.yml" up -d --no-build spotify

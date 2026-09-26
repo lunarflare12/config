@@ -112,16 +112,26 @@ alias_one() {
 }
 
 share_files() {
-  local uris="" p
+  local uris="" p host name inbox="${HOME}/Downloads/telegram-1"
+  mkdir -p "$inbox"
   for p in "$@"; do
-    uris+=$(python3 -c 'import pathlib,sys; print(pathlib.Path(sys.argv[1]).resolve().as_uri())' "$p")
-    uris+=$'\n'
+    host=$(readlink -f -- "$p")
+    [[ -f $host ]] || continue
+    case "$host" in
+      "${HOME}"/*) ;;
+      *) continue ;;
+    esac
+    name=$(basename -- "$host")
+    cp -f -- "$host" "$inbox/$name"
+    chmod 600 "$inbox/$name" 2>/dev/null || true
+    uris+="file:///home/telegram/Downloads/${name}"$'\n'
   done
+  [[ -n $uris ]] || return 0
   if command -v wl-copy >/dev/null; then
     printf '%s' "$uris" | wl-copy --type text/uri-list
   fi
   if command -v notify-send >/dev/null; then
-    notify-send Finder "Copied $(basename -- "$1") for sharing"
+    notify-send Finder "Staged $(basename -- "$1") in Telegram Downloads"
   fi
 }
 

@@ -234,187 +234,36 @@ Components.PopupSurface {
                         required property var modelData
 
                         width: list.width
-                        implicitHeight: Math.max(noteLayout.implicitHeight, 40) + 18
+                        implicitHeight: noteLayout.implicitHeight + 6
                         height: implicitHeight
 
-                        Components.MinecraftPanel {
+                        Components.NotificationCard {
+                            id: noteLayout
                             anchors.fill: parent
                             anchors.leftMargin: 6
                             anchors.rightMargin: 6
                             anchors.topMargin: 3
                             anchors.bottomMargin: 3
-                            critical: popup.isCritical(noteRow.modelData)
+                            notification: noteRow.modelData
+                            showAge: true
                         }
 
-                        Item {
-                            id: iconBox
-                            anchors.left: parent.left
-                            anchors.verticalCenter: parent.verticalCenter
-                            anchors.leftMargin: 16
-                            width: 40
-                            height: 40
-
-                            readonly property string resolvedIcon: Services.NotificationServer.iconFor(noteRow.modelData)
-
-                            Rectangle {
-                                anchors.fill: parent
-                                radius: 10
-                                color: Qt.rgba(1, 1, 1, 0.08)
-                                border.width: 1
-                                border.color: Qt.rgba(1, 1, 1, 0.10)
-                            }
-
-                            Image {
-                                id: noteIcon
-                                anchors.centerIn: parent
-                                width: 28
-                                height: 28
-                                source: iconBox.resolvedIcon
-                                visible: iconBox.resolvedIcon !== "" && status === Image.Ready
-                                asynchronous: true
-                                cache: true
-                                smooth: true
-                                mipmap: true
-                                fillMode: Image.PreserveAspectFit
-                            }
-
-                            Text {
-                                anchors.centerIn: parent
-                                visible: !noteIcon.visible
-                                text: Core.Icons.forApp(popup.appLabel(noteRow.modelData))
-                                font.family: Core.Theme.iconFont
-                                font.pixelSize: 18
-                                color: Core.Theme.foreground
-                                renderType: Text.QtRendering
-                            }
-                        }
-
-                        Column {
-                            id: noteLayout
-
-                            anchors.left: iconBox.right
-                            anchors.right: parent.right
-                            anchors.verticalCenter: parent.verticalCenter
-                            anchors.leftMargin: 12
-                            anchors.rightMargin: 34
-
-                            spacing: 3
-
-                            Item {
-                                width: parent.width
-                                height: appText.implicitHeight
-
-                                Text {
-                                    id: appText
-                                    anchors.left: parent.left
-                                    anchors.right: ageText.left
-                                    anchors.rightMargin: 6
-                                    text: popup.appLabel(noteRow.modelData)
-                                    elide: Text.ElideRight
-                                    font.family: Core.Theme.fontFamily
-                                    font.pixelSize: 11
-                                    color: Qt.rgba(1, 1, 1, 0.45)
-                                    renderType: Text.QtRendering
-                                }
-
-                                Text {
-                                    id: ageText
-                                    anchors.right: parent.right
-                                    anchors.baseline: appText.baseline
-                                    text: {
-                                        const tick = Services.NotificationServer.ageTick;
-                                        return Services.NotificationServer.ageText(noteRow.modelData);
-                                    }
-                                    font.family: Core.Theme.fontFamily
-                                    font.pixelSize: 11
-                                    color: Qt.rgba(1, 1, 1, 0.32)
-                                    renderType: Text.QtRendering
-                                }
-                            }
-
-                            Text {
-                                width: parent.width
-                                text: noteRow.modelData.summary ? noteRow.modelData.summary : ""
-                                visible: text !== ""
-                                elide: Text.ElideRight
-                                font.family: Core.Theme.fontFamily
-                                font.pixelSize: 13
-                                font.weight: Font.DemiBold
-                                color: popup.isCritical(noteRow.modelData) ? Core.Theme.danger : Core.Theme.foreground
-                                renderType: Text.QtRendering
-                            }
-
-                            Text {
-                                width: parent.width
-                                text: noteRow.modelData.body ? noteRow.modelData.body : ""
-                                visible: text !== ""
-                                wrapMode: Text.Wrap
-                                maximumLineCount: 3
-                                elide: Text.ElideRight
-                                textFormat: Text.StyledText
-                                linkColor: Core.Theme.accent
-                                onLinkActivated: function (link) {
-                                    Quickshell.execDetached(["xdg-open", link]);
-                                }
-                                font.family: Core.Theme.fontFamily
-                                font.pixelSize: 12
-                                color: Qt.rgba(1, 1, 1, 0.72)
-                                renderType: Text.QtRendering
-                            }
-
-                            Components.NotificationActions {
-                                width: parent.width
-                                chipHeight: 24
-                                notification: noteRow.modelData
-                            }
-                        }
-
-                        // Per-notification close button
-                        Rectangle {
-                            id: closeBtn
-
+                        Text {
                             anchors.right: parent.right
                             anchors.top: parent.top
-
-                            anchors.rightMargin: 6
-                            anchors.topMargin: 6
-
-                            width: 22
-                            height: 22
-
-                            radius: 11
-
-                            color: closeMouse.containsMouse ? Core.Theme.surfaceHover : "transparent"
-
-                            opacity: noteMouse.containsMouse || closeMouse.containsMouse ? 1.0 : 0.0
-
-                            Behavior on opacity {
-                                NumberAnimation {
-                                    duration: 140
-                                    easing.type: Easing.OutQuint
-                                }
-                            }
-
-                            Text {
-                                anchors.centerIn: parent
-
-                                text: Core.Icons.close
-
-                                font.family: Core.Theme.iconFont
-                                font.pixelSize: Core.Theme.iconSizeSmall
-
-                                color: Core.Theme.foregroundMuted
-                            }
+                            anchors.rightMargin: 14
+                            anchors.topMargin: 10
+                            text: Core.Icons.close
+                            font.family: Core.Theme.iconFont
+                            font.pixelSize: Core.Theme.iconSizeSmall
+                            color: Core.Theme.foregroundMuted
+                            opacity: noteMouse.containsMouse ? 1 : 0.35
+                            z: 2
 
                             MouseArea {
-                                id: closeMouse
-
                                 anchors.fill: parent
-
-                                hoverEnabled: true
-
+                                anchors.margins: -6
                                 cursorShape: Qt.PointingHandCursor
-
                                 onClicked: popup.dismiss(noteRow.modelData)
                             }
                         }
