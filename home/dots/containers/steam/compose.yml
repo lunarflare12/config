@@ -1,0 +1,147 @@
+name: steam-isolated
+
+# Minimal client env — Steam locks setenv; dumping DXVK/GL here breaks applaunch.
+# Game-specific env is applied by overwatch.sh via Steam launch options.
+x-env: &env
+  DISPLAY: ":0"
+  XDG_RUNTIME_DIR: /tmp/xdg
+  PULSE_SERVER: unix:/run/user/1000/pulse/native
+  SDL_AUDIODRIVER: pulseaudio
+  HOME: /home/dd
+  USER: dd
+  LD_LIBRARY_PATH: /run/opengl-driver/lib:/run/opengl-driver-32/lib
+  LIBGL_DRIVERS_PATH: /run/opengl-driver/lib/dri
+  __EGL_VENDOR_LIBRARY_DIRS: /run/opengl-driver/share/glvnd/egl_vendor.d
+  __EGL_EXTERNAL_PLATFORM_CONFIG_DIRS: /run/opengl-driver/share/egl/egl_external_platform.d
+  __GLX_VENDOR_LIBRARY_NAME: nvidia
+  # 64-bit first. Steam's vulkandriverquery is 64-bit; a 32-bit-only ICD
+  # has no VK_KHR_surface, so Steam drops the Vulkan shader cache.
+  VK_ICD_FILENAMES: /run/opengl-driver/share/vulkan/icd.d/nvidia_icd.json:/run/opengl-driver-32/share/vulkan/icd.d/nvidia_icd.json
+  VK_DRIVER_FILES: /run/opengl-driver/share/vulkan/icd.d/nvidia_icd.json:/run/opengl-driver-32/share/vulkan/icd.d/nvidia_icd.json
+  NVIDIA_VISIBLE_DEVICES: all
+  NVIDIA_DRIVER_CAPABILITIES: all
+  SSL_CERT_FILE: /etc/ssl/certs/ca-bundle.crt
+  NIX_SSL_CERT_FILE: /etc/ssl/certs/ca-bundle.crt
+  CURL_CA_BUNDLE: /etc/ssl/certs/ca-bundle.crt
+  GDK_BACKEND: x11
+  QT_QPA_PLATFORM: xcb
+  STEAM_FORCE_DESKTOPUI_SCALING: "1"
+  STEAM_CONTAINER: "1"
+  # Host session bus — gamemoderun/libgamemodeauto need this; /tmp/xdg is empty.
+  DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/1000/bus"
+
+x-game: &game
+  image: steam-box:1
+  build: .
+  user: "1000:100"
+  group_add:
+    - "26"   # video
+    - "174"  # input
+    - "989"  # steam
+    - "992"  # gamemode
+  # Host net/ipc/pid for NVIDIA + audio + Steam IPC + gamemode (/proc/exe).
+  ipc: host
+  network_mode: host
+  pid: host
+  privileged: false
+  init: true
+  read_only: false
+  shm_size: 8gb
+  security_opt:
+    - seccomp=unconfined
+    - apparmor=unconfined
+  cap_add:
+    - SYS_ADMIN
+    - SYS_PTRACE
+    - NET_ADMIN
+  pids_limit: 8192
+  ulimits:
+    nofile:
+      soft: 1048576
+      hard: 1048576
+    memlock: -1
+  tmpfs:
+    - /tmp:size=8G,mode=1777,uid=1000,gid=100,exec,nosuid,nodev
+    - /tmp/xdg:size=64M,mode=0700,uid=1000,gid=100,exec,nosuid,nodev
+    - /tmp/dumps:size=512M,mode=1777,uid=1000,gid=100,exec,nosuid,nodev
+  devices:
+    - /dev/nvidia0
+    - /dev/nvidiactl
+    - /dev/nvidia-modeset
+    - /dev/nvidia-uvm
+    - /dev/nvidia-uvm-tools
+    - /dev/nvidia-caps/nvidia-cap1
+    - /dev/nvidia-caps/nvidia-cap2
+    - /dev/dri/renderD128
+    - /dev/dri/renderD129
+  device_cgroup_rules:
+    - "c 13:* rmw"
+    - "c 195:* rmw"
+    - "c 226:* rmw"
+  environment:
+    <<: *env
+  volumes:
+    - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
+    - ./game-session.sh:/usr/local/bin/game-session.sh:ro
+    - ./overwatch-entry.sh:/usr/local/bin/overwatch-entry.sh:ro
+    - ./terraria-entry.sh:/usr/local/bin/terraria-entry.sh:ro
+    - ./albion-entry.sh:/usr/local/bin/albion-entry.sh:ro
+    - /nix/store:/nix/store:ro
+    # The Nix Steam profile forces GE-Proton. Its driver query crashes
+    # (glibc mismatch) and Steam then drops the NVIDIA shader cache.
+    - ./steam-profile:/nix/store/i2j5kv5i7ww27gb1m4hlji5g24qhzs46-steam-1.0.0.87-fhsenv-rootfs/etc/profile:ro
+    - /run/current-system:/run/current-system:ro
+    - /run/opengl-driver:/run/opengl-driver:ro
+    - /run/opengl-driver-32:/run/opengl-driver-32:ro
+    - /etc/static:/etc/static:ro
+    - /etc/ssl:/etc/ssl:ro
+    - /etc/passwd:/etc/passwd:ro
+    - /etc/group:/etc/group:ro
+    - /etc/machine-id:/etc/machine-id:ro
+    - /etc/profiles/per-user/dd:/etc/profiles/per-user/dd:ro
+    # The directory, not the socket file. Binding X0 itself makes Docker
+    # create a root-owned directory and Xwayland can never listen.
+    - /tmp/.X11-unix:/tmp/.X11-unix
+    # On /run, not /tmp. Steam's bwrap replaces /tmp with a tmpfs, which
+    # used to hide the Pulse socket and the games fell back to a dead ALSA card.
+    - /run/user/1000/pulse:/run/user/1000/pulse
+    - /run/user/1000/pipewire-0:/run/user/1000/pipewire-0
+    - /run/user/1000/pipewire-0.lock:/run/user/1000/pipewire-0.lock
+    - /run/user/1000/hypr:/run/user/1000/hypr
+    - /run/user/1000/bus:/run/user/1000/bus
+    - /run/dbus:/run/dbus:ro
+    - /dev/input:/dev/input
+    - /steam:/steam
+    - /home/dd/.local/share/Steam:/home/dd/.local/share/Steam
+    - /home/dd/.local/share/Terraria:/home/dd/.local/share/Terraria
+    - /home/dd/.config/unity3d:/home/dd/.config/unity3d
+    - /home/dd/.steam:/home/dd/.steam
+    - /home/dd/.config/scripts:/home/dd/.config/scripts:ro
+    - /home/dd/.config/dxvk:/home/dd/.config/dxvk
+    - /home/dd/.cache/steam-shadercache:/home/dd/.cache/steam-shadercache
+    - /home/dd/.cache/dxvk:/home/dd/.cache/dxvk
+    # Host cache. The image's /home/dd/.cache is root-owned and hides this tree.
+    - /home/dd/.cache/nvidia:/home/dd/.cache/nvidia
+    - /home/dd/programs/steam:/home/dd/programs/steam
+    - /home/dd/.local/share/aurora/steam-bin:/home/dd/.local/share/aurora/steam-bin:ro
+  working_dir: /home/dd
+  restart: "no"
+  logging:
+    driver: json-file
+    options:
+      max-size: "20m"
+      max-file: "3"
+
+services:
+  # One box for the client and every game. A second container cannot
+  # share the Steam library lock, so Overwatch / Terraria / Albion
+  # are `docker exec` into this service, not their own containers.
+  steam:
+    <<: *game
+    container_name: steam
+    hostname: steam
+    entrypoint: ["/usr/local/bin/entrypoint.sh"]
+    command:
+      - /bin/sh
+      - -c
+      - exec "$(tr -d '\n' </home/dd/.local/share/aurora/steam-bin)" -forcedesktopscaling 1

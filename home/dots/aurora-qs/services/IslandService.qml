@@ -78,8 +78,9 @@ Item {
         property: "gear"
         from: 0
         to: 1
-        duration: 560
-        easing.type: Easing.OutCubic
+        duration: 360
+        easing.type: Easing.OutBack
+        easing.overshoot: 1.15
         onFinished: {
             root.kind = root.nextKind;
             root.gear = 0;

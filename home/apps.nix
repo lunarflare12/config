@@ -11,6 +11,15 @@
 let
   inherit (space) mkSpaces;
   scripts = "${config.home.homeDirectory}/.config/scripts";
+  repoRoot = "${config.home.homeDirectory}/${params.repo}";
+  containersDots = "${repoRoot}/home/dots/containers";
+  # Static compose/Dockerfile/entrypoint live in the git tree; ~/containers is just a view.
+  linkContainer = dir: name: {
+    "containers/${dir}/${name}" = {
+      source = config.lib.file.mkOutOfStoreSymlink "${containersDots}/${dir}/${name}";
+      force = true;
+    };
+  };
   zenBrowser = inputs.zen-browser.packages.${pkgs.stdenv.hostPlatform.system}.default;
   spiceSpotify = config.programs.spicetify.spicedSpotify;
   spiceXpui = "${spiceSpotify}/share/spotify/Apps/xpui";
@@ -87,12 +96,12 @@ let
     };
     telegram-2 = {
       kind = "container";
-      compose = ".local/share/aurora/containers/telegram/compose.yml";
+      compose = "containers/telegram/compose.yml";
       startOnly = true;
     };
   };
 
-  inherit (spaces) discord cursor;
+  inherit (spaces) cursor;
 in
 {
   programs.zathura = {
@@ -151,15 +160,11 @@ in
     (shim "terraria" "terraria.sh")
     (shim "albion" "albion.sh")
     (shim "alien-shooter" "alien-shooter.sh")
-    (shim "old-games" "old-games.sh")
-    pkgs.lutris
     (shim "code" "code.sh")
     (shim "obsidian" "obsidian.sh")
     (shim "openlens" "openlens.sh")
     (shim "libreoffice" "libreoffice.sh")
     (shim "soffice" "libreoffice.sh")
-    (shim "qbittorrent" "qbittorrent.sh")
-    (shim "prismlauncher" "prismlauncher.sh")
     (pkgs.writeShellApplication {
       name = "wayland-box";
       text = ''exec ${./dots/scripts/wayland-box.sh} "$@"'';
@@ -168,82 +173,102 @@ in
 
   # Keep store paths for containerized apps without installing their .desktop files.
   # Steam FHS is pinned via /etc/aurora/steam-bin (modules/steam.nix), not here.
-  home.file.".local/share/aurora/container-store-refs".text = ''
-    ${pkgs.google-chrome}
-    ${pkgs.firefox}
-    ${zenBrowser}
-    ${pkgs.jetbrains.idea}
-    ${pkgs.vscode}
-    ${pkgs.obsidian}
-    ${pkgs.openlens}
-    ${pkgs.libreoffice}
-    ${pkgs.qbittorrent}
-    ${pkgs.prismlauncher}
-    ${spiceSpotify}
-    ${pkgs.openlens.extracted}
-    ${pkgs.socat}
-  '';
+  # Compose/Dockerfile/entrypoint → git tree. .env + launchers stay HM-generated.
+  home.file = lib.mkMerge [
+    {
+      ".local/share/aurora/container-store-refs".text = ''
+        ${pkgs.google-chrome}
+        ${pkgs.firefox}
+        ${zenBrowser}
+        ${pkgs.jetbrains.idea}
+        ${pkgs.vscode}
+        ${pkgs.obsidian}
+        ${pkgs.openlens}
+        ${pkgs.libreoffice}
+        ${spiceSpotify}
+        ${pkgs.openlens.extracted}
+        ${pkgs.socat}
+      '';
+    }
+    (linkContainer "apps" "compose.yml")
+    (linkContainer "apps" "entrypoint.sh")
+    (linkContainer "apps" "Dockerfile")
+    (linkContainer "apps" "chrome-policy.json")
+    (linkContainer "steam" "compose.yml")
+    (linkContainer "steam" "entrypoint.sh")
+    (linkContainer "steam" "Dockerfile")
+    (linkContainer "steam" "game-session.sh")
+    (linkContainer "steam" "overwatch-entry.sh")
+    (linkContainer "steam" "albion-entry.sh")
+    (linkContainer "steam" "terraria-entry.sh")
+    (linkContainer "steam" "steam-profile")
+    (linkContainer "telegram" "compose.yml")
+    (linkContainer "telegram" "entrypoint.sh")
+    (linkContainer "telegram" "Dockerfile")
+    (linkContainer "llm" "compose.yml")
+    (linkContainer "llm" ".env.example")
+    (linkContainer "llm" "settings.yml.example")
+    {
+      "containers/apps/.env" = {
+        text = ''
+          CHROME_BIN=${pkgs.google-chrome}/bin/google-chrome-stable
+          FIREFOX_BIN=${pkgs.firefox}/bin/firefox
+          ZEN_BIN=${zenBrowser}/bin/zen
+          IDEA_BIN=${pkgs.jetbrains.idea}/bin/idea
+          SPOTIFY_BIN=${lib.getExe spiceSpotify}
+          SPOTIFY_XPUI=${spiceXpui}
+          OBSIDIAN_BIN=${pkgs.obsidian}/bin/obsidian
+          LIBREOFFICE_BIN=${pkgs.libreoffice}/bin/soffice
+          VSCODE_BIN=${pkgs.vscode}/bin/code
+          VSCODE_ELECTRON=${pkgs.vscode}/lib/vscode/code
+          OPENLENS_APP=${pkgs.openlens.extracted}
+          SOCAT_BIN=${pkgs.socat}/bin/socat
+        '';
+        force = true;
+      };
 
-  # Compose interpolates these so a rebuild cannot leave stale /nix/store command paths.
-  home.file.".local/share/aurora/containers/apps/.env" = {
-    text = ''
-      CHROME_BIN=${pkgs.google-chrome}/bin/google-chrome-stable
-      FIREFOX_BIN=${pkgs.firefox}/bin/firefox
-      ZEN_BIN=${zenBrowser}/bin/zen
-      IDEA_BIN=${pkgs.jetbrains.idea}/bin/idea
-      SPOTIFY_BIN=${lib.getExe spiceSpotify}
-      SPOTIFY_XPUI=${spiceXpui}
-      OBSIDIAN_BIN=${pkgs.obsidian}/bin/obsidian
-      LIBREOFFICE_BIN=${pkgs.libreoffice}/bin/soffice
-      QBITTORRENT_BIN=${pkgs.qbittorrent}/bin/qbittorrent
-      PRISM_BIN=${pkgs.prismlauncher}/bin/prismlauncher
-      VSCODE_BIN=${pkgs.vscode}/bin/code
-      VSCODE_ELECTRON=${pkgs.vscode}/lib/vscode/code
-      OPENLENS_APP=${pkgs.openlens.extracted}
-      SOCAT_BIN=${pkgs.socat}/bin/socat
-    '';
-    force = true;
-  };
+      "containers/apps/launch-vscode.sh" = {
+        executable = true;
+        force = true;
+        text = ''
+          #!/bin/bash
+          set -euo pipefail
+          wrapper=${pkgs.vscode}/bin/code
+          electron=${pkgs.vscode}/lib/vscode/code
+          eval "$(sed '/^exec /d' "$wrapper")"
+          unset ELECTRON_RUN_AS_NODE
+          unset DISPLAY
+          exec "$electron" \
+            --ozone-platform=wayland \
+            --force-dark-mode \
+            --no-sandbox \
+            --disable-setuid-sandbox \
+            --user-data-dir=/home/app/.config/Code \
+            "$@"
+        '';
+      };
 
-  home.file.".local/share/aurora/containers/apps/launch-vscode.sh" = {
-    executable = true;
-    force = true;
-    text = ''
-      #!/bin/bash
-      set -euo pipefail
-      wrapper=${pkgs.vscode}/bin/code
-      electron=${pkgs.vscode}/lib/vscode/code
-      eval "$(sed '/^exec /d' "$wrapper")"
-      unset ELECTRON_RUN_AS_NODE
-      unset DISPLAY
-      exec "$electron" \
-        --ozone-platform=wayland \
-        --force-dark-mode \
-        --no-sandbox \
-        --disable-setuid-sandbox \
-        --user-data-dir=/home/app/.config/Code \
-        "$@"
-    '';
-  };
-
-  home.file.".local/share/aurora/containers/apps/launch-openlens.sh" = {
-    executable = true;
-    force = true;
-    text = ''
-      #!/bin/sh
-      set -eu
-      app=${pkgs.openlens.extracted}
-      export ICU_DATA="$app"
-      unset DISPLAY
-      cd "$app"
-      exec "$app/open-lens" \
-        --ozone-platform=wayland \
-        --force-dark-mode \
-        --no-sandbox \
-        --disable-setuid-sandbox \
-        "$@"
-    '';
-  };
+      "containers/apps/launch-openlens.sh" = {
+        executable = true;
+        force = true;
+        text = ''
+          #!/bin/sh
+          set -eu
+          app=${pkgs.openlens.extracted}
+          export ICU_DATA="$app"
+          unset DISPLAY
+          cd "$app"
+          exec "$app/open-lens" \
+            --ozone-platform=wayland \
+            --force-dark-mode \
+            --no-sandbox \
+            --disable-setuid-sandbox \
+            "$@"
+        '';
+      };
+    }
+    { "vms/ubuntu/Vagrantfile".source = ./dots/vagrant/ubuntu/Vagrantfile; }
+  ];
 
   xdg.desktopEntries = {
     google-chrome = chromeEntry;
@@ -287,21 +312,6 @@ in
       categories = [ "Game" ];
       terminal = false;
       settings.StartupWMClass = "steam_app_33100";
-    };
-    old-games = {
-      name = "Old Games";
-      comment = "Classic games. Not GTA RP.";
-      exec = "${scripts}/old-games.sh";
-      icon = "lutris";
-      categories = [ "Game" ];
-      terminal = false;
-      settings.StartupWMClass = "lutris";
-    };
-    "net.lutris.Lutris" = {
-      name = "Hidden";
-      exec = "true";
-      noDisplay = true;
-      settings.Hidden = "true";
     };
     discord = {
       name = "Discord";
@@ -363,30 +373,6 @@ in
       categories = [ "Development" ];
       startupNotify = true;
       settings.StartupWMClass = "open-lens";
-    };
-    prismlauncher = {
-      name = "Prism Launcher";
-      genericName = "Minecraft Launcher";
-      comment = "Discover, manage, and play Minecraft instances";
-      exec = "${scripts}/prismlauncher.sh %U";
-      icon = "${pkgs.prismlauncher}/share/icons/hicolor/scalable/apps/org.prismlauncher.PrismLauncher.svg";
-      categories = [ "Game" ];
-      mimeType = [ "x-scheme-handler/prismlauncher" ];
-      startupNotify = true;
-      settings.StartupWMClass = "PrismLauncher";
-    };
-    qbittorrent = {
-      name = "qBittorrent";
-      genericName = "BitTorrent Client";
-      exec = "${scripts}/qbittorrent.sh %U";
-      icon = "${pkgs.qbittorrent}/share/icons/hicolor/scalable/apps/qbittorrent.svg";
-      categories = [ "Network" ];
-      mimeType = [
-        "application/x-bittorrent"
-        "x-scheme-handler/magnet"
-      ];
-      startupNotify = true;
-      settings.StartupWMClass = "qbittorrent";
     };
     libreoffice-startcenter = {
       name = "LibreOffice";
@@ -637,8 +623,6 @@ in
     };
   };
 
-  home.file."vms/ubuntu/Vagrantfile".source = ./dots/vagrant/ubuntu/Vagrantfile;
-
   systemd.user.services.hypr-fix-safe-mode = {
     Unit = {
       Description = "Restore Hyprland rice after watchdog safe-mode";
@@ -653,9 +637,12 @@ in
     Install.WantedBy = [ "graphical-session.target" ];
   };
 
+  # Caps only aurora/shader-ctl background fossilize (see fossilize.go).
+  # Must never pin Steam's Play-time --quiet-slave compile — that made OW
+  # ProcessingShaderCache crawl for hours on two nice-19 cores.
   systemd.user.services.cap-fossilize = {
     Unit = {
-      Description = "Pin Steam fossilize_replay to two idle cores";
+      Description = "Cap background (non-Steam) fossilize_replay only";
       After = [ "graphical-session.target" ];
       PartOf = [ "graphical-session.target" ];
     };
@@ -699,33 +686,6 @@ in
       "${config.home.homeDirectory}/programs/firefox/ipc/telegram.url"
       "${config.home.homeDirectory}/programs/zen/ipc/telegram.url"
       "${config.home.homeDirectory}/programs/ipc/telegram.url"
-    ];
-    Install.WantedBy = [ "default.target" ];
-  };
-
-  systemd.user.services.container-open = {
-    Unit = {
-      Description = "Open a container download in Finder";
-      StartLimitIntervalSec = 0;
-    };
-    Service = {
-      Type = "oneshot";
-      ExecStart = "${config.home.homeDirectory}/.config/scripts/container-open-dispatch.sh";
-    };
-  };
-
-  systemd.user.paths.container-open = {
-    Unit = {
-      Description = "Watch for file opens from isolated browsers";
-      StartLimitIntervalSec = 0;
-    };
-    Path.PathChanged = [
-      "${config.home.homeDirectory}/programs/chrome-dd/ipc/open.path"
-      "${config.home.homeDirectory}/programs/chrome-az/ipc/open.path"
-      "${config.home.homeDirectory}/programs/chrome-hika/ipc/open.path"
-      "${config.home.homeDirectory}/programs/chrome-sciencesoft/ipc/open.path"
-      "${config.home.homeDirectory}/programs/firefox/ipc/open.path"
-      "${config.home.homeDirectory}/programs/zen/ipc/open.path"
     ];
     Install.WantedBy = [ "default.target" ];
   };

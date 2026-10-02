@@ -1,0 +1,659 @@
+name: apps-isolated
+
+x-env: &env
+  WAYLAND_DISPLAY: wayland-1
+  XDG_RUNTIME_DIR: /tmp/xdg
+  PULSE_SERVER: unix:/tmp/pulse-native
+  GDK_BACKEND: wayland
+  MOZ_ENABLE_WAYLAND: "1"
+  QT_QPA_PLATFORM: wayland
+  LD_LIBRARY_PATH: /run/opengl-driver/lib
+  LIBGL_DRIVERS_PATH: /run/opengl-driver/lib/dri
+  __EGL_VENDOR_LIBRARY_DIRS: /run/opengl-driver/share/glvnd/egl_vendor.d
+  __EGL_EXTERNAL_PLATFORM_CONFIG_DIRS: /run/opengl-driver/share/egl/egl_external_platform.d
+  __GLX_VENDOR_LIBRARY_NAME: nvidia
+  VK_ICD_FILENAMES: /run/opengl-driver/share/vulkan/icd.d/nvidia_icd.json
+  NVIDIA_VISIBLE_DEVICES: all
+  NVIDIA_DRIVER_CAPABILITIES: all
+  GTK_THEME: WhiteSur-Dark
+  GTK_APPLICATION_PREFER_DARK_THEME: "1"
+  GTK_ICON_THEME: WhiteSur-dark
+  ADW_DEBUG_COLOR_SCHEME: prefer-dark
+  QT_QPA_PLATFORMTHEME: qt6ct
+  QT_STYLE_OVERRIDE: kvantum
+  QT_QUICK_CONTROLS_STYLE: Fusion
+  ELECTRON_FORCE_DARK: "1"
+  GTK_USE_PORTAL: "0"
+  COLOR_SCHEME: prefer-dark
+  XDG_DATA_DIRS: /usr/local/share:/usr/share
+  SOCAT_BIN: ${SOCAT_BIN:-/run/current-system/sw/bin/socat}
+
+x-base: &base
+  image: desktop-box:1
+  build: .
+  user: "1000:100"
+  read_only: true
+  privileged: false
+  init: true
+  ipc: private
+  shm_size: 2gb
+  cap_drop: [ALL]
+  security_opt:
+    - no-new-privileges:true
+  pids_limit: 2048
+  mem_limit: 6g
+  memswap_limit: 6g
+  tmpfs:
+    - /tmp:size=2G,mode=1777,uid=1000,gid=100,exec,nosuid,nodev
+    - /tmp/xdg:size=64M,mode=0700,uid=1000,gid=100,exec,nosuid,nodev
+    - /run:size=64M,mode=0755,uid=1000,gid=100,exec,nosuid,nodev
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+  devices:
+    - /dev/nvidia0
+    - /dev/nvidiactl
+    - /dev/nvidia-modeset
+    - /dev/nvidia-uvm
+    - /dev/nvidia-uvm-tools
+    - /dev/dri/renderD128
+    - /dev/dri/renderD129
+  environment:
+    <<: *env
+  volumes:
+    - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
+    - /nix/store:/nix/store:ro
+    - /etc/static/fonts:/etc/fonts:ro
+    - /etc/ssl/certs:/etc/ssl/certs:ro
+    - /run/opengl-driver:/run/opengl-driver:ro
+    - /run/user/1000/pulse/native:/tmp/pulse-native:ro
+    - /run/user/1000/pipewire-0:/tmp/pipewire-0:ro
+    - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
+    - /etc/profiles/per-user/dd/share/themes:/usr/share/themes:ro
+    - /etc/profiles/per-user/dd/share/icons:/usr/share/icons:ro
+  stop_grace_period: 0s
+  restart: "no"
+
+x-chrome: &chrome
+  <<: *base
+  shm_size: 8gb
+  pids_limit: 4096
+  mem_limit: 12g
+  memswap_limit: 12g
+  ulimits:
+    nofile:
+      soft: 1048576
+      hard: 1048576
+    nproc:
+      soft: 4096
+      hard: 4096
+    memlock: -1
+
+services:
+  chrome-dd:
+    <<: *chrome
+    container_name: chrome-dd
+    hostname: chrome-dd
+    networks:
+      chrome-dd:
+      ollama-clients:
+
+    environment:
+      <<: *env
+      WAYLAND_DISPLAY: wayland-1
+    volumes:
+      - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
+      - /nix/store:/nix/store:ro
+      - /etc/static/fonts:/etc/fonts:ro
+      - /etc/ssl/certs:/etc/ssl/certs:ro
+      - /run/opengl-driver:/run/opengl-driver:ro
+      - /run/user/1000/pulse/native:/tmp/pulse-native:ro
+      - /run/user/1000/pipewire-0:/tmp/pipewire-0:ro
+      - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
+      - /home/dd/programs/chrome-dd:/home/app
+      - /home/dd/Downloads:/home/app/Downloads
+      - /home/dd/.config/scripts/xdg-open-in-container.sh:/usr/bin/xdg-open:ro
+      - /home/dd/.local/share/aurora/chrome-policies:/etc/opt/chrome/policies/managed:ro
+    command:
+      - ${CHROME_BIN}
+      - --user-data-dir=/home/app/.config/google-chrome
+      - --profile-directory=Default
+      - --class=chrome-dd
+      - --no-first-run
+      - --no-default-browser-check
+      - --ozone-platform=wayland
+      - --force-dark-mode
+      - --ignore-gpu-blocklist
+      - --enable-gpu-rasterization
+      - --enable-zero-copy
+      - --no-sandbox
+      - --disable-features=MemorySaverMode
+
+  chrome-az:
+    <<: *chrome
+    container_name: chrome-az
+    hostname: chrome-az
+    networks:
+      chrome-az:
+      ollama-clients:
+
+    environment:
+      <<: *env
+      WAYLAND_DISPLAY: wayland-1
+    volumes:
+      - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
+      - /nix/store:/nix/store:ro
+      - /etc/static/fonts:/etc/fonts:ro
+      - /etc/ssl/certs:/etc/ssl/certs:ro
+      - /run/opengl-driver:/run/opengl-driver:ro
+      - /run/user/1000/pulse/native:/tmp/pulse-native:ro
+      - /run/user/1000/pipewire-0:/tmp/pipewire-0:ro
+      - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
+      - /home/dd/programs/chrome-az:/home/app
+      - /home/dd/Downloads:/home/app/Downloads
+      - /home/dd/.config/scripts/xdg-open-in-container.sh:/usr/bin/xdg-open:ro
+      - /home/dd/.local/share/aurora/chrome-policies:/etc/opt/chrome/policies/managed:ro
+    command:
+      - ${CHROME_BIN}
+      - --user-data-dir=/home/app/.config/google-chrome
+      - --profile-directory=Profile 2
+      - --class=chrome-az
+      - --no-first-run
+      - --no-default-browser-check
+      - --ozone-platform=wayland
+      - --force-dark-mode
+      - --ignore-gpu-blocklist
+      - --enable-gpu-rasterization
+      - --enable-zero-copy
+      - --no-sandbox
+      - --disable-features=MemorySaverMode
+
+  chrome-hika:
+    <<: *chrome
+    container_name: chrome-hika
+    hostname: chrome-hika
+    networks:
+      chrome-hika:
+      ollama-clients:
+
+    environment:
+      <<: *env
+      WAYLAND_DISPLAY: wayland-1
+    volumes:
+      - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
+      - /nix/store:/nix/store:ro
+      - /etc/static/fonts:/etc/fonts:ro
+      - /etc/ssl/certs:/etc/ssl/certs:ro
+      - /run/opengl-driver:/run/opengl-driver:ro
+      - /run/user/1000/pulse/native:/tmp/pulse-native:ro
+      - /run/user/1000/pipewire-0:/tmp/pipewire-0:ro
+      - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
+      - /home/dd/programs/chrome-hika:/home/app
+      - /home/dd/Downloads:/home/app/Downloads
+      - /home/dd/.config/scripts/xdg-open-in-container.sh:/usr/bin/xdg-open:ro
+      - /home/dd/.local/share/aurora/chrome-policies:/etc/opt/chrome/policies/managed:ro
+    command:
+      - ${CHROME_BIN}
+      - --user-data-dir=/home/app/.config/google-chrome
+      - --profile-directory=Profile 1
+      - --class=chrome-hika
+      - --no-first-run
+      - --no-default-browser-check
+      - --ozone-platform=wayland
+      - --force-dark-mode
+      - --ignore-gpu-blocklist
+      - --enable-gpu-rasterization
+      - --enable-zero-copy
+      - --no-sandbox
+      - --disable-features=MemorySaverMode
+
+  chrome-sciencesoft:
+    <<: *chrome
+    container_name: chrome-sciencesoft
+    hostname: chrome-sciencesoft
+    # Host net so SOCKS on 127.0.0.1:1080 is reachable (bridge→host is firewalled).
+    network_mode: host
+    environment:
+      <<: *env
+      WAYLAND_DISPLAY: wayland-1
+    volumes:
+      - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
+      - /nix/store:/nix/store:ro
+      - /etc/static/fonts:/etc/fonts:ro
+      - /etc/ssl/certs:/etc/ssl/certs:ro
+      - /run/opengl-driver:/run/opengl-driver:ro
+      - /run/user/1000/pulse/native:/tmp/pulse-native:ro
+      - /run/user/1000/pipewire-0:/tmp/pipewire-0:ro
+      - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
+      - /home/dd/programs/chrome-sciencesoft:/home/app
+      - /home/dd/Downloads:/home/app/Downloads
+      - /home/dd/.config/scripts/xdg-open-in-container.sh:/usr/bin/xdg-open:ro
+      - /home/dd/.local/share/aurora/chrome-policies:/etc/opt/chrome/policies/managed:ro
+    command:
+      - ${CHROME_BIN}
+      - --user-data-dir=/home/app/.config/google-chrome
+      - --profile-directory=Default
+      - --class=chrome-sciencesoft
+      - --proxy-server=socks5://127.0.0.1:1080
+      - "--host-resolver-rules=MAP * ~NOTFOUND , EXCLUDE 127.0.0.1"
+      - --no-first-run
+      - --no-default-browser-check
+      - --ozone-platform=wayland
+      - --force-dark-mode
+      - --ignore-gpu-blocklist
+      - --enable-gpu-rasterization
+      - --enable-zero-copy
+      - --no-sandbox
+      - --disable-features=MemorySaverMode
+
+  firefox:
+    <<: *base
+    container_name: firefox
+    hostname: firefox
+    networks: [firefox]
+    environment:
+      <<: *env
+      WAYLAND_DISPLAY: wayland-1
+      MOZ_ENABLE_WAYLAND: "1"
+    volumes:
+      - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
+      - /nix/store:/nix/store:ro
+      - /etc/static/fonts:/etc/fonts:ro
+      - /etc/ssl/certs:/etc/ssl/certs:ro
+      - /run/opengl-driver:/run/opengl-driver:ro
+      - /run/user/1000/pulse/native:/tmp/pulse-native:ro
+      - /run/user/1000/pipewire-0:/tmp/pipewire-0:ro
+      - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
+      - /home/dd/programs/firefox:/home/app
+      - /home/dd/programs/firefox/distribution/policies.json:/etc/firefox/policies/policies.json:ro
+      - /home/dd/Downloads:/home/app/Downloads
+      - /home/dd/.config/scripts/xdg-open-in-container.sh:/usr/bin/xdg-open:ro
+    command:
+      - ${FIREFOX_BIN}
+      - --profile
+      - /home/app/.mozilla/firefox/dd
+      - --no-remote
+
+  zen:
+    <<: *base
+    container_name: zen
+    hostname: zen
+    networks: [zen]
+    environment:
+      <<: *env
+      WAYLAND_DISPLAY: wayland-1
+      MOZ_ENABLE_WAYLAND: "1"
+    volumes:
+      - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
+      - /nix/store:/nix/store:ro
+      - /etc/static/fonts:/etc/fonts:ro
+      - /etc/ssl/certs:/etc/ssl/certs:ro
+      - /run/opengl-driver:/run/opengl-driver:ro
+      - /run/user/1000/pulse/native:/tmp/pulse-native:ro
+      - /run/user/1000/pipewire-0:/tmp/pipewire-0:ro
+      - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
+      - /home/dd/programs/zen:/home/app
+      - /home/dd/Downloads:/home/app/Downloads
+      - /home/dd/.config/scripts/xdg-open-in-container.sh:/usr/bin/xdg-open:ro
+    command:
+      - ${ZEN_BIN}
+      - --profile
+      - /home/app/.zen
+      - --no-remote
+
+  idea:
+    <<: *base
+    container_name: idea
+    hostname: idea
+    networks: [idea]
+    mem_limit: 8g
+    memswap_limit: 8g
+    environment:
+      <<: *env
+      WAYLAND_DISPLAY: wayland-1
+      _JAVA_AWT_WM_NONREPARENTING: "1"
+      JAVA_TOOL_OPTIONS: "-Dawt.toolkit.name=WLToolkit"
+      # Host HM zsh (ZDOTDIR=/home/dd/.config/zsh). Keep absolute paths.
+      SHELL: /etc/profiles/per-user/dd/bin/zsh
+      ZDOTDIR: /home/dd/.config/zsh
+      PATH: /etc/profiles/per-user/dd/bin:/nix/var/nix/profiles/default/bin:/usr/local/bin:/usr/bin:/bin
+    volumes:
+      - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
+      - /nix/store:/nix/store:ro
+      - /etc/static/fonts:/etc/fonts:ro
+      - /etc/ssl/certs:/etc/ssl/certs:ro
+      - /run/opengl-driver:/run/opengl-driver:ro
+      - /run/user/1000/pulse/native:/tmp/pulse-native:ro
+      - /run/user/1000/pipewire-0:/tmp/pipewire-0:ro
+      - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
+      - /etc/profiles/per-user/dd:/etc/profiles/per-user/dd:ro
+      - /home/dd/programs/idea:/home/app
+      - /home/dd/Documents/projects:/home/dd/Documents/projects
+      - /home/dd/.gitconfig:/home/app/.gitconfig:ro
+      - /home/dd/.config/git:/home/app/.config/git:ro
+      - /home/dd/.ssh:/home/app/.ssh:ro
+      # zsh: hm files hardcode /home/dd — bind at the same absolute paths
+      - /home/dd/.zshenv:/home/app/.zshenv:ro
+      - /home/dd/.config/zsh:/home/dd/.config/zsh:ro
+      - /home/dd/.config/starship.toml:/home/dd/.config/starship.toml:ro
+      - /home/dd/.cache/oh-my-zsh:/home/dd/.cache/oh-my-zsh
+      - /home/dd/.config/scripts:/home/dd/.config/scripts:ro
+    command:
+      - ${IDEA_BIN}
+
+  spotify:
+    <<: *base
+    container_name: spotify
+    hostname: spotify
+    networks: [spotify]
+    mem_limit: 2g
+    memswap_limit: 2g
+    pids_limit: 512
+    environment:
+      <<: *env
+      WAYLAND_DISPLAY: wayland-1
+      GDK_BACKEND: wayland
+    volumes:
+      - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
+      - /nix/store:/nix/store:ro
+      - /etc/static/fonts:/etc/fonts:ro
+      - /etc/ssl/certs:/etc/ssl/certs:ro
+      - /run/opengl-driver:/run/opengl-driver:ro
+      - /run/user/1000/pulse/native:/tmp/pulse-native:ro
+      - /run/user/1000/pipewire-0:/tmp/pipewire-0:ro
+      - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
+      - /home/dd/programs/spotify:/home/app
+      - /home/dd/.config/spicetify:/home/app/.config/spicetify
+      - /home/dd/.cache/aurora/spotify-xpui/colors.css:${SPOTIFY_XPUI:-/home/dd/.cache/aurora/spotify-xpui}/colors.css:ro
+      - /home/dd/.cache/aurora/spotify-xpui/index.html:${SPOTIFY_XPUI:-/home/dd/.cache/aurora/spotify-xpui}/index.html:ro
+      - /home/dd/.cache/aurora/spotify-xpui/extensions:${SPOTIFY_XPUI:-/home/dd/.cache/aurora/spotify-xpui}/extensions:ro
+    command:
+      - ${SPOTIFY_BIN}
+      - --ozone-platform=wayland
+      - --force-dark-mode
+      - --disable-dev-shm-usage
+      - --class=spotify
+
+  vscode:
+    <<: *base
+    container_name: vscode
+    hostname: vscode
+    networks: [vscode]
+    shm_size: 4gb
+    mem_limit: 8g
+    memswap_limit: 8g
+    environment:
+      <<: *env
+      WAYLAND_DISPLAY: wayland-1
+    volumes:
+      - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
+      - /nix/store:/nix/store:ro
+      - /etc/static/fonts:/etc/fonts:ro
+      - /etc/ssl/certs:/etc/ssl/certs:ro
+      - /run/opengl-driver:/run/opengl-driver:ro
+      - /run/user/1000/pulse/native:/tmp/pulse-native:ro
+      - /run/user/1000/pipewire-0:/tmp/pipewire-0:ro
+      - /etc/profiles/per-user/dd/share/themes:/usr/share/themes:ro
+      - /etc/profiles/per-user/dd/share/icons:/usr/share/icons:ro
+      - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
+      - /home/dd/programs/vscode:/home/app
+      - /home/dd/Documents/projects:/home/dd/Documents/projects
+      - /home/dd/.gitconfig:/home/app/.gitconfig:ro
+      - /home/dd/.config/git:/home/app/.config/git:ro
+      - /home/dd/.ssh:/home/app/.ssh:ro
+      - ./launch-vscode.sh:/usr/local/bin/launch-vscode.sh:ro
+    command:
+      - /usr/local/bin/launch-vscode.sh
+
+  obsidian:
+    <<: *base
+    container_name: obsidian
+    hostname: obsidian
+    networks: [obsidian]
+    shm_size: 4gb
+    mem_limit: 4g
+    memswap_limit: 4g
+    environment:
+      <<: *env
+      WAYLAND_DISPLAY: wayland-1
+    volumes:
+      - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
+      - /nix/store:/nix/store:ro
+      - /etc/static/fonts:/etc/fonts:ro
+      - /etc/ssl/certs:/etc/ssl/certs:ro
+      - /run/opengl-driver:/run/opengl-driver:ro
+      - /run/user/1000/pulse/native:/tmp/pulse-native:ro
+      - /run/user/1000/pipewire-0:/tmp/pipewire-0:ro
+      - /etc/profiles/per-user/dd/share/themes:/usr/share/themes:ro
+      - /etc/profiles/per-user/dd/share/icons:/usr/share/icons:ro
+      - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
+      - /home/dd/programs/obsidian:/home/app
+      - /home/dd/Documents/notes:/home/dd/Documents/notes
+    command:
+      - ${OBSIDIAN_BIN}
+      - --ozone-platform=wayland
+      - --force-dark-mode
+      - --no-sandbox
+      - /home/dd/Documents/notes
+
+  openlens:
+    <<: *base
+    container_name: openlens
+    hostname: openlens
+    networks: [openlens]
+    shm_size: 4gb
+    mem_limit: 4g
+    memswap_limit: 4g
+    environment:
+      <<: *env
+      WAYLAND_DISPLAY: wayland-1
+    volumes:
+      - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
+      - /nix/store:/nix/store:ro
+      - /etc/static/fonts:/etc/fonts:ro
+      - /etc/ssl/certs:/etc/ssl/certs:ro
+      - /run/opengl-driver:/run/opengl-driver:ro
+      - /run/user/1000/pulse/native:/tmp/pulse-native:ro
+      - /run/user/1000/pipewire-0:/tmp/pipewire-0:ro
+      - /etc/profiles/per-user/dd/share/themes:/usr/share/themes:ro
+      - /etc/profiles/per-user/dd/share/icons:/usr/share/icons:ro
+      - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
+      - /home/dd/programs/openlens:/home/app
+      - ./launch-openlens.sh:/usr/local/bin/launch-openlens.sh:ro
+    command:
+      - /usr/local/bin/launch-openlens.sh
+
+  libreoffice:
+    <<: *base
+    container_name: libreoffice
+    hostname: libreoffice
+    networks: [libreoffice]
+    mem_limit: 4g
+    memswap_limit: 4g
+    environment:
+      <<: *env
+      WAYLAND_DISPLAY: wayland-1
+      GDK_BACKEND: wayland
+      SAL_USE_VCLPLUGIN: gtk3
+    volumes:
+      - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
+      - /nix/store:/nix/store:ro
+      - /etc/static/fonts:/etc/fonts:ro
+      - /etc/ssl/certs:/etc/ssl/certs:ro
+      - /run/opengl-driver:/run/opengl-driver:ro
+      - /run/user/1000/pulse/native:/tmp/pulse-native:ro
+      - /run/user/1000/pipewire-0:/tmp/pipewire-0:ro
+      - /etc/profiles/per-user/dd/share/themes:/usr/share/themes:ro
+      - /etc/profiles/per-user/dd/share/icons:/usr/share/icons:ro
+      - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
+      - /home/dd/programs/libreoffice:/home/app
+      - /home/dd/Documents:/home/dd/Documents
+      - /home/dd/Downloads:/home/dd/Downloads
+    command:
+      - ${LIBREOFFICE_BIN}
+
+  qbittorrent:
+    <<: *base
+    container_name: qbittorrent
+    hostname: qbittorrent
+    networks: [qbittorrent]
+    mem_limit: 2g
+    memswap_limit: 2g
+    ports:
+      - "6881:6881/tcp"
+      - "6881:6881/udp"
+    environment:
+      <<: *env
+      WAYLAND_DISPLAY: wayland-1
+      QT_QPA_PLATFORM: wayland
+      QT_PLUGIN_PATH: /etc/profiles/per-user/dd/lib/qt-6/plugins
+      # Host session bus — StatusNotifierItem must reach Quickshell's watcher.
+      DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/1000/bus"
+    volumes:
+      - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
+      - /nix/store:/nix/store:ro
+      - /etc/static/fonts:/etc/fonts:ro
+      - /etc/ssl/certs:/etc/ssl/certs:ro
+      - /run/opengl-driver:/run/opengl-driver:ro
+      - /run/user/1000/pulse/native:/tmp/pulse-native:ro
+      - /run/user/1000/pipewire-0:/tmp/pipewire-0:ro
+      - /etc/profiles/per-user/dd/share/themes:/usr/share/themes:ro
+      - /etc/profiles/per-user/dd/share/icons:/usr/share/icons:ro
+      - /etc/profiles/per-user/dd/lib/qt-6/plugins:/etc/profiles/per-user/dd/lib/qt-6/plugins:ro
+      - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
+      - /run/user/1000/bus:/run/user/1000/bus
+      - /run/dbus:/run/dbus:ro
+      - /home/dd/programs/qbittorrent:/home/app
+      - /home/dd/Downloads:/home/app/Downloads
+      - /home/dd/Downloads:/home/dd/Downloads
+      - /home/dd/.config/qt6ct:/home/app/.config/qt6ct:ro
+      - /home/dd/.config/qt6ct:/home/dd/.config/qt6ct:ro
+      - /home/dd/.config/Kvantum:/home/app/.config/Kvantum:ro
+    command:
+      - ${QBITTORRENT_BIN}
+
+  prismlauncher:
+    <<: *base
+    container_name: prismlauncher
+    hostname: prismlauncher
+    networks: [prismlauncher]
+    shm_size: 4gb
+    pids_limit: 4096
+    mem_limit: 8g
+    memswap_limit: 8g
+    environment:
+      <<: *env
+      WAYLAND_DISPLAY: wayland-1
+      QT_QPA_PLATFORM: wayland
+      QT_PLUGIN_PATH: /etc/profiles/per-user/dd/lib/qt-6/plugins
+    volumes:
+      - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
+      - /nix/store:/nix/store:ro
+      - /etc/static/fonts:/etc/fonts:ro
+      - /etc/ssl/certs:/etc/ssl/certs:ro
+      - /run/opengl-driver:/run/opengl-driver:ro
+      - /run/user/1000/pulse/native:/tmp/pulse-native:ro
+      - /run/user/1000/pipewire-0:/tmp/pipewire-0:ro
+      - /etc/profiles/per-user/dd/share/themes:/usr/share/themes:ro
+      - /etc/profiles/per-user/dd/share/icons:/usr/share/icons:ro
+      - /etc/profiles/per-user/dd/lib/qt-6/plugins:/etc/profiles/per-user/dd/lib/qt-6/plugins:ro
+      - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
+      - /home/dd/programs/prismlauncher:/home/app
+      - /home/dd/.local/share/PrismLauncher:/home/app/.local/share/PrismLauncher
+      - /home/dd/.config/qt6ct:/home/app/.config/qt6ct:ro
+      - /home/dd/.config/qt6ct:/home/dd/.config/qt6ct:ro
+      - /home/dd/.config/Kvantum:/home/app/.config/Kvantum:ro
+    command:
+      - ${PRISM_BIN}
+
+
+networks:
+  default:
+    driver: bridge
+    enable_ipv6: false
+    ipam:
+      config:
+        - subnet: 10.200.20.0/24
+  chrome-dd:
+    driver: bridge
+    enable_ipv6: false
+    ipam:
+      config:
+        - subnet: 10.200.21.0/24
+  chrome-az:
+    driver: bridge
+    enable_ipv6: false
+    ipam:
+      config:
+        - subnet: 10.200.22.0/24
+  chrome-hika:
+    driver: bridge
+    enable_ipv6: false
+    ipam:
+      config:
+        - subnet: 10.200.23.0/24
+  firefox:
+    driver: bridge
+    enable_ipv6: false
+    ipam:
+      config:
+        - subnet: 10.200.24.0/24
+  zen:
+    driver: bridge
+    enable_ipv6: false
+    ipam:
+      config:
+        - subnet: 10.200.25.0/24
+  idea:
+    driver: bridge
+    enable_ipv6: false
+    ipam:
+      config:
+        - subnet: 10.200.26.0/24
+  spotify:
+    driver: bridge
+    enable_ipv6: false
+    ipam:
+      config:
+        - subnet: 10.200.27.0/24
+  vscode:
+    driver: bridge
+    enable_ipv6: false
+    ipam:
+      config:
+        - subnet: 10.200.28.0/24
+  obsidian:
+    driver: bridge
+    enable_ipv6: false
+    ipam:
+      config:
+        - subnet: 10.200.29.0/24
+  openlens:
+    driver: bridge
+    enable_ipv6: false
+    ipam:
+      config:
+        - subnet: 10.200.30.0/24
+  libreoffice:
+    driver: bridge
+    enable_ipv6: false
+    ipam:
+      config:
+        - subnet: 10.200.31.0/24
+  qbittorrent:
+    driver: bridge
+    enable_ipv6: false
+    ipam:
+      config:
+        - subnet: 10.200.33.0/24
+  prismlauncher:
+    driver: bridge
+    enable_ipv6: false
+    ipam:
+      config:
+        - subnet: 10.200.34.0/24
+  ollama-clients:
+    external: true
+    name: ollama-clients

@@ -4,55 +4,94 @@ import "../components" as Components
 import "../core" as Core
 import "../services" as Services
 
+// Leftmost chip in the right bar cluster: lock + active profile name.
 Item {
     id: root
 
-    implicitWidth: row.implicitWidth + 10
+    implicitWidth: Math.ceil(row.implicitWidth + 12)
     implicitHeight: Core.Theme.moduleHeight
 
-    readonly property bool up: Services.LabService.vpnUp
-    readonly property string label: Services.LabService.vpnLabel
-    readonly property color ink: root.up ? Core.Theme.success : Core.Theme.error
+    readonly property var svc: Services.LabService
+    readonly property bool on: root.svc.vpnUp
+    readonly property string profile: root.svc.activeVpn
+    readonly property color ink: root.on ? Core.Theme.success : Core.Theme.danger
+
+    Component.onCompleted: root.svc.retain()
+    Component.onDestruction: root.svc.release()
+
+    Components.Tactile {
+        anchors.fill: parent
+        hovered: mouse.containsMouse
+        pressed: mouse.pressed
+        active: root.on
+        activeFill: Qt.alpha(root.ink, 0.22)
+    }
 
     Row {
         id: row
         anchors.centerIn: parent
         spacing: 6
 
-        Item {
-            width: 18
-            height: 18
+        Text {
+            id: glyph
             anchors.verticalCenter: parent.verticalCenter
+            text: root.on ? Core.Icons.lock : Core.Icons.lockOpen
+            font.family: Core.Theme.iconFont
+            font.pixelSize: Core.Theme.iconSizeMedium
+            font.hintingPreference: Font.PreferNoHinting
+            renderType: Text.QtRendering
+            color: root.ink
 
-            Rectangle {
-                anchors.centerIn: parent
-                width: 16
-                height: 16
-                radius: 8
-                color: Qt.alpha(root.ink, root.up ? 0.16 : 0.34)
+            Behavior on color {
+                ColorAnimation {
+                    duration: 150
+                    easing.type: Easing.OutQuint
+                }
             }
 
-            Text {
-                anchors.centerIn: parent
-                text: Core.Icons.shield
-                font.family: Core.Theme.iconFont
-                font.pixelSize: Core.Theme.iconSize
-                color: root.ink
-                renderType: Text.NativeRendering
+            onTextChanged: popAnim.restart()
+
+            SequentialAnimation {
+                id: popAnim
+
+                NumberAnimation {
+                    target: glyph
+                    property: "scale"
+                    to: 1.18
+                    duration: 80
+                    easing.type: Easing.OutCubic
+                }
+
+                NumberAnimation {
+                    target: glyph
+                    property: "scale"
+                    to: 1.0
+                    duration: 160
+                    easing.type: Easing.OutBack
+                    easing.overshoot: 1.8
+                }
             }
         }
 
         Text {
             anchors.verticalCenter: parent.verticalCenter
-            visible: root.up && root.label.length > 0
-            text: root.label
+            visible: root.on && root.profile.length > 0
+            text: root.profile
             color: root.ink
             font.family: Core.Theme.fontFamily
-            font.pixelSize: Core.Theme.fontSizeSmall
+            font.pixelSize: Core.Theme.fontSize
             font.weight: Font.DemiBold
+            renderType: Text.QtRendering
             elide: Text.ElideRight
             maximumLineCount: 1
-            renderType: Text.QtRendering
         }
+    }
+
+    MouseArea {
+        id: mouse
+        anchors.fill: parent
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        acceptedButtons: Qt.LeftButton
     }
 }

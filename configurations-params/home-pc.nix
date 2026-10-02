@@ -37,7 +37,6 @@
     "go"
     "nodejs_latest"
     "claude-code"
-    "python3"
     "ffmpeg"
     "code-cursor"
     "keymapp"
@@ -95,8 +94,13 @@
     "vagrant"
     "vlc"
     "xournalpp"
+    "prismlauncher"
   ];
 
+  # NVIDIA connector names jump (DP-1↔DP-4, HDMI-A-1↔HDMI-A-2) after
+  # driver/GPU churn. Prefer the live names; hyprland.nix also emits the
+  # aliases so either boot still pins 200Hz + layout. windows.lua / hyprfix
+  # resolve by model description as a second line of defense.
   monitors = [
     {
       output = "DP-1";

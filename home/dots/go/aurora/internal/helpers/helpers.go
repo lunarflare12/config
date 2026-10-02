@@ -57,9 +57,6 @@ func killMatching(needles ...string) {
 func KillHelpers() int {
 	killMatching(
 		"wl-paste --watch cliphist store",
-		"wl-paste --watch",
-		"clipboard-watch.sh",
-		"mpris-bridge.py",
 		"aurora-mpris",
 		"/mpris-bridge",
 	)

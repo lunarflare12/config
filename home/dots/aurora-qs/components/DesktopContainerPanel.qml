@@ -205,26 +205,26 @@ Item {
             spacing: 1
 
             Repeater {
-                        model: [
-                            {
-                                "label": panel.menuCt && panel.menuCt.state === "running" ? "Stop" : "Start",
-                                "icon": Core.Icons.power,
-                                "act": "run"
-                            },
-                            {
-                                "label": "Restart",
-                                "icon": Core.Icons.restart,
-                                "act": "restart"
-                            },
-                            {
-                                "sep": true
-                            },
-                            {
-                                "label": "Enter",
-                                "icon": Core.Icons.terminal,
-                                "act": "enter"
-                            }
-                        ]
+                model: [
+                    {
+                        "label": panel.menuCt && panel.menuCt.state === "running" ? "Stop" : "Start",
+                        "icon": Core.Icons.power,
+                        "act": "run"
+                    },
+                    {
+                        "label": "Restart",
+                        "icon": Core.Icons.restart,
+                        "act": "restart"
+                    },
+                    {
+                        "sep": true
+                    },
+                    {
+                        "label": "Enter",
+                        "icon": Core.Icons.terminal,
+                        "act": "enter"
+                    }
+                ]
 
                 Loader {
                     id: entry
@@ -301,12 +301,12 @@ Item {
                                     panel.menuOpen = false;
                                     if (!ct)
                                         return;
-                                            if (act === "run")
-                                                panel.svc.toggleRun(ct);
-                                            else if (act === "restart")
-                                                panel.svc.restartContainer(ct.name);
-                                            else if (act === "enter")
-                                                panel.svc.enterContainer(ct.name);
+                                    if (act === "run")
+                                        panel.svc.toggleRun(ct);
+                                    else if (act === "restart")
+                                        panel.svc.restartContainer(ct.name);
+                                    else if (act === "enter")
+                                        panel.svc.enterContainer(ct.name);
                                 }
                             }
                         }

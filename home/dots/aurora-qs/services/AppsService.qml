@@ -154,12 +154,10 @@ QtObject {
                 root.dockConfigured = parsed && Object.prototype.hasOwnProperty.call(parsed, "dock");
             }
             // Migrate off HM-touched ~/.config and ensure state+backup exist.
-            // Never treat this as a user edit — that is how a flat in-memory
-            // grid used to overwrite folders on disk.
             if (root.launchpadOrder.length && root.layoutFile.text() !== raw)
-                root.saveLayout(false);
+                root.saveLayout(true);
             else if (root.launchpadOrder.length && !root.layoutBackupFile.text())
-                root.saveLayout(false);
+                root.saveLayout(true);
         } catch (e) {
             if (!root.launchpadOrder.length) {
                 root.launchpadOrder = [];
@@ -225,6 +223,10 @@ QtObject {
                 seen["app:" + id] = true;
                 apps.push(id);
             }
+            if (apps.length === 1) {
+                out.push(apps[0]);
+                continue;
+            }
             if (apps.length === 0)
                 continue;
             seen["folder:" + fid] = true;
@@ -286,32 +288,9 @@ QtObject {
         // Refuse to persist an empty grid — that is how hot-reload races wipe pins.
         if (!root.launchpadOrder.length && !root.dockOrder.length)
             return;
-        const nextLp = root.serializeLaunchpad();
-        if (!userEdit) {
-            const disk = root.readLayoutRaw();
-            if (disk && disk.length > 2) {
-                try {
-                    const parsed = JSON.parse(disk);
-                    const diskLp = root.normalizeLaunchpad(parsed && parsed.launchpad);
-                    let diskFolders = 0;
-                    let nextFolders = 0;
-                    for (let i = 0; i < diskLp.length; i++) {
-                        if (root.isFolderTile(diskLp[i]))
-                            diskFolders++;
-                    }
-                    for (let i = 0; i < nextLp.length; i++) {
-                        if (root.isFolderTile(nextLp[i]))
-                            nextFolders++;
-                    }
-                    if (diskFolders > 0 && nextFolders === 0)
-                        return;
-                } catch (e) {
-                }
-            }
-        }
         root.dockConfigured = true;
         const text = JSON.stringify({
-            "launchpad": nextLp,
+            "launchpad": root.serializeLaunchpad(),
             "dock": root.dockOrder
         });
         root.layoutWriting = true;
@@ -335,37 +314,19 @@ QtObject {
         const needle = String(id || "");
         if (!needle)
             return "";
-        const lower = needle.toLowerCase().replace(/\.desktop$/, "");
+        const lower = root.stripDesktopSuffix(needle).toLowerCase();
         if (lower === "com.google.chrome" || lower === "chrome-dd")
             return "google-chrome";
-        const compact = lower.replace(/[^a-z0-9]/g, "");
         const list = root.entries;
+        // Exact id only. Fuzzy haystack matching remapped google-chrome →
+        // chrome-az (shared Exec path) and tore pins out of folders.
         for (let i = 0; i < list.length; i++) {
             const e = list[i];
             const eid = String(e && e.id || "");
             if (!eid)
                 continue;
-            const el = eid.toLowerCase().replace(/\.desktop$/, "");
+            const el = root.stripDesktopSuffix(eid).toLowerCase();
             if (el === lower)
-                return eid;
-        }
-        if (compact.length >= 3) {
-            for (let i = 0; i < list.length; i++) {
-                const e = list[i];
-                const eid = String(e && e.id || "");
-                if (!eid)
-                    continue;
-                const ec = eid.toLowerCase().replace(/\.desktop$/, "").replace(/[^a-z0-9]/g, "");
-                if (ec === compact || (compact.length >= 5 && (ec.indexOf(compact) !== -1 || compact.indexOf(ec) !== -1)))
-                    return eid;
-            }
-        }
-        for (let i = 0; i < list.length; i++) {
-            const e = list[i];
-            const eid = String(e && e.id || "");
-            if (!eid)
-                continue;
-            if (root.haystack(e).indexOf(lower) !== -1)
                 return eid;
         }
         return "";
@@ -418,11 +379,11 @@ QtObject {
                 have[id] = true;
         }
 
-        // Full catalog only: partial waves after a flake rebuild used to drop
-        // every pin not yet scanned and rewrite launchpad in alpha order.
-        const catalogWarm = list.length >= 12;
-        // Once the catalog is warm, drop pins whose .desktop is gone. The old
-        // threshold (>=40) + lpShrunk guard left ghosts like Overwatch forever.
+        // Full catalog only. A low threshold (~12) pruned folder members that
+        // were not scanned yet, collapsed folders to one tile, then dumped the
+        // rest as free icons — wiping Browsers/Games/Office/... order.
+        const catalogWarm = list.length >= 35;
+        // Once the catalog is warm, drop pins whose .desktop is gone.
         const pruneMissing = catalogWarm;
         const hadPins = root.launchpadOrder.length > 0;
         const diskHadPins = !!(root.readLayoutRaw() && root.readLayoutRaw().length > 2);
@@ -430,6 +391,7 @@ QtObject {
         const lp = [];
         const seenLp = {};
         const prevLp = root.launchpadOrder;
+        let prevFolders = 0;
         for (let i = 0; i < prevLp.length; i++) {
             const item = root.cloneTile(prevLp[i]);
             if (typeof item === "string") {
@@ -440,8 +402,8 @@ QtObject {
                 if (seenLp["app:" + id] || seenLp["app:" + raw])
                     continue;
                 const known = !!(have[id] || have[raw]);
-                if (!known && pruneMissing)
-                    continue;
+                // Keep curated free pins even if the .desktop is briefly absent
+                // from a catalog wave (wireshark / insta360 were getting dropped).
                 seenLp["app:" + id] = true;
                 seenLp["app:" + raw] = true;
                 lp.push(known ? id : raw);
@@ -449,6 +411,7 @@ QtObject {
             }
             if (!root.isFolderTile(item))
                 continue;
+            prevFolders++;
             const apps = [];
             for (let a = 0; a < item.apps.length; a++) {
                 const raw = String(item.apps[a] || "");
@@ -457,27 +420,25 @@ QtObject {
                 const id = root.resolveStoredId(raw) || raw;
                 if (seenLp["app:" + id] || seenLp["app:" + raw])
                     continue;
+                // Folder pins are user-curated — never drop members because the
+                // desktop id is not in the current catalog wave / renamed.
+                // Pruning here moved chrome/telegram/etc. to the free grid.
                 const known = !!(have[id] || have[raw]);
-                // Never drop folder members on catalog sync — that flattened
-                // Games/Chat after a QS restart when a .desktop lagged.
                 seenLp["app:" + id] = true;
                 seenLp["app:" + raw] = true;
                 apps.push(known ? id : raw);
             }
+            // Never auto-flatten folders. Partial scans used to leave one known
+            // app and turn Browsers/Games into a free tile.
             if (apps.length === 0)
                 continue;
-            // Keep folders intact across catalog waves. Dissolving a 1-app
-            // folder here is what flattened the launchpad on QS restart.
-            item.apps = apps.length >= 2 ? apps : (item.apps || apps);
-            if ((item.apps || []).length < 2) {
-                if (apps.length === 1)
-                    lp.push(apps[0]);
-                continue;
-            }
+            item.apps = apps;
             seenLp["folder:" + item.id] = true;
             lp.push(item);
         }
-        if (catalogWarm) {
+        // Never dump the whole catalog onto a curated launchpad — that shoved
+        // lutris/cnc/etc. after the user's folders and free pins.
+        if (catalogWarm && !hadPins && !diskHadPins) {
             for (let i = 0; i < list.length; i++) {
                 const id = list[i] && list[i].id ? String(list[i].id) : "";
                 if (!id || seenLp["app:" + id])
@@ -486,6 +447,15 @@ QtObject {
                 lp.push(id);
             }
         }
+
+        let nextFolders = 0;
+        for (let i = 0; i < lp.length; i++) {
+            if (root.isFolderTile(lp[i]))
+                nextFolders++;
+        }
+        // Refuse to apply a sync that ate the user's folders.
+        if (prevFolders >= 2 && nextFolders < prevFolders)
+            return;
 
         const dock = [];
         const seenDock = {};
@@ -503,8 +473,7 @@ QtObject {
             if (!id || seenDock[id])
                 continue;
             const known = !!(have[id] || have[raw]);
-            if (!known && pruneMissing)
-                continue;
+            // Keep curated dock pins; missing .desktop must not wipe the row.
             seenDock[id] = true;
             seenDock[raw] = true;
             dock.push(known ? id : raw);
@@ -534,10 +503,8 @@ QtObject {
             root.launchpadOrder = lp;
 
         const seeding = !hadPins && !diskHadPins && root.launchpadOrder.length > 0;
-        if (seeding || (dockChanged && !diskHadPins && !hadPins))
-            root.saveLayout(false);
-        else if (pruneMissing && (lpChanged || dockChanged))
-            root.saveLayout(false);
+        if (seeding || (dockChanged && !diskHadPins && !hadPins) || (pruneMissing && (lpChanged || dockChanged)))
+            root.saveLayout(true);
     }
 
     function sameLaunchpad(a, b) {
@@ -733,7 +700,7 @@ QtObject {
         if (root.sameLaunchpad(next, root.launchpadOrder))
             return;
         root.launchpadOrder = next;
-        root.saveLayout(true);
+        root.saveLayout();
     }
 
     function mergeLaunchpad(from, to) {
@@ -766,7 +733,7 @@ QtObject {
             src[toOrder] = target;
             src.splice(fromOrder, 1);
             root.launchpadOrder = root.normalizeLaunchpad(src);
-            root.saveLayout(true);
+            root.saveLayout();
             return;
         }
         const otherId = root.tileId(target) || String(targetTile.id || "");
@@ -787,7 +754,7 @@ QtObject {
         next.splice(Math.max(0, Math.min(next.length, insertAt)), 0, folder);
         root.launchpadOrder = root.normalizeLaunchpad(next);
         root.openFolderId = folder.id;
-        root.saveLayout(true);
+        root.saveLayout();
     }
 
     function renameFolder(id, name) {
@@ -807,7 +774,7 @@ QtObject {
         if (!changed)
             return;
         root.launchpadOrder = src;
-        root.saveLayout(true);
+        root.saveLayout();
     }
 
     function moveInFolder(folderId, from, to) {
@@ -824,7 +791,7 @@ QtObject {
             tile.apps = next;
             src[i] = tile;
             root.launchpadOrder = src;
-            root.saveLayout(true);
+            root.saveLayout();
             return;
         }
     }
@@ -851,7 +818,7 @@ QtObject {
         root.launchpadOrder = root.normalizeLaunchpad(src);
         if (!root.findFolder(fid))
             root.openFolderId = "";
-        root.saveLayout(true);
+        root.saveLayout();
     }
 
     function closeFolder() {
@@ -868,7 +835,7 @@ QtObject {
         if (root.sameIds(next, root.dockOrder))
             return;
         root.dockOrder = next;
-        root.saveLayout(true);
+        root.saveLayout();
     }
 
     function toggleDockPin(id) {
@@ -882,7 +849,7 @@ QtObject {
         else
             dock.push(needle);
         root.dockOrder = dock;
-        root.saveLayout(true);
+        root.saveLayout();
     }
 
     property bool dockDropActive: false
@@ -909,7 +876,7 @@ QtObject {
         if (root.sameIds(dock, root.dockOrder))
             return;
         root.dockOrder = dock;
-        root.saveLayout(true);
+        root.saveLayout();
     }
 
     function unpinDock(id) {
@@ -922,7 +889,7 @@ QtObject {
         if (root.sameIds(dock, root.dockOrder))
             return;
         root.dockOrder = dock;
-        root.saveLayout(true);
+        root.saveLayout();
     }
 
     // Entries
@@ -1005,8 +972,20 @@ QtObject {
         return id === "thunar";
     }
 
+    function stripDesktopSuffix(id) {
+        const raw = String(id || "");
+        // org.telegram.desktop is an app id, not a file suffix. Only strip a
+        // trailing .desktop when the base has no dots (foo.desktop) or when
+        // the file is doubled (org.telegram.desktop.desktop).
+        if (/\.desktop\.desktop$/i.test(raw))
+            return raw.replace(/\.desktop$/i, "");
+        if (/^[^./]+\.desktop$/i.test(raw))
+            return raw.replace(/\.desktop$/i, "");
+        return raw;
+    }
+
     function canonicalAppId(id) {
-        const low = String(id || "").toLowerCase().replace(/\.desktop$/, "");
+        const low = root.stripDesktopSuffix(id).toLowerCase();
         if (low === "org.xfce.thunar" || low === "finder")
             return "thunar";
         if (low === "writer")
@@ -1029,7 +1008,7 @@ QtObject {
             return "overwatch";
         if (low === "terraria" || low === "steam_app_105600")
             return "terraria";
-        return String(id || "").replace(/\.desktop$/i, "");
+        return root.stripDesktopSuffix(id);
     }
 
     function isKeymapp(entry) {

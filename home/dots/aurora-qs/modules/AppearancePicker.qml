@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Effects
 import "../core" as Core
 import "../services" as Services
 import "../components" as Components
@@ -168,7 +167,7 @@ FocusScope {
             picker.previewPath = picker.results[picker.selectedIndex].path || "";
     }
 
-    onQueryChanged: picker.selectedIndex = picker.indexOfApplied();
+    onQueryChanged: picker.selectedIndex = picker.indexOfApplied()
 
     function takeFocus() {
         if (!picker.open || !picker.hosted)
@@ -201,34 +200,8 @@ FocusScope {
         }
     }
 
-    Item {
-        id: well
+    Components.WallpaperStage {
         anchors.fill: parent
-        anchors.leftMargin: Core.Theme.dockReserve
-        anchors.topMargin: Core.Theme.barHeight
-        anchors.rightMargin: Core.Theme.outerGap
-        anchors.bottomMargin: Core.Theme.outerGap
-
-        Components.WallpaperStage {
-            id: stageView
-            anchors.fill: parent
-            picker: picker
-            layer.enabled: true
-            layer.smooth: true
-            layer.effect: MultiEffect {
-                maskEnabled: true
-                maskSource: wellMask
-            }
-        }
-
-        Rectangle {
-            id: wellMask
-            anchors.fill: stageView
-            radius: Core.Theme.frameRadius
-            color: "#FFFFFF"
-            visible: false
-            layer.enabled: true
-            layer.smooth: true
-        }
+        picker: picker
     }
 }

@@ -21,44 +21,15 @@ PanelWindow {
     }
 
     implicitHeight: Core.Theme.notchHeight
-    exclusiveZone: (root.gameFullscreen || root.hideHold) ? 0 : Core.Theme.notchHeight
+    // Always reserve the notch. Games that go exclusive FS cover the bar
+    // themselves; we never unmap the panel or drop the exclusive zone.
+    exclusiveZone: Core.Theme.notchHeight
     color: "transparent"
 
     readonly property string monitorName: Core.Session.monitorNameForScreen(root.screen)
     readonly property bool onMain: Core.Session.isDesktopMonitor(root.monitorName)
-    property bool gameFullscreen: false
-    property int fsWatch: Core.Session.fsTick
-    property bool ipcWatch: Core.Session.ipcReady
-    onFsWatchChanged: Qt.callLater(root.syncGameFullscreen)
-    onIpcWatchChanged: Qt.callLater(root.syncGameFullscreen)
-    function syncGameFullscreen() {
-        const next = root.ipcWatch && Core.Session.gameFullscreenOnScreen(root.screen);
-        if (root.gameFullscreen !== next)
-            root.gameFullscreen = next;
-    }
-    Component.onCompleted: {
-        root.syncGameFullscreen();
-        root.publishNotch();
-    }
-    property bool hideHold: false
-    onGameFullscreenChanged: {
-        if (root.gameFullscreen) {
-            showDelay.stop();
-            root.hideHold = true;
-        } else {
-            root.hideHold = true;
-            showDelay.restart();
-        }
-    }
 
-    Timer {
-        id: showDelay
-        interval: 480
-        repeat: false
-        onTriggered: root.hideHold = false
-    }
-
-    visible: !root.gameFullscreen && !root.hideHold
+    visible: true
 
     WlrLayershell.layer: WlrLayer.Top
     WlrLayershell.namespace: "aurora-bar"
@@ -72,18 +43,19 @@ PanelWindow {
     readonly property bool calendarOpen: Core.PopupManager.isOpen("calendar")
     readonly property bool rightDrawer: root.networkOpen || root.brightnessOpen || root.audioOpen
     readonly property int lWidth: Math.max(Core.Theme.lNotchMinWidth, Math.min(Core.Theme.lNotchMaxWidth, leftRow.implicitWidth + Core.Theme.notchPadding * 2))
-    property real cWidth: root.calendarOpen ? Core.Theme.centerSheetWidth : Math.max(Core.Theme.cNotchMinWidth, Math.min(Core.Theme.cNotchMaxWidth, island.implicitWidth + Core.Theme.notchPadding))
+    property int cWidth: root.calendarOpen ? Core.Theme.centerSheetWidth : Math.max(Core.Theme.cNotchMinWidth, Math.min(Core.Theme.cNotchMaxWidth, island.implicitWidth + Core.Theme.notchPadding))
 
     Behavior on cWidth {
         NumberAnimation {
             duration: Core.Theme.animDuration
-            easing.type: Easing.OutCubic
+            easing.type: Easing.InOutCubic
         }
     }
-    property real rWidth: {
+    property int rWidth: {
         if (root.networkOpen || root.brightnessOpen || root.audioOpen)
             return Core.Theme.rightSheetWidth;
-        const raw = Math.max(Core.Theme.rNotchMinWidth, Math.min(Core.Theme.rNotchMaxWidth, rightRow.implicitWidth + Core.Theme.notchPadding * 2));
+        const vpnW = vpnChip.visible ? vpnChip.implicitWidth + 8 : 0;
+        const raw = Math.max(Core.Theme.rNotchMinWidth, Math.min(Core.Theme.rNotchMaxWidth, rightRow.implicitWidth + vpnW + Core.Theme.notchPadding * 2));
         const budget = root.width - root.lWidth - root.cWidth - Core.Theme.notchGap * 2;
         return Math.max(Core.Theme.rNotchMinWidth, Math.min(raw, budget));
     }
@@ -91,21 +63,9 @@ PanelWindow {
     Behavior on rWidth {
         NumberAnimation {
             duration: Core.Theme.animDuration
-            easing.type: Easing.OutCubic
+            easing.type: Easing.InOutCubic
         }
     }
-
-    function publishNotch() {
-        const anchor = Core.PopupManager.anchorScreen;
-        if (anchor && anchor !== root.screen)
-            return;
-        if (!anchor && !root.onMain)
-            return;
-        Core.PopupManager.rightNotchWidth = root.rWidth;
-    }
-
-    onRWidthChanged: root.publishNotch()
-    onRightDrawerChanged: root.publishNotch()
 
     SeamlessBarShape {
         id: barShape
@@ -113,7 +73,6 @@ PanelWindow {
         leftWidth: root.lWidth
         centerWidth: root.cWidth
         rightWidth: root.rWidth
-        rightOpen: root.rightDrawer || Core.PopupManager.rightSheetExtent > Core.Theme.notchHeight
     }
 
     Item {
@@ -234,6 +193,21 @@ PanelWindow {
             }
         }
 
+        Modules.Vpn {
+            id: vpnChip
+            anchors.left: parent.left
+            anchors.leftMargin: Core.Theme.notchPadding
+            anchors.verticalCenter: parent.verticalCenter
+            opacity: root.rightDrawer ? 0 : 1
+            visible: opacity > 0
+            z: 3
+            Behavior on opacity {
+                NumberAnimation {
+                    duration: 150
+                }
+            }
+        }
+
         Row {
             id: rightRow
             anchors.right: parent.right
@@ -249,8 +223,6 @@ PanelWindow {
             }
 
             Modules.DesktopEdit {}
-
-            Modules.Vpn {}
 
             Modules.Volume {
                 iconOnly: true

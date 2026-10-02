@@ -22,7 +22,6 @@ Item {
     property string appearanceMode: "wallpaper"
     property real rightSheetExtent: 0
     property real rightSheetWidth: 0
-    property real rightNotchWidth: 0
 
     function toggleAppearance(mode, fromItem) {
         const next = (mode === "theme" || mode === "cursor") ? mode : "wallpaper";
@@ -71,7 +70,7 @@ Item {
                 return n.screen;
             n = n.parent;
         }
-        const want = (Hyprland.focusedMonitor && Hyprland.focusedMonitor.name) || "DP-1";
+        const want = (Hyprland.focusedMonitor && Hyprland.focusedMonitor.name) || "DP-4";
         const screens = Quickshell.screens;
         if (!screens || screens.length === 0)
             return null;

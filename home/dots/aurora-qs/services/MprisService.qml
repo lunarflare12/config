@@ -24,22 +24,22 @@ Singleton {
     readonly property string bridgeBin: (Quickshell.env("HOME") || "") + "/.config/scripts/mpris-bridge"
 
     property var bridge: ({
-        "available": false,
-        "playing": false,
-        "title": "",
-        "artist": "",
-        "album": "",
-        "identity": "",
-        "desktopEntry": "",
-        "artUrl": "",
-        "length": 0,
-        "position": 0,
-        "canToggle": false,
-        "canNext": false,
-        "canPrevious": false,
-        "canSeek": false,
-        "canRaise": false
-    })
+            "available": false,
+            "playing": false,
+            "title": "",
+            "artist": "",
+            "album": "",
+            "identity": "",
+            "desktopEntry": "",
+            "artUrl": "",
+            "length": 0,
+            "position": 0,
+            "canToggle": false,
+            "canNext": false,
+            "canPrevious": false,
+            "canSeek": false,
+            "canRaise": false
+        })
 
     // Active player
     //
@@ -79,8 +79,6 @@ Singleton {
     readonly property bool hostPlaying: root.active !== null && root.active.playbackState === MprisPlaybackState.Playing
 
     // Bridge owns container Spotify/Chrome. Prefer whichever source is Playing.
-    readonly property bool bridgeHasTrack: !!(root.bridge && root.bridge.available && (root.bridge.title || root.bridge.artist))
-
     readonly property bool useBridge: {
         const bridgePlay = !!(root.bridge && root.bridge.playing);
         if (bridgePlay && !root.hostPlaying)
@@ -91,8 +89,6 @@ Singleton {
             return true;
         if (root.hostPlaying)
             return false;
-        if (root.bridgeHasTrack)
-            return true;
         if (root.active && String(root.active.trackTitle || "") !== "")
             return false;
         return !!(root.bridge && root.bridge.available);
@@ -101,8 +97,6 @@ Singleton {
     readonly property bool available: root.useBridge ? !!root.bridge.available : root.active !== null
 
     readonly property bool playing: root.useBridge ? !!root.bridge.playing : root.hostPlaying
-
-    readonly property bool hasTrack: root.available && (root.title !== "" || root.artist !== "")
 
     // Track info
 
@@ -202,13 +196,9 @@ Singleton {
             const next = JSON.parse(line);
             if (!next || typeof next !== "object")
                 return;
-            const prev = root.bridge;
-            const sameTrack = String(prev.title || "") === String(next.title || "") && String(prev.artist || "") === String(next.artist || "") && String(prev.artUrl || "") === String(next.artUrl || "") && !!prev.playing === !!next.playing;
+            root.bridge = next;
             if (root.useBridge)
                 root.position = Number(next.position || 0);
-            if (sameTrack)
-                return;
-            root.bridge = next;
         } catch (e) {}
     }
 
@@ -336,11 +326,7 @@ Singleton {
         id: bridgeProc
         // Same as cliphist: KillMode=process orphans the bridge across crashes.
         running: true
-        command: [
-            "sh",
-            "-c",
-            "\"$HOME/.config/scripts/aurora-kill-qs-helpers.sh\" >/dev/null 2>&1 || true; exec \"$HOME/.config/scripts/mpris-bridge\""
-        ]
+        command: ["sh", "-c", "\"$HOME/.config/scripts/aurora-kill-qs-helpers.sh\" >/dev/null 2>&1 || true; exec \"$HOME/.config/scripts/mpris-bridge\""]
         stdout: SplitParser {
             splitMarker: "\n"
             onRead: function (line) {

@@ -14,28 +14,33 @@ let
   steamBinFile = "/home/${host.userName}/.local/share/aurora/steam-bin";
 
   # Host PATH must not expose the real Steam client — only the container launcher.
-  steamHostShim = (pkgs.writeShellScriptBin "steam" ''
-    exec ${scripts}/steam.sh "$@"
-  '').overrideAttrs (old: {
-    meta = (old.meta or { }) // {
-      priority = 0;
-    };
-  });
+  steamHostShim =
+    (pkgs.writeShellScriptBin "steam" ''
+      exec ${scripts}/steam.sh "$@"
+    '').overrideAttrs
+      (old: {
+        meta = (old.meta or { }) // {
+          priority = 0;
+        };
+      });
 
   # Hide vendor steam.desktop from /run/current-system (HM owns the real entry).
-  steamDesktopHide = pkgs.runCommand "steam-desktop-nodisplay" {
-    meta.priority = 0;
-  } ''
-    mkdir -p "$out/share/applications"
-    cat >"$out/share/applications/steam.desktop" <<'EOF'
-    [Desktop Entry]
-    Name=Steam
-    Type=Application
-    NoDisplay=true
-    Hidden=true
-    Exec=true
-    EOF
-  '';
+  steamDesktopHide =
+    pkgs.runCommand "steam-desktop-nodisplay"
+      {
+        meta.priority = 0;
+      }
+      ''
+        mkdir -p "$out/share/applications"
+        cat >"$out/share/applications/steam.desktop" <<'EOF'
+        [Desktop Entry]
+        Name=Steam
+        Type=Application
+        NoDisplay=true
+        Hidden=true
+        Exec=true
+        EOF
+      '';
 in
 lib.mkIf (host.enabled "steam") {
   users.groups.steam = { };

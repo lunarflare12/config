@@ -147,8 +147,7 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        radius: Core.Theme.frameRadius
-        color: Qt.alpha(Core.Theme.background, 1)
+        color: Core.Theme.background
     }
 
     MultiEffect {
@@ -184,8 +183,8 @@ Item {
                 if (!stage.picker)
                     return;
                 const angled = event.angleDelta.y;
-            const dy = angled !== 0 ? angled : event.pixelDelta.y;
-            stage.scrollBy(dy, angled !== 0 ? 120 : 48);
+                const dy = angled !== 0 ? angled : event.pixelDelta.y;
+                stage.scrollBy(dy, angled !== 0 ? 120 : 48);
             }
         }
     }
@@ -195,13 +194,8 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        height: 88
+        height: 72
         z: 20
-
-        Rectangle {
-            anchors.fill: parent
-            color: Qt.alpha(Core.Theme.background, 1)
-        }
 
         Row {
             anchors.left: parent.left
@@ -617,8 +611,14 @@ Item {
                             anchors.top: parent.top
                             height: parent.height * 0.38
                             gradient: Gradient {
-                                GradientStop { position: 0; color: Qt.rgba(1, 1, 1, 0.28) }
-                                GradientStop { position: 1; color: Qt.rgba(1, 1, 1, 0) }
+                                GradientStop {
+                                    position: 0
+                                    color: Qt.rgba(1, 1, 1, 0.28)
+                                }
+                                GradientStop {
+                                    position: 1
+                                    color: Qt.rgba(1, 1, 1, 0)
+                                }
                             }
                         }
 
@@ -628,8 +628,14 @@ Item {
                             anchors.bottom: parent.bottom
                             height: parent.height * 0.42
                             gradient: Gradient {
-                                GradientStop { position: 0; color: Qt.rgba(0, 0, 0, 0) }
-                                GradientStop { position: 1; color: Qt.rgba(0, 0, 0, 0.28) }
+                                GradientStop {
+                                    position: 0
+                                    color: Qt.rgba(0, 0, 0, 0)
+                                }
+                                GradientStop {
+                                    position: 1
+                                    color: Qt.rgba(0, 0, 0, 0.28)
+                                }
                             }
                         }
 

@@ -1,0 +1,30 @@
+# Generated locally — secret from .env (not committed).
+use_default_settings: true
+
+general:
+  instance_name: "aurora-searxng"
+  enable_metrics: false
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  default_lang: "auto"
+  formats:
+    - html
+    - json
+
+server:
+  secret_key: "c451bdc57f59790c8bb4e958d7f2d4e262bb054759c47d4963fdb4f54aa978ee"
+  limiter: false
+  image_proxy: true
+  method: "GET"
+
+ui:
+  static_use_hash: true
+
+outgoing:
+  request_timeout: 8.0
+
+engines:
+  - name: wikidata
+    disabled: true

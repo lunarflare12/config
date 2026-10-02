@@ -1,0 +1,153 @@
+# Local LLM stack: Ollama (NVIDIA) + Open WebUI + SearXNG
+# Secrets live in .env (never commit). UI only on loopback.
+
+name: llm
+
+networks:
+  llm:
+    driver: bridge
+    internal: false
+  ollama-clients:
+    name: ollama-clients
+    driver: bridge
+    internal: false
+    ipam:
+      config:
+        - subnet: 10.200.40.0/24
+
+volumes:
+  ollama_data:
+    name: llm_ollama_data
+  open_webui_data:
+    name: llm_open_webui_data
+  searxng_data:
+    name: llm_searxng_data
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    networks:
+      llm:
+      ollama-clients:
+        aliases: [ollama]
+    # CDI — do not use --gpus (broken AMD CDI stub on this host).
+    devices:
+      - nvidia.com/gpu=all
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      # 16GB VRAM: one model, modest parallel load, 8k context default.
+      - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_KEEP_ALIVE=30m
+      - OLLAMA_MAX_LOADED_MODELS=1
+      - OLLAMA_NUM_PARALLEL=1
+      - OLLAMA_CONTEXT_LENGTH=4096
+      - OLLAMA_KV_CACHE_TYPE=q8_0
+      - OLLAMA_FLASH_ATTENTION=1
+      # Chrome-in-Docker hits this via 127.0.0.1:11434 (socat in the browser netns).
+      - OLLAMA_ORIGINS=http://127.0.0.1,https://127.0.0.1,http://localhost,https://localhost,chrome-extension://*
+    volumes:
+      - ollama_data:/root/.ollama
+    # Loopback only — Open WebUI reaches it on the llm network.
+    ports:
+      - "0.0.0.0:11434:11434"
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  searxng:
+    image: docker.io/searxng/searxng:latest
+    container_name: searxng
+    restart: unless-stopped
+    networks: [llm]
+    environment:
+      - SEARXNG_BASE_URL=http://searxng:8080/
+      - SEARXNG_SECRET_KEY=${WEBUI_SECRET_KEY}
+    volumes:
+      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
+      - searxng_data:/var/cache/searxng
+    # No host ports — only Open WebUI talks to it.
+    expose:
+      - "8080"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- 'http://127.0.0.1:8080/search?q=ping&format=json' >/dev/null 2>&1 || exit 1",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    restart: unless-stopped
+    networks:
+      llm:
+      ollama-clients:
+        aliases: [open-webui]
+    depends_on:
+      ollama:
+        condition: service_healthy
+      searxng:
+        condition: service_healthy
+    environment:
+      - WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY}
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - ENV=prod
+      - WEBUI_AUTH=true
+      - ENABLE_SIGNUP=true
+      # Web search via SearXNG + page fetch for citations.
+      - ENABLE_WEB_SEARCH=true
+      - WEB_SEARCH_ENGINE=searxng
+      - SEARXNG_QUERY_URL=http://searxng:8080/search?q=<query>&format=json
+      - WEB_SEARCH_RESULT_COUNT=5
+      - WEB_SEARCH_CONCURRENT_REQUESTS=8
+      - BYPASS_WEB_SEARCH_EMBEDDING_AND_RETRIEVAL=true
+      - ENABLE_IMAGE_GENERATION=true
+      - IMAGE_GENERATION_ENGINE=comfyui
+      - COMFYUI_BASE_URL=http://comfyui:8188
+      - IMAGE_SIZE=1024x1024
+      - IMAGE_STEPS=4
+      - CHUNK_SIZE=1000
+      - CHUNK_OVERLAP=100
+    volumes:
+      - open_webui_data:/app/backend/data
+    ports:
+      - "0.0.0.0:3000:8080"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:8080/health | grep -q OK || curl -fsS http://127.0.0.1:8080/ >/dev/null || exit 1",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 8
+      start_period: 90s
+
+  comfyui:
+    image: yanwk/comfyui-boot:cu130-slim-v2
+    container_name: comfyui
+    restart: unless-stopped
+    networks: [llm]
+    devices:
+      - nvidia.com/gpu=all
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    volumes:
+      - ./comfy/models:/root/ComfyUI/models
+      - ./comfy/output:/root/ComfyUI/output
+      - ./comfy/input:/root/ComfyUI/input
+      - ./comfy/user:/root/ComfyUI/user
+      - ./comfy/custom_nodes:/root/ComfyUI/custom_nodes
+    ports:
+      - "0.0.0.0:8188:8188"

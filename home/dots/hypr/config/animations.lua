@@ -1,4 +1,5 @@
-local game_flag = io.open("/home/dd/.local/state/aurora-game", "r")
+local home = os.getenv("HOME") or "/home/dd"
+local game_flag = io.open(home .. "/.local/state/aurora-game", "r")
 local in_game = game_flag ~= nil
 if game_flag then
     game_flag:close()
@@ -6,9 +7,8 @@ end
 
 hl.config({ animations = { enabled = not in_game } })
 
--- Ease-out that keeps moving through the middle, so the eye gets
--- more in-between frames instead of one jump and a crawl.
-hl.curve("smoothOut", { type = "bezier", points = { { 0.22, 0.61 }, { 0.36, 1 } } })
+-- Long ease-out: fast start, soft settle. No overshoot.
+hl.curve("smoothOut", { type = "bezier", points = { { 0.16, 1 }, { 0.3, 1 } } })
 
 -- Continuous per-frame border work. With 200Hz + 60Hz that is free stutter.
 hl.animation({ leaf = "borderangle", enabled = false })
@@ -18,17 +18,17 @@ hl.animation({ leaf = "border", enabled = false })
 hl.animation({ leaf = "windowsMove", enabled = false })
 
 for _, animation in ipairs({
-    -- GNOME-style grow from the pointer. No parent "windows" style,
-    -- or windowsMove would inherit it.
-    { leaf = "windowsIn", speed = 2.2, bezier = "smoothOut", style = "gnomed" },
-    { leaf = "windowsOut", speed = 1.6, bezier = "smoothOut", style = "gnomed" },
-    { leaf = "layers", speed = 2.0, bezier = "smoothOut", style = "fade" },
-    { leaf = "layersIn", speed = 1.8, bezier = "smoothOut", style = "fade" },
-    { leaf = "fadeIn", speed = 1.6, bezier = "smoothOut" },
-    { leaf = "fadeOut", speed = 1.3, bezier = "smoothOut" },
-    { leaf = "workspaces", speed = 2.0, bezier = "smoothOut", style = "fade" },
-    { leaf = "specialWorkspace", speed = 2.0, bezier = "smoothOut", style = "fade" },
+    { leaf = "windowsIn", speed = 4.4, bezier = "smoothOut", style = "popin 82%" },
+    { leaf = "windowsOut", speed = 3.8, bezier = "smoothOut", style = "popin 82%" },
+    { leaf = "layers", speed = 5, bezier = "smoothOut", style = "fade" },
+    { leaf = "layersIn", speed = 4, bezier = "smoothOut", style = "fade" },
+    { leaf = "fadeIn", speed = 3.4, bezier = "smoothOut" },
+    { leaf = "fadeOut", speed = 2.6, bezier = "smoothOut" },
+    { leaf = "workspaces", speed = 5, bezier = "smoothOut", style = "fade" },
+    { leaf = "specialWorkspace", speed = 5, bezier = "smoothOut", style = "fade" },
 }) do
-    animation.enabled = not in_game
+    if animation.enabled == nil then
+        animation.enabled = not in_game
+    end
     hl.animation(animation)
 end

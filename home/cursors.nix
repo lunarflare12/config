@@ -18,7 +18,7 @@ let
   ];
 
   link = name: {
-    name = name;
+    inherit name;
     value = {
       source = "${pkgs.aurora-cursors}/share/icons/${name}";
       force = true;
@@ -31,14 +31,14 @@ in
   xdg.dataFile = lib.listToAttrs (
     map (name: {
       name = "icons/${name}";
-      value = (link name).value;
+      inherit (link name) value;
     }) themes
   );
 
   home.file = lib.listToAttrs (
     map (name: {
       name = ".icons/${name}";
-      value = (link name).value;
+      inherit (link name) value;
     }) themes
   );
 }

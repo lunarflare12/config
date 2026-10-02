@@ -11,4 +11,5 @@ if command -v lutris >/dev/null 2>&1; then
   exec lutris "$@"
 fi
 
-exec nix run nixpkgs#lutris -- "$@"
+export NIXPKGS_ALLOW_UNFREE=1
+exec nix run --impure nixpkgs#lutris -- "$@"

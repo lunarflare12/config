@@ -44,25 +44,25 @@ var killOf = map[string]string{
 }
 
 var (
-	telegram     = regexp.MustCompile(`^org\.telegram\.desktop`)
+	telegram      = regexp.MustCompile(`^org\.telegram\.desktop`)
 	telegramNames = []string{"telegram-1", "telegram-2"}
-	keep         = regexp.MustCompile(`(?i)^(cursor|steam|steam_app_|dota2|gamescope)`)
-	anr          = regexp.MustCompile(`(?i)not responding|не отвечает|hyprland-dialog`)
-	ghost        = regexp.MustCompile(`(?i)chrome_status_icon|status.?notifier|xdg-desktop-portal`)
-	deadStates   = map[string]bool{"paused": true, "exited": true, "dead": true, "removing": true, "created": true}
-	stopActions  = map[string]bool{"pause": true, "die": true, "stop": true, "kill": true, "oom": true}
-	skipEvents   = map[string]bool{"ollama": true, "omniroute": true, "steam": true, "overwatch": true, "terraria": true, "albion": true}
+	keep          = regexp.MustCompile(`(?i)^(cursor|steam|steam_app_|dota2|gamescope)`)
+	anr           = regexp.MustCompile(`(?i)not responding|не отвечает|hyprland-dialog`)
+	ghost         = regexp.MustCompile(`(?i)chrome_status_icon|status.?notifier|xdg-desktop-portal`)
+	deadStates    = map[string]bool{"paused": true, "exited": true, "dead": true, "removing": true, "created": true}
+	stopActions   = map[string]bool{"pause": true, "die": true, "stop": true, "kill": true, "oom": true}
+	skipEvents    = map[string]bool{"ollama": true, "omniroute": true, "steam": true, "overwatch": true, "terraria": true, "albion": true}
 )
 
 type win struct {
-	Mapped       *bool    `json:"mapped"`
-	Hidden       *bool    `json:"hidden"`
-	Size         []int    `json:"size"`
-	Class        string   `json:"class"`
-	InitialClass string   `json:"initialClass"`
-	Title        string   `json:"title"`
-	Address      string   `json:"address"`
-	PID          int      `json:"pid"`
+	Mapped       *bool  `json:"mapped"`
+	Hidden       *bool  `json:"hidden"`
+	Size         []int  `json:"size"`
+	Class        string `json:"class"`
+	InitialClass string `json:"initialClass"`
+	Title        string `json:"title"`
+	Address      string `json:"address"`
+	PID          int    `json:"pid"`
 }
 
 func run(args []string, timeout time.Duration) string {

@@ -14,8 +14,10 @@ fi
 
 # Theme + xpui overlay must not block the window coming up.
 (
-  if command -v python3 >/dev/null 2>&1 && [[ -f "${HOME}/.config/scripts/spotify-theme" ]]; then
-    python3 "${HOME}/.config/scripts/spotify-theme" >/dev/null 2>&1 || true
+  if [[ -x "${HOME}/.config/scripts/spotify-theme" ]]; then
+    "${HOME}/.config/scripts/spotify-theme" >/dev/null 2>&1 || true
+  elif command -v spotify-theme >/dev/null 2>&1; then
+    spotify-theme >/dev/null 2>&1 || true
   fi
   if [[ -n "${SPOTIFY_XPUI:-}" && -d "${SPOTIFY_XPUI}/extensions" ]]; then
     over="${HOME}/.cache/aurora/spotify-xpui"
@@ -39,4 +41,4 @@ fi
 if [[ -n "$state" ]]; then
   exec docker start spotify
 fi
-exec docker compose -f "${HOME}/.local/share/aurora/containers/apps/compose.yml" up -d --no-build spotify
+exec docker compose -f "${HOME}/containers/apps/compose.yml" up -d --no-build spotify

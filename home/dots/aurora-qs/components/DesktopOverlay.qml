@@ -42,7 +42,13 @@ PanelWindow {
     }
     readonly property bool shown: !root.gameFullscreen && !Core.Session.overviewOpen && !root.workspaceCovered
     readonly property bool desktopHost: Core.Session.isDesktopMonitor(root.monitorName)
-    readonly property bool widgetHost: Core.Session.isWidgetMonitor(root.monitorName)
+    // Instantiate widget trees on every monitor; visibility is gated to
+    // local workspace 7 via Session.widgetsOnMonitor.
+    readonly property bool widgetHost: true
+    readonly property bool onWidgetWs: Core.Session.widgetsOnMonitor(root.monitorName)
+    // Keep the desktop layer mapped on the widget workspace even if a
+    // leftover fullscreen flag or tiled cover would otherwise blank it.
+    readonly property bool layerShown: root.shown || root.onWidgetWs
 
     // Stagger widget trees across frames; other monitors never instantiate them.
     property int widgetGate: 0
@@ -263,7 +269,7 @@ PanelWindow {
     exclusiveZone: 0
     exclusionMode: ExclusionMode.Ignore
     color: "transparent"
-    visible: root.shown
+    visible: root.layerShown
 
     WlrLayershell.namespace: "aurora-desktop"
     WlrLayershell.layer: WlrLayer.Bottom
@@ -389,7 +395,7 @@ PanelWindow {
         }
 
         Repeater {
-            model: root.shown && root.editing && (root.desktopHost || Core.Session.widgetsOnMonitor(root.monitorName)) ? root.cols * root.rows : 0
+            model: root.shown && root.editing && (root.widgetHost || root.desktopHost) ? root.cols * root.rows : 0
 
             Rectangle {
                 required property int index

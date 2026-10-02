@@ -1,6 +1,7 @@
 {
   config,
   lib,
+  pkgs,
   params,
   ...
 }:
@@ -15,6 +16,7 @@ let
   serviceNames = lib.attrNames (
     lib.filterAttrs (name: type: type == "regular" && lib.hasSuffix ".service" name) entries
   );
+  systemctl = "${pkgs.systemd}/bin/systemctl";
 in
 {
   xdg.configFile = {
@@ -35,7 +37,7 @@ in
 
   home.activation.enablePersonalDaemons = lib.hm.dag.entryAfter [ "reloadSystemd" ] (
     lib.concatMapStrings (name: ''
-      $DRY_RUN_CMD systemctl --user enable --quiet ${lib.escapeShellArg name} || true
+      $DRY_RUN_CMD ${systemctl} --user enable --quiet ${lib.escapeShellArg name} || true
     '') serviceNames
   );
 }

@@ -70,7 +70,15 @@
     burg = {
       name = "Burg";
       description = "CARTO Burg palette";
-      swatches = [ "#FFC6C4" "#F4A3A8" "#E38191" "#CC607D" "#AD466C" "#8B3058" "#672044" ];
+      swatches = [
+        "#FFC6C4"
+        "#F4A3A8"
+        "#E38191"
+        "#CC607D"
+        "#AD466C"
+        "#8B3058"
+        "#672044"
+      ];
       colors = {
         background = "#41182E";
         surface = "#6F2748";
@@ -112,7 +120,15 @@
     emrld = {
       name = "Emrld";
       description = "CARTO Emrld palette";
-      swatches = [ "#D3F2A3" "#97E196" "#6CC08B" "#4C9B82" "#217A79" "#105965" "#074050" ];
+      swatches = [
+        "#D3F2A3"
+        "#97E196"
+        "#6CC08B"
+        "#4C9B82"
+        "#217A79"
+        "#105965"
+        "#074050"
+      ];
       colors = {
         background = "#092B35";
         surface = "#0D4853";
@@ -154,7 +170,15 @@
     brain-shell = {
       name = "Brain Shell";
       description = "Teal Material frame from Brain Shell";
-      swatches = [ "#F3FBFA" "#D7F4EF" "#A6E4DC" "#5EBEB6" "#2F8D97" "#1E4A4E" "#142022" ];
+      swatches = [
+        "#F3FBFA"
+        "#D7F4EF"
+        "#A6E4DC"
+        "#5EBEB6"
+        "#2F8D97"
+        "#1E4A4E"
+        "#142022"
+      ];
       colors = {
         accent = "#A6D0F7";
         accentActive = "#94E2D5";
@@ -196,7 +220,15 @@
     sunset = {
       name = "Sunset";
       description = "CARTO Sunset palette";
-      swatches = [ "#F3E79B" "#FAC484" "#F8A07E" "#EB7F86" "#CE6693" "#A059A0" "#5C53A5" ];
+      swatches = [
+        "#F3E79B"
+        "#FAC484"
+        "#F8A07E"
+        "#EB7F86"
+        "#CE6693"
+        "#A059A0"
+        "#5C53A5"
+      ];
       colors = {
         background = "#22213A";
         surface = "#704479";
@@ -238,7 +270,15 @@
     tokyo-night = {
       name = "Tokyo Night";
       description = "Deep blue violet night theme";
-      swatches = [ "#E4E9FF" "#B7C3F3" "#7AA2F7" "#565F89" "#3B4261" "#24283B" "#1A1B26" ];
+      swatches = [
+        "#E4E9FF"
+        "#B7C3F3"
+        "#7AA2F7"
+        "#565F89"
+        "#3B4261"
+        "#24283B"
+        "#1A1B26"
+      ];
       colors = {
         accent = "#7AA2F7";
         accentActive = "#BB9AF7";

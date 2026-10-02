@@ -115,7 +115,7 @@ QtObject {
         const screens = Quickshell.screens;
         if (screens && screens.length)
             return Core.Session.monitorNameForScreen(screens[0]);
-        return "DP-1";
+        return "DP-4";
     }
 
     function showOn(name) {

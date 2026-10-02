@@ -18,8 +18,6 @@ PanelWindow {
     readonly property int thickness: Core.Theme.frameWidth
     readonly property int radius: Core.Theme.frameRadius
     readonly property color fillColor: Core.Theme.background
-    readonly property int strokeWidth: Core.Theme.borderWidth
-    readonly property color strokeColor: Core.Theme.borderActive
     readonly property int hit: 28
     readonly property bool mine: {
         const a = Core.PopupManager.anchorScreen;
@@ -46,37 +44,8 @@ PanelWindow {
     exclusionMode: ExclusionMode.Ignore
     exclusiveZone: 0
 
-    visible: !root.gameFullscreen && !root.hideHold
-
-    property bool gameFullscreen: false
-    property int fsWatch: Core.Session.fsTick
-    property int ipcWatch: Core.Session.ipcReady
-    property bool hideHold: false
-
-    onFsWatchChanged: Qt.callLater(root.syncGameFullscreen)
-    onIpcWatchChanged: Qt.callLater(root.syncGameFullscreen)
-    function syncGameFullscreen() {
-        const next = root.ipcWatch && Core.Session.gameFullscreenOnScreen(root.screen);
-        if (root.gameFullscreen !== next)
-            root.gameFullscreen = next;
-    }
-    Component.onCompleted: root.syncGameFullscreen()
-    onGameFullscreenChanged: {
-        if (root.gameFullscreen) {
-            showDelay.stop();
-            root.hideHold = true;
-        } else {
-            root.hideHold = true;
-            showDelay.restart();
-        }
-    }
-
-    Timer {
-        id: showDelay
-        interval: 480
-        repeat: false
-        onTriggered: root.hideHold = false
-    }
+    // Frame stays mapped. Exclusive FS games cover it; we do not unmap.
+    visible: true
 
     anchors {
         left: root.edge === "left" || root.edge === "bottom"
@@ -88,7 +57,7 @@ PanelWindow {
     margins.top: root.edge !== "bottom" ? Core.Theme.notchHeight : 0
 
     WlrLayershell.namespace: "aurora-frame-" + root.edge
-    WlrLayershell.layer: WlrLayer.Top
+    WlrLayershell.layer: WlrLayer.Overlay
 
     mask: passMask
     property Region passMask: Region {}
@@ -102,12 +71,6 @@ PanelWindow {
         Connections {
             target: root
             function onFillColorChanged() {
-                shape.requestPaint();
-            }
-            function onStrokeColorChanged() {
-                shape.requestPaint();
-            }
-            function onStrokeWidthChanged() {
                 shape.requestPaint();
             }
             function onWrapRightChanged() {
@@ -130,22 +93,6 @@ PanelWindow {
             const h = height;
             const t = root.thickness;
             const r = root.radius;
-            const sw = root.strokeWidth;
-
-            function strokeInner(draw) {
-                if (sw <= 0)
-                    return;
-                ctx.save();
-                ctx.clip();
-                ctx.beginPath();
-                draw();
-                ctx.lineWidth = sw * 2;
-                ctx.strokeStyle = root.strokeColor;
-                ctx.lineJoin = "round";
-                ctx.lineCap = "butt";
-                ctx.stroke();
-                ctx.restore();
-            }
 
             if (root.edge === "left") {
                 ctx.beginPath();
@@ -156,12 +103,6 @@ PanelWindow {
                 ctx.lineTo(0, h);
                 ctx.closePath();
                 ctx.fill();
-                // Meet the bar at (t+r, 0), then turn down the desktop edge.
-                strokeInner(function () {
-                    ctx.moveTo(t + r, 0);
-                    ctx.arcTo(t, 0, t, r, r);
-                    ctx.lineTo(t, h);
-                });
                 return;
             }
 
@@ -215,11 +156,6 @@ PanelWindow {
                 ctx.lineTo(w, h);
                 ctx.closePath();
                 ctx.fill();
-                strokeInner(function () {
-                    ctx.moveTo(w - (t + r), 0);
-                    ctx.arcTo(w - t, 0, w - t, r, r);
-                    ctx.lineTo(w - t, h);
-                });
                 return;
             }
 
@@ -235,13 +171,6 @@ PanelWindow {
             ctx.lineTo(t, 0);
             ctx.closePath();
             ctx.fill();
-            // Desktop-facing top of the bottom frame, left → right.
-            strokeInner(function () {
-                ctx.moveTo(t, 0);
-                ctx.arcTo(t, h - t, t + r, h - t, r);
-                ctx.lineTo(w - t - r, h - t);
-                ctx.arcTo(w - t, h - t, w - t, 0, r);
-            });
         }
     }
 }

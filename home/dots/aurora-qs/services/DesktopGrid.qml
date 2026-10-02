@@ -10,12 +10,14 @@ QtObject {
     id: root
 
     readonly property int minCell: 90
-    // Dock already takes exclusive zone; adding dockReserve here left a dead column.
     readonly property int originX: 4
     // Desktop layer already sits below the bar exclusive zone.
     readonly property int originY: 4
-    readonly property int bottomPad: 4
-    readonly property int rightPad: 4
+    // Keep the same inset on the right as on the bottom so bottom-right
+    // cards (metrics) don't sit flush against the side while floating above
+    // the bottom edge.
+    readonly property int bottomPad: 14
+    readonly property int rightPad: 14
     readonly property int gap: 8
 
     readonly property int cellW: 96

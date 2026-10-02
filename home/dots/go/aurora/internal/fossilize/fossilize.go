@@ -51,6 +51,13 @@ func capOnce() {
 		if !strings.Contains(cmd, "fossilize_replay") {
 			continue
 		}
+		// Steam's Play-time ProcessingShaderCache uses --quiet-slave /
+		// --timeout-seconds. Pinning that to two nice-19 cores turns a
+		// ~15–30 min compile into hours and blocks the launch dialog.
+		// Only throttle aurora/shader-ctl background jobs.
+		if strings.Contains(cmd, "--quiet-slave") || strings.Contains(cmd, "--timeout-seconds") {
+			continue
+		}
 		_ = exec.Command("taskset", "-cp", mask, e.Name()).Run()
 		_ = exec.Command("renice", "-n", "19", "-p", e.Name()).Run()
 		_ = exec.Command("ionice", "-c", "3", "-p", e.Name()).Run()

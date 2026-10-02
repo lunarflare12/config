@@ -62,6 +62,9 @@ QtObject {
 
     readonly property string scripts: Quickshell.env("HOME") + "/.config/scripts"
     readonly property int workspacesPerMonitor: 12
+    // Local workspace that hosts wallpaper widgets on every monitor.
+    readonly property int widgetWorkspaceLocal: 7
+    // Preferred order; live NVIDIA names jump DP-1↔DP-4 / HDMI-A-1↔HDMI-A-2.
     readonly property var monitorOrder: ["DP-1", "HDMI-A-1"]
     property bool forceHideGameBar: false
     property bool activeWindowFullscreen: false
@@ -196,7 +199,7 @@ QtObject {
                         seen[c] = true;
                         classes.push(c);
                     }
-                    // Skip no-op updates — DockBar rebuilds on every clientsTick.
+                    // Skip no-op updates — clientsTick fires often.
                     const prev = root.openClients || [];
                     let same = prev.length === clients.length;
                     if (same) {
@@ -528,9 +531,14 @@ QtObject {
     }
 
     function monitorIndex(name) {
+        const n = String(name || "");
+        if (n === "DP-1" || n === "DP-4")
+            return 0;
+        if (n === "HDMI-A-1" || n === "HDMI-A-2")
+            return 1;
         const order = root.monitorOrder;
         for (let i = 0; i < order.length; i++) {
-            if (order[i] === name)
+            if (order[i] === n)
                 return i;
         }
         const list = (Hyprland.monitors && Hyprland.monitors.values) ? Hyprland.monitors.values.slice() : [];
@@ -538,7 +546,7 @@ QtObject {
             return Number(a.x) - Number(b.x);
         });
         for (let j = 0; j < list.length; j++) {
-            if (list[j].name === name)
+            if (list[j].name === n)
                 return j;
         }
         return 0;
@@ -617,14 +625,14 @@ QtObject {
     }
 
     function isDesktopMonitor(name) {
-        if (name === "DP-1")
+        if (name === "DP-4" || name === "DP-1")
             return true;
         const screens = Quickshell.screens;
         return !!(screens && screens.length === 1);
     }
 
-    // Wallpaper widgets (clock, metrics, labs, now-playing) live on the
-    // second screen. Dock/icons stay on DP-1 via isDesktopMonitor.
+    // Wallpaper widgets (clock, metrics, labs, now-playing) live on local
+    // workspace 7 of every monitor. Desktop icons stay on the ultrawide.
     function monitorHasTiledCover(monitorName) {
         const _ = root.clientsTick + root.fsTick;
         const ws = root.activeWorkspaceOnMonitor(monitorName);
@@ -642,18 +650,13 @@ QtObject {
     }
 
     function isWidgetMonitor(name) {
-        const screens = Quickshell.screens;
-        if (screens && screens.length === 1)
-            return root.isDesktopMonitor(name);
-        return name === (root.monitorOrder[1] || "HDMI-A-1");
+        return !!name;
     }
 
-    // Widgets stay on the first workspace of that monitor. Other workspaces
-    // keep a plain desktop.
     function widgetsOnMonitor(name) {
-        if (!root.isWidgetMonitor(name))
+        if (!name)
             return false;
-        return root.localId(root.activeWorkspaceOnMonitor(name)) === 1;
+        return root.localId(root.activeWorkspaceOnMonitor(name)) === root.widgetWorkspaceLocal;
     }
 
     function activeWorkspaceOnMonitor(monitorName) {
@@ -1388,13 +1391,7 @@ QtObject {
         root.screenshotOpen = false;
         root.overviewOpen = false;
         root.armSattySuppress();
-        Quickshell.execDetached([
-            root.scripts + "/screenshot.sh",
-            String(Math.round(x)),
-            String(Math.round(y)),
-            String(Math.round(w)),
-            String(Math.round(h))
-        ]);
+        Quickshell.execDetached([root.scripts + "/screenshot.sh", String(Math.round(x)), String(Math.round(y)), String(Math.round(w)), String(Math.round(h))]);
     }
 
     function runScreenshot() {

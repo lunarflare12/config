@@ -109,15 +109,45 @@ Item {
                 const m = Services.SystemMonitor;
                 const rows = [];
                 if (m.ramTotalBytes > 0)
-                    rows.push({ icon: "ram", color: Core.Theme.success, label: "RAM", used: m.ramUsedBytes, total: m.ramTotalBytes });
+                    rows.push({
+                        icon: "ram",
+                        color: Core.Theme.success,
+                        label: "RAM",
+                        used: m.ramUsedBytes,
+                        total: m.ramTotalBytes
+                    });
                 if (m.vramTotalBytes > 0)
-                    rows.push({ icon: "gpu", color: Core.Theme.info, label: "VRAM", used: m.vramUsedBytes, total: m.vramTotalBytes });
+                    rows.push({
+                        icon: "gpu",
+                        color: Core.Theme.info,
+                        label: "VRAM",
+                        used: m.vramUsedBytes,
+                        total: m.vramTotalBytes
+                    });
                 if (m.swapTotalBytes > 0)
-                    rows.push({ icon: "swap", color: "#F9E2AF", label: "SWAP", used: m.swapUsedBytes, total: m.swapTotalBytes });
+                    rows.push({
+                        icon: "swap",
+                        color: "#F9E2AF",
+                        label: "SWAP",
+                        used: m.swapUsedBytes,
+                        total: m.swapTotalBytes
+                    });
                 if (m.diskTotalBytes > 0)
-                    rows.push({ icon: "disk", color: Core.Theme.accent, label: "/", used: m.diskUsedBytes, total: m.diskTotalBytes });
+                    rows.push({
+                        icon: "disk",
+                        color: Core.Theme.accent,
+                        label: "/",
+                        used: m.diskUsedBytes,
+                        total: m.diskTotalBytes
+                    });
                 if (m.homeDiskTotalBytes > 0)
-                    rows.push({ icon: "disk", color: Core.Theme.accent, label: "/home", used: m.homeDiskUsedBytes, total: m.homeDiskTotalBytes });
+                    rows.push({
+                        icon: "disk",
+                        color: Core.Theme.accent,
+                        label: "/home",
+                        used: m.homeDiskUsedBytes,
+                        total: m.homeDiskTotalBytes
+                    });
                 return rows;
             }
 

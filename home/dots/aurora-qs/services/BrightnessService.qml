@@ -9,7 +9,7 @@ import "../core" as Core
 Singleton {
     id: root
 
-    readonly property string ctl: (Quickshell.env("HOME") || "") + "/.config/scripts/monitor-brightness"
+    readonly property string ctl: "brightnessctl"
     readonly property string statePath: (Quickshell.env("HOME") || "") + "/.local/state/aurora/brightness.json"
 
     property var displayList: []

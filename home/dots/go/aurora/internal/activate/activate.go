@@ -320,13 +320,13 @@ func lastTok(s string) string {
 }
 
 type win struct {
-	Mapped       *bool   `json:"mapped"`
-	Hidden       *bool   `json:"hidden"`
-	Size         []int   `json:"size"`
-	Class        string  `json:"class"`
-	InitialClass string  `json:"initialClass"`
-	Title        string  `json:"title"`
-	Address      string  `json:"address"`
+	Mapped       *bool  `json:"mapped"`
+	Hidden       *bool  `json:"hidden"`
+	Size         []int  `json:"size"`
+	Class        string `json:"class"`
+	InitialClass string `json:"initialClass"`
+	Title        string `json:"title"`
+	Address      string `json:"address"`
 }
 
 func hyprClients() []win {

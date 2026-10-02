@@ -16,7 +16,8 @@ let
     "emrld"
     "sunset"
   ];
-  themeNames = themeOrder ++ lib.filter (name: !lib.elem name themeOrder) (builtins.attrNames themeData.themes);
+  themeNames =
+    themeOrder ++ lib.filter (name: !lib.elem name themeOrder) (builtins.attrNames themeData.themes);
   toLua = import ../lib/to-lua.nix { inherit lib; };
   env = desktopEnv;
   defaultTheme = themeData.global.activeTheme;
@@ -525,8 +526,8 @@ in
 
       printf '%s\n' "dark" > "$CONFIG_DIR/mode"
 
-      if command -v python3 >/dev/null 2>&1 && [[ -f "$HOME/.config/scripts/spotify-theme" ]]; then
-        python3 "$HOME/.config/scripts/spotify-theme" >/dev/null 2>&1 || true
+      if [[ -x "$HOME/.config/scripts/spotify-theme" ]]; then
+        "$HOME/.config/scripts/spotify-theme" >/dev/null 2>&1 || true
       fi
 
       echo "Aurora theme: $selected"

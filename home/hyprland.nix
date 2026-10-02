@@ -26,24 +26,54 @@ let
     "config/windows.lua"
     "config/keybinds.lua"
     "config/permissions.lua"
+    "config/monitor-pin.lua"
   ];
 
   monitorLua =
     let
-      dp = lib.findFirst (m: (m.output or "") == "DP-1") null params.monitors;
-      hdmi = lib.findFirst (m: (m.output or "") == "HDMI-A-1") null params.monitors;
+      # NVIDIA renames DP-1↔DP-4 and HDMI-A-1↔HDMI-A-2 across boots.
+      # Emit every alias for the configured panel so either name pins.
+      expandOutput =
+        output:
+        {
+          "DP-1" = [
+            "DP-1"
+            "DP-4"
+          ];
+          "DP-4" = [
+            "DP-4"
+            "DP-1"
+          ];
+          "HDMI-A-1" = [
+            "HDMI-A-1"
+            "HDMI-A-2"
+          ];
+          "HDMI-A-2" = [
+            "HDMI-A-2"
+            "HDMI-A-1"
+          ];
+        }.${output} or [ output ];
+      dp = lib.findFirst (
+        m: (m.output or "") == "DP-4" || (m.output or "") == "DP-1"
+      ) null params.monitors;
+      hdmi = lib.findFirst (
+        m: (m.output or "") == "HDMI-A-2" || (m.output or "") == "HDMI-A-1"
+      ) null params.monitors;
       fmt =
-        monitor:
+        monitor: output:
         let
           transform = lib.optionalString (monitor ? transform) "transform = ${toString monitor.transform}, ";
           bitdepth = lib.optionalString (monitor ? bitdepth) "bitdepth = ${toString monitor.bitdepth}, ";
         in
-        ''hl.monitor({ output = "${monitor.output}", mode = "${monitor.mode}", position = "${monitor.position}", scale = ${toString monitor.scale}, ${bitdepth}${transform}})'';
+        ''hl.monitor({ output = "${output}", mode = "${monitor.mode}", position = "${monitor.position}", scale = ${toString monitor.scale}, ${bitdepth}${transform}})'';
+      fmtAll =
+        monitor:
+        lib.concatMapStringsSep "\n        " (fmt monitor) (expandOutput monitor.output);
     in
     ''
       local function apply_monitors()
-        ${if dp != null then fmt dp else ""}
-        ${if hdmi != null then fmt hdmi else ""}
+        ${if dp != null then fmtAll dp else ""}
+        ${if hdmi != null then fmtAll hdmi else ""}
       end
       apply_monitors()
       hl.on("monitor.added", apply_monitors)

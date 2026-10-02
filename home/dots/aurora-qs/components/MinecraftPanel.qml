@@ -1,7 +1,5 @@
 import QtQuick
 
-import "../core" as Core
-
 // Frosted toast chrome — shared by overlay cards and the notification centre.
 Item {
     id: panel
@@ -13,9 +11,9 @@ Item {
         anchors.fill: parent
         radius: panel.radius
         antialiasing: true
-        color: Qt.alpha(Core.Theme.background, 1)
+        color: Qt.rgba(0.10, 0.10, 0.12, 0.92)
         border.width: 1
-        border.color: panel.critical ? Qt.alpha(Core.Theme.danger, 0.7) : Qt.rgba(1, 1, 1, 0.12)
+        border.color: panel.critical ? Qt.rgba(1, 0.35, 0.35, 0.55) : Qt.rgba(1, 1, 1, 0.14)
     }
 
     Rectangle {

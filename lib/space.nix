@@ -51,7 +51,7 @@ let
     env = { }; # merged on top of darkTheme
     forceDark = true;
     platform = "wayland"; # wayland | x11 | null (skip ozone flags)
-    compose = ".local/share/aurora/containers/apps/compose.yml"; # relative to $HOME
+    compose = "containers/apps/compose.yml"; # relative to $HOME
     service = null; # defaults to name
     containerUser = "app";
     containerBin = null; # defaults to resolveBin
@@ -137,7 +137,7 @@ let
 
     createSpace "telegram-2" {
       kind = "container";
-      compose = ".local/share/aurora/containers/telegram/compose.yml";
+      compose = "containers/telegram/compose.yml";
       startOnly = true;
     }
   */
@@ -153,9 +153,8 @@ let
         else
           throw "createSpace ${name}: unknown kind '${cfg.kind}' (expected host|container)";
       package = pkgs.writeShellApplication {
-        inherit name;
-        runtimeInputs = cfg.runtimeInputs;
-        inherit text;
+        inherit name text;
+        inherit (cfg) runtimeInputs;
       };
     in
     {

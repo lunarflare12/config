@@ -1,4 +1,5 @@
-local game_flag = io.open("/home/dd/.local/state/aurora-game", "r")
+local home = os.getenv("HOME") or "/home/dd"
+local game_flag = io.open(home .. "/.local/state/aurora-game", "r")
 local playing = game_flag ~= nil
 if game_flag then
     game_flag:close()
@@ -56,11 +57,13 @@ hl.config({
     },
     cursor = {
         hide_on_key_press = false,
-        -- 0.56 defaults this to 2 (auto). On this NVIDIA driver a HW cursor
-        -- still sends a -1x-1 damage rect and SIGSEGV Hyprland — keep it off.
+        -- 0.56 defaults no_hardware_cursors to 2 (auto). On this NVIDIA
+        -- driver a HW cursor still sends a -1x-1 damage rect and SIGSEGV
+        -- Hyprland — keep software cursors. Hyprcursor themes also trip it.
         no_hardware_cursors = true,
         use_cpu_buffer = false,
         enable_hyprcursor = false,
+        -- Connector name jumps DP-1↔DP-4; hyprfix resolves the live one.
         default_monitor = "DP-1",
     },
     misc = {
@@ -70,7 +73,7 @@ hl.config({
         -- Always on. GameMode used to flip this off for the whole session
         -- and the second monitor stopped taking focus until the game quit.
         mouse_move_focuses_monitor = true,
-        -- Xiaomi DP-1 is not VRR-capable. vrr=2 waits on a signal that
+        -- Xiaomi ultrawide is not VRR-capable. vrr=2 waits on a signal that
         -- never comes and hitchs a high FPS cap.
         vrr = 0,
         render_unfocused_fps = 15,

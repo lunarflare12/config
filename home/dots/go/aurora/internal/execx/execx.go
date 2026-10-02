@@ -1,6 +1,7 @@
 package execx
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -22,6 +23,24 @@ func Runtime() string {
 		return d
 	}
 	return "/run/user/" + strconv.Itoa(os.Getuid())
+}
+
+func RunFull(timeout time.Duration, name string, args ...string) (code int, stdout, stderr string) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, name, args...)
+	var outBuf, errBuf bytes.Buffer
+	cmd.Stdout = &outBuf
+	cmd.Stderr = &errBuf
+	err := cmd.Run()
+	if err != nil {
+		var ee *exec.ExitError
+		if errors.As(err, &ee) {
+			return ee.ExitCode(), outBuf.String(), errBuf.String()
+		}
+		return 1, outBuf.String(), errBuf.String()
+	}
+	return 0, outBuf.String(), errBuf.String()
 }
 
 func Run(timeout time.Duration, name string, args ...string) (int, string) {

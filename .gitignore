@@ -3,6 +3,10 @@ home/dots/aurora-qs/assets/emoji.json
 **/__pycache__/
 *.pyc
 /result
+home/dots/go/aurora/aurora
+# Fat binary blobs for telegram/steam images — keep out of git.
+home/dots/containers/**/*.tar.xz
+home/dots/containers/**/*.tar.gz
 
 # Tunnel files live on the machine under /etc — never the flake.
 /etc/amnesia/

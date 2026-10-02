@@ -7,65 +7,20 @@
 }:
 
 let
-  brightnessctl = pkgs.writeShellApplication {
-    name = "brightnessctl";
-    runtimeInputs = [
-      pkgs.coreutils
-      pkgs.python3
-      pkgs.hyprland
-      pkgs.ddcutil
-    ];
-    text = ''
-      exec python3 ${./dots/scripts/monitor-brightness} "$@"
-    '';
-  };
-
   emojiSource = pkgs.fetchurl {
     url = "https://www.unicode.org/Public/17.0.0/emoji/emoji-test.txt";
     hash = "sha256-HYqUT4jXlS9+98UWf+88Z5lbyuJFQ5SXECMbA6IBrNo=";
   };
 
-  emojiDatabase = pkgs.runCommand "aurora-emoji-database" { nativeBuildInputs = [ pkgs.python3 ]; } ''
-    python3 - "${emojiSource}" "$out" <<'PY'
-    import json
-    import re
-    import sys
-
-    source = sys.argv[1]
-    output = sys.argv[2]
-    items = []
-    group = ""
-    subgroup = ""
-
-    with open(source, encoding="utf-8") as f:
-        for line in f:
-            line = line.rstrip()
-            if line.startswith("# group:"):
-                group = line.split(":", 1)[1].strip()
-                continue
-            if line.startswith("# subgroup:"):
-                subgroup = line.split(":", 1)[1].strip()
-                continue
-            if not line or line.startswith("#"):
-                continue
-            match = re.match(
-                r"^([0-9A-F ]+);\s+fully-qualified\s+#\s+(\S+)\s+(.+)$",
-                line,
-            )
-            if not match:
-                continue
-            emoji = "".join(chr(int(cp, 16)) for cp in match.group(1).split())
-            items.append({
-                "emoji": emoji,
-                "name": match.group(3).strip().lower(),
-                "group": group.lower(),
-                "subgroup": subgroup.lower(),
-            })
-
-    with open(output, "w", encoding="utf-8") as f:
-        json.dump(items, f, ensure_ascii=False, separators=(",", ":"))
-    PY
-  '';
+  emojiDatabase =
+    pkgs.runCommand "aurora-emoji-database"
+      {
+        nativeBuildInputs = [ pkgs.aurora-helpers ];
+      }
+      ''
+        mkdir -p "$out"
+        ${pkgs.aurora-helpers}/bin/aurora emoji build ${emojiSource} "$out/emoji.json"
+      '';
 
   repoRoot = "${config.home.homeDirectory}/${params.repo}";
   auroraQsDir = "${repoRoot}/home/dots/aurora-qs";
@@ -98,6 +53,12 @@ in
       rm -rf "$backup"
       mv "$scripts" "$backup"
     fi
+    qs="${config.xdg.configHome}/quickshell"
+    if [ -d "$qs" ] && [ ! -L "$qs" ]; then
+      backup="$qs.store-dir.bak"
+      rm -rf "$backup"
+      mv "$qs" "$backup"
+    fi
   '';
 
   xdg.configFile."satty/config.toml" = {
@@ -116,20 +77,6 @@ in
     Exec=${pkgs.systemd}/bin/systemctl --user start quickshell.service
     SystemdService=quickshell.service
   '';
-
-  systemd.user.services.aurora-notify-proxy = {
-    Unit = {
-      Description = "Filtered D-Bus proxy so boxed apps share Aurora notifications";
-      After = [ "dbus.socket" ];
-      Requires = [ "dbus.socket" ];
-    };
-    Service = {
-      Type = "simple";
-      ExecStart = "${pkgs.xdg-dbus-proxy}/bin/xdg-dbus-proxy unix:path=%t/bus %t/aurora-notify.sock --filter --talk=org.freedesktop.Notifications";
-      Restart = "on-failure";
-    };
-    Install.WantedBy = [ "graphical-session.target" ];
-  };
 
   dconf.settings = {
     "org/gnome/nm-applet" = {
@@ -157,8 +104,8 @@ in
       PartOf = [ "graphical-session.target" ];
       Requires = [ "dbus.socket" ];
       ConditionEnvironment = "WAYLAND_DISPLAY";
-      StartLimitBurst = 8;
-      StartLimitIntervalSec = 60;
+      StartLimitBurst = 20;
+      StartLimitIntervalSec = 120;
     };
     Service = {
       Type = "exec";
@@ -167,12 +114,14 @@ in
       ExecStart = "${lib.getExe pkgs.quickshell} --no-duplicate";
       # Drop leftover helpers from a previous crash (KillMode=process keeps them).
       ExecStartPre = "-${config.home.homeDirectory}/.config/scripts/aurora-kill-qs-helpers.sh";
-      # Dock-launched apps inherit this cgroup. control-group would kill
+      # Launched apps inherit this cgroup. control-group would kill
       # Chrome/Cursor/games when the bar dies or reloads. AppsService uses
       # systemd-run --scope for real launches; helpers are cleaned above.
       KillMode = "process";
-      Restart = "on-failure";
-      RestartSec = 2;
+      # Always bring the panel back — games/scripts and NVIDIA quirks can
+      # kill qs; on-failure alone leaves the desktop barless after SIGKILL.
+      Restart = "always";
+      RestartSec = 1;
       Slice = "session.slice";
       # qs is a layer-shell, not a portal app. The leftover helper
       # processes from KillMode=process make Qt re-register the same id.
@@ -234,63 +183,59 @@ in
   };
 
   home.activation.auroraState = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        mkdir -p "${auroraQsDir}/assets"
-        ln -sfn ${emojiDatabase} "${auroraQsDir}/assets/emoji.json"
-        mkdir -p "$HOME/.local/state/aurora" "$HOME/.cache/aurora" "$HOME/Pictures/Wallpapers" "$HOME/Pictures/Screenshots" "$HOME/.local/state"
+    mkdir -p "${auroraQsDir}/assets"
+    ln -sfn ${emojiDatabase}/emoji.json "${auroraQsDir}/assets/emoji.json"
+    mkdir -p "$HOME/.local/state/aurora" "$HOME/.cache/aurora" "$HOME/Pictures/Wallpapers" "$HOME/Pictures/Screenshots" "$HOME/.local/state"
+    rm -rf "$HOME/.local/state/aurora/bin"
 
-        # Launchpad/dock pins — keep out of HM-managed ~/.config/aurora.
-        state_layout="$HOME/.local/state/aurora/app-layout.json"
-        state_backup="$HOME/.local/state/aurora/app-layout.backup.json"
-        if [ ! -s "$state_layout" ]; then
-          if [ -s "$HOME/.config/aurora/app-layout.json" ]; then
-            cp -f "$HOME/.config/aurora/app-layout.json" "$state_layout"
-          elif [ -s "$HOME/.cache/aurora/app-layout.json" ]; then
-            cp -f "$HOME/.cache/aurora/app-layout.json" "$state_layout"
-          fi
-        fi
-        if [ -s "$state_layout" ] && [ ! -s "$state_backup" ]; then
-          cp -f "$state_layout" "$state_backup"
-        fi
-        # If backup is richer (more folders), prefer it — sync races used to wipe pins.
-        if [ -s "$state_backup" ] && [ -s "$state_layout" ]; then
-          python3 - "$state_layout" "$state_backup" <<'PY' || true
-    import json, sys
-    def score(p):
-        try:
-            d = json.load(open(p))
-        except Exception:
-            return (-1, -1)
-        lp = d.get("launchpad") or []
-        folders = sum(1 for x in lp if isinstance(x, dict))
-        return (folders, len(lp))
-    layout, backup = sys.argv[1], sys.argv[2]
-    if score(backup) > score(layout):
-        open(layout, "w").write(open(backup).read())
-    PY
-        fi
+    # Launchpad/dock pins — keep out of HM-managed ~/.config/aurora.
+    state_layout="$HOME/.local/state/aurora/app-layout.json"
+    state_backup="$HOME/.local/state/aurora/app-layout.backup.json"
+    config_layout="$HOME/.config/aurora/app-layout.json"
+    if [ ! -s "$state_layout" ]; then
+      if [ -s "$config_layout" ]; then
+        cp -f "$config_layout" "$state_layout"
+      elif [ -s "$HOME/.cache/aurora/app-layout.json" ]; then
+        cp -f "$HOME/.cache/aurora/app-layout.json" "$state_layout"
+      fi
+    fi
+    if [ -s "$state_layout" ] && [ ! -s "$state_backup" ]; then
+      cp -f "$state_layout" "$state_backup"
+    fi
+    # Prefer the richest layout (folders win). Flat alpha rewrites must not
+    # beat the user's foldered ~/.config copy or an older backup.
+    if [ -s "$state_layout" ]; then
+      if [ -s "$config_layout" ]; then
+        ${pkgs.aurora-helpers}/bin/aurora state prefer-layout-backup "$state_layout" "$config_layout" || true
+      fi
+      if [ -s "$state_backup" ]; then
+        ${pkgs.aurora-helpers}/bin/aurora state prefer-layout-backup "$state_layout" "$state_backup" || true
+        ${pkgs.aurora-helpers}/bin/aurora state prefer-layout-backup "$state_backup" "$state_layout" || true
+      fi
+    fi
 
-        if [ ! -f "$HOME/.local/state/monitor-brightness" ]; then
-          echo 100 > "$HOME/.local/state/monitor-brightness"
-        fi
+    if [ ! -f "$HOME/.local/state/monitor-brightness" ]; then
+      echo 100 > "$HOME/.local/state/monitor-brightness"
+    fi
 
-        if [ ! -s "$HOME/.local/state/aurora/wallpaper" ] && [ -s "$HOME/.cache/aurora/current-wallpaper" ]; then
-          cp -f "$HOME/.cache/aurora/current-wallpaper" "$HOME/.local/state/aurora/wallpaper"
-        fi
-        if [ ! -s "$HOME/.local/state/aurora/wallpaper" ]; then
-          first="$(find -L "$HOME/Pictures/Wallpapers" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' \) ! -name '.*' 2>/dev/null | sort | head -n 1 || true)"
-          if [ -n "$first" ]; then
-            printf '%s\n' "$first" > "$HOME/.local/state/aurora/wallpaper"
-          fi
-        fi
+    if [ ! -s "$HOME/.local/state/aurora/wallpaper" ] && [ -s "$HOME/.cache/aurora/current-wallpaper" ]; then
+      cp -f "$HOME/.cache/aurora/current-wallpaper" "$HOME/.local/state/aurora/wallpaper"
+    fi
+    if [ ! -s "$HOME/.local/state/aurora/wallpaper" ]; then
+      first="$(find -L "$HOME/Pictures/Wallpapers" -maxdepth 1 -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' \) ! -name '.*' 2>/dev/null | sort | head -n 1 || true)"
+      if [ -n "$first" ]; then
+        printf '%s\n' "$first" > "$HOME/.local/state/aurora/wallpaper"
+      fi
+    fi
   '';
 
   home.packages = [
-    brightnessctl
+    pkgs.aurora-helpers
     pkgs.ddcutil
   ]
   ++ (with pkgs; [
     quickshell
-    # Dock trash / DesktopService need `gio trash` on qs PATH.
+    # DesktopService needs `gio trash` on qs PATH.
     glib.bin
     cava
     wtype

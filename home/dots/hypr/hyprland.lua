@@ -17,6 +17,7 @@ end
 
 load("config/programs.lua")
 load("config/monitors.lua", true)
+load("config/monitor-pin.lua")
 load("config/workspaces.lua")
 load("config/environment.lua")
 load("config/cursor-env.lua")

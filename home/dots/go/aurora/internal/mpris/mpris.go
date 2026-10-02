@@ -54,7 +54,7 @@ func runtimeDir() string {
 	return "/run/user/" + strconv.Itoa(os.Getuid())
 }
 
-func stateDir() string { return filepath.Join(runtimeDir(), "aurora-mpris") }
+func stateDir() string  { return filepath.Join(runtimeDir(), "aurora-mpris") }
 func statePath() string { return filepath.Join(stateDir(), "active.json") }
 func artPath() string   { return filepath.Join(stateDir(), "cover") }
 
@@ -306,24 +306,16 @@ func getAll(container, name, iface string) map[string]any {
 
 var lastArtSrc, lastArtOut string
 
-func artFileURL() string {
-	dest := artPath()
-	st, err := os.Stat(dest)
-	if err != nil || st.Size() < 32 {
-		return ""
-	}
-	return "file://" + dest + "?t=" + strconv.FormatInt(st.ModTime().UnixNano(), 10)
-}
-
-func pullArt(container, url, trackKey string) string {
+func pullArt(container, url string) string {
 	if url == "" {
 		return ""
 	}
 	_ = os.MkdirAll(stateDir(), 0o755)
 	dest := artPath()
-	key := url + "|" + trackKey
-	if key == lastArtSrc && lastArtOut != "" {
-		return lastArtOut
+	if url == lastArtSrc {
+		if st, err := os.Stat(dest); err == nil && st.Size() > 32 {
+			return lastArtOut
+		}
 	}
 	if strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") {
 		code, _ := run([]string{"curl", "-fsSL", "--max-time", "8", "-o", dest, url}, 10*time.Second)
@@ -334,12 +326,7 @@ func pullArt(container, url, trackKey string) string {
 		if err != nil || st.Size() < 32 {
 			return url
 		}
-		now := time.Now()
-		_ = os.Chtimes(dest, now, now)
-		lastArtSrc, lastArtOut = key, artFileURL()
-		if lastArtOut == "" {
-			return url
-		}
+		lastArtSrc, lastArtOut = url, "file://"+dest
 		return lastArtOut
 	}
 	path := url
@@ -359,9 +346,7 @@ func pullArt(container, url, trackKey string) string {
 	if _, err := os.Stat(dest); err != nil {
 		return ""
 	}
-	now := time.Now()
-	_ = os.Chtimes(dest, now, now)
-	lastArtSrc, lastArtOut = key, artFileURL()
+	lastArtSrc, lastArtOut = url, "file://"+dest
 	return lastArtOut
 }
 
@@ -405,7 +390,7 @@ func snapshotPlayer(container, name string) *snap {
 		s.TrackID = "/"
 	}
 	if art != "" {
-		s.ArtURL = pullArt(container, art, s.TrackID+"|"+title+"|"+artist)
+		s.ArtURL = pullArt(container, art)
 	}
 	return s
 }

@@ -1,6 +1,7 @@
 local GAME_MONITOR = "DP-1"
--- Local 4 on the ultrawide (DP-1 owns 1-10, HDMI owns 11-20).
-local GAME_WORKSPACE = 4
+-- Local 4 on the ultrawide (DP owns 1-12, HDMI owns 13-24).
+-- Ultrawide (DP-1 / DP-4) owns workspaces 1–12. Games land on 8.
+local GAME_WORKSPACE = 8
 -- Native Dota 2 is class dota2, not steam_app_570.
 local GAME_CLASS = "^(steam_app_|dota2|[Mm]inecraft)"
 -- Nix wraps the binary as .gamescope-wrapped; class match is whole-string.
@@ -226,7 +227,7 @@ local function pin_game(w, client_fs, internal_fs)
     end)
     -- Native titles (Dota 2) never talk to gamemoded. Still drop blur/anim.
     pcall(function()
-        hl.exec_cmd("/home/dd/.config/scripts/gamemode-start.sh")
+        hl.exec_cmd((os.getenv("HOME") or "/home/dd") .. "/.config/scripts/gamemode-start.sh")
     end)
 end
 
@@ -265,8 +266,16 @@ local function game_to_desk(win)
         return
     end
     if is_overwatch(w) then
-        -- Leave the workspace alone. Glue-to-4 made Super+move a no-op
-        -- and Wine remaps yanked the client back onto 4 / 5.
+        -- Same desk as every other game: ultrawide workspace 8.
+        -- Fullscreen stays on the window rule (2 0). Do not re-dispatch it.
+        pcall(function()
+            hl.dispatch(hl.dsp.window.move({ workspace = GAME_WORKSPACE, window = w, silent = true }))
+        end)
+        if same_game_count(w) <= 1 then
+            pcall(function()
+                hl.dispatch(hl.dsp.focus({ workspace = GAME_WORKSPACE }))
+            end)
+        end
         return
     end
     if cls:find("steam_app_761890", 1, true) or cls:find("albion", 1, true) then
@@ -434,7 +443,7 @@ end
 local ow_plugin_script = (os.getenv("HOME") or "/home/dd") .. "/.config/scripts/ow-stretch-plugin.sh"
 _G.aurora_ow_plugin_loaded = _G.aurora_ow_plugin_loaded or false
 
-local function output_ok()
+local function find_outputs()
     local ok, mons = pcall(function()
         if hl.get_monitors then
             return hl.get_monitors()
@@ -442,17 +451,23 @@ local function output_ok()
         return {}
     end)
     if not ok or type(mons) ~= "table" then
-        return true
+        return nil, nil
     end
     local hdmi, dp
     for _, m in ipairs(mons) do
         local n = tostring(m.name or m.output or "")
-        if n == "HDMI-A-1" then
+        local desc = tostring(m.description or m.desc or m.model or "")
+        if n == "HDMI-A-2" or n == "HDMI-A-1" or desc:find("PHL", 1, true) or desc:find("Philips", 1, true) then
             hdmi = m
-        elseif n == "DP-1" then
+        elseif n == "DP-4" or n == "DP-1" or desc:find("Mi 30", 1, true) or desc:find("Xiaomi", 1, true) then
             dp = m
         end
     end
+    return hdmi, dp
+end
+
+local function output_ok()
+    local hdmi, dp = find_outputs()
     if not hdmi or not dp then
         return false
     end
@@ -475,9 +490,26 @@ local function pin_outputs()
     if output_ok() then
         return
     end
+    local hdmi, dp = find_outputs()
+    local dp_name = (dp and (dp.name or dp.output)) or "DP-1"
+    local hdmi_name = (hdmi and (hdmi.name or hdmi.output)) or "HDMI-A-1"
     pcall(function()
-        hl.monitor({ output = "DP-1", mode = "2560x1080@200.00Hz", position = "0x0", scale = 1, bitdepth = 8, disabled = false })
-        hl.monitor({ output = "HDMI-A-1", mode = "1920x1080@60.00Hz", position = "2560x0", scale = 1, bitdepth = 8, disabled = false })
+        hl.monitor({
+            output = tostring(dp_name),
+            mode = "2560x1080@200.00Hz",
+            position = "0x0",
+            scale = 1,
+            bitdepth = 8,
+            disabled = false,
+        })
+        hl.monitor({
+            output = tostring(hdmi_name),
+            mode = "1920x1080@60.00Hz",
+            position = "2560x0",
+            scale = 1,
+            bitdepth = 8,
+            disabled = false,
+        })
     end)
 end
 

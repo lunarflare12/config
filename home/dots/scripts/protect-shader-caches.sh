@@ -79,18 +79,49 @@ link_larger() {
 }
 
 # Mirror a GLCache tree into the durable directory. Never delete either side.
+# Only stamp .frozen when the tree is a real multi‑GB cache — mid‑compile
+# stubs must stay unfrozen so Steam keeps writing.
 keep_nvidia() {
   local src=$1 dest_root=$2
   [ -d "$src" ] || return 0
   mkdir -p "$dest_root"
-  printf 'frozen\n' >"${dest_root}/.frozen"
   printf 'protected\n' >"${dest_root}/.aurora-no-delete"
-  local f rel dst
+  local f rel dst total=0
   while IFS= read -r -d '' f; do
     rel="${f#"$src"/}"
     dst="${dest_root}/${rel}"
     link_larger "$f" "$dst"
-  done < <(find "$src" -type f -print0 2>/dev/null)
+  done < <(find "$src" -type f -name '*.bin' -print0 2>/dev/null)
+  total=$(du -sb "$dest_root" 2>/dev/null | awk '{print $1}')
+  if [ "${total:-0}" -ge 2147483648 ]; then
+    printf 'frozen\n' >"${dest_root}/.frozen"
+  else
+    rm -f "${dest_root}/.frozen"
+  fi
+}
+
+# Steam/fossilize truncates live nvidiav1 shards to 32‑byte stubs while the
+# durable mirror still holds the real bins. Put the larger files back on the
+# path the driver reads (__GL_SHADER_DISK_CACHE_PATH → steam nvidiav1).
+restore_nvidia_from_keep() {
+  local src=$1 dest=$2
+  [ -d "$src" ] || return 0
+  mkdir -p "$dest"
+  local f rel dst sb db
+  while IFS= read -r -d '' f; do
+    rel="${f#"$src"/}"
+    dst="${dest}/${rel}"
+    mkdir -p "$(dirname "$dst")"
+    sb=$(wc -c <"$f" 2>/dev/null || echo 0)
+    db=0
+    if [ -f "$dst" ]; then
+      db=$(wc -c <"$dst" 2>/dev/null || echo 0)
+    fi
+    if [ "${sb:-0}" -gt "${db:-0}" ] && [ "${sb:-0}" -ge 4096 ]; then
+      cp -a "$f" "$dst" || true
+    fi
+  done < <(find "$src" -type f -name '*.bin' -print0 2>/dev/null)
+  printf 'protected\n' >"${dest}/.aurora-no-delete"
 }
 
 # NVIDIA GLCache lives under ~/.cache and is bind-mounted at
@@ -116,21 +147,30 @@ dxvk_magic_ok() {
   [ "${sz:-0}" -ge 4096 ]
 }
 
+# Real OW NVIDIA cache floor (merged bins). Below this Steam may rebuild;
+# never stamp .frozen on a half-written tree — that used to flip processing
+# off mid-fossilize and invite a wipe on the next launch.
+OW_CACHE_READY_BYTES=2147483648
+
 nvidia_cache_ok() {
   local root merged sz f
   for root in "$ow_nv_keep" "$ow_nv"; do
     [ -d "$root/GLCache" ] || continue
-    merged=""
     for f in "$root"/GLCache/*/*/steamapp_merged_shader_cache.bin \
              "$root"/GLCache/*/*/steamapp_shader_cache1.bin \
-             "$root"/GLCache/*/*/steamapp_shader_cache0.bin; do
+             "$root"/GLCache/*/*/steamapp_shader_cache0.bin \
+             "$root"/GLCache/*/*/steam_shader_cache.bin; do
       [ -f "$f" ] || continue
       sz=$(wc -c <"$f" 2>/dev/null || echo 0)
-      # Real OW cache is multi-GB; <64MiB means wiped/corrupt stub.
-      if [ "${sz:-0}" -ge 67108864 ]; then
+      if [ "${sz:-0}" -ge "$OW_CACHE_READY_BYTES" ]; then
         return 0
       fi
     done
+    # Whole tree large enough (multi-file compile in progress / done).
+    sz=$(du -sb "$root" 2>/dev/null | awk '{print $1}')
+    if [ "${sz:-0}" -ge "$OW_CACHE_READY_BYTES" ]; then
+      return 0
+    fi
   done
   return 1
 }
@@ -140,6 +180,11 @@ seed_nvidia_if_empty
 keep_nvidia "$ow_nv" "$ow_nv_keep"
 if [ -d "$steam_nv" ] && ! [ "$steam_nv" -ef "$ow_nv" ]; then
   keep_nvidia "$steam_nv" "$ow_nv_keep"
+fi
+# If Steam truncated the live tree, put the durable bins back before play.
+restore_nvidia_from_keep "$ow_nv_keep" "$ow_nv"
+if [ -d "$steam_nv" ] && ! [ "$steam_nv" -ef "$ow_nv" ]; then
+  restore_nvidia_from_keep "$ow_nv_keep" "$steam_nv"
 fi
 # Same rule for the other boxes. Their bins must not be replaced either.
 keep_nvidia "${shader_root}/105600/nvidiav1" "${XDG_CACHE_HOME}/nvidia/terraria"

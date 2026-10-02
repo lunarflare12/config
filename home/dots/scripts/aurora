@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 set +e
+# Prefer a manually rebuilt helper (e.g. after a hyprfix hotfix) until the
+# next home-manager switch refreshes the profile binary.
 for p in \
-  "${HOME:-/home/dd}/.local/state/aurora/bin/aurora" \
-  "/etc/profiles/per-user/${USER:-dd}/bin/aurora"
+  "${HOME:-/home/dd}/.local/bin/aurora" \
+  "/etc/profiles/per-user/${USER:-dd}/bin/aurora" \
+  "/run/current-system/sw/bin/aurora"
 do
   if [ -x "$p" ]; then
     exec "$p" "$@"

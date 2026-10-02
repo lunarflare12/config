@@ -159,7 +159,7 @@ QtObject {
         root.hypr(["eval", "hl.env('HYPRCURSOR_SIZE', '" + px + "')"]);
         root.hypr(["eval", "hl.env('XCURSOR_THEME', '" + theme + "')"]);
         root.hypr(["eval", "hl.env('XCURSOR_SIZE', '" + px + "')"]);
-        root.hypr(["eval", "hl.config({ cursor = { enable_hyprcursor = true, no_hardware_cursors = true, use_cpu_buffer = false, hide_on_key_press = false, default_monitor = 'DP-1' } })"]);
+        root.hypr(["eval", "hl.config({ cursor = { enable_hyprcursor = true, no_hardware_cursors = true, use_cpu_buffer = false, hide_on_key_press = false, default_monitor = 'DP-4' } })"]);
         root.hypr(["setcursor", theme, String(px)]);
         Quickshell.execDetached([root.applyScript, key, String(px), theme]);
     }

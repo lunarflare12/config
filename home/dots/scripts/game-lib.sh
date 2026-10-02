@@ -17,11 +17,60 @@ game_ensure_xwayland() {
   fi
 }
 
+# Bind /steam/steamapps/shadercache → ~/.cache/steam-shadercache.
+# If that source dir is deleted+recreated while mounted, the mount sticks
+# to the old inode (findmnt shows //deleted) and Steam gets
+# "Disk write failure" on every shader update — Overwatch then exits in 1s.
+game_fix_shadercache_bind() {
+  local src="${HOME:-/home/dd}/.cache/steam-shadercache"
+  local dst=/steam/steamapps/shadercache
+  local src_info dst_info
+  mkdir -p "$src"
+  # Never replace $src itself (rm -rf + mkdir): that orphans the bind.
+  if ! findmnt -T "$dst" >/dev/null 2>&1; then
+    systemctl restart steam-steamapps-shadercache.mount >/dev/null 2>&1 || true
+  fi
+  src_info=$(findmnt -n -o SOURCE -T "$src" 2>/dev/null || true)
+  dst_info=$(findmnt -n -o SOURCE -T "$dst" 2>/dev/null || true)
+  case "$dst_info" in
+    *'//deleted'*|"")
+      echo "game-lib: shadercache bind stale ($dst_info), remounting" >&2
+      systemctl restart steam-steamapps-shadercache.mount >/dev/null 2>&1 || true
+      dst_info=$(findmnt -n -o SOURCE -T "$dst" 2>/dev/null || true)
+      ;;
+  esac
+  # Host write works: bind is live for this process.
+  if touch "$dst/.aurora-bind-check" 2>/dev/null; then
+    rm -f "$dst/.aurora-bind-check"
+  else
+    echo "game-lib: shadercache bind not writable, remounting" >&2
+    systemctl restart steam-steamapps-shadercache.mount >/dev/null 2>&1 || true
+  fi
+  # Container keeps a pre-remount mount table. Restart when the box
+  # still cannot create files under $dst.
+  if docker inspect -f '{{.State.Running}}' steam 2>/dev/null | grep -qx true; then
+    if ! docker exec steam touch "$dst/.aurora-bind-check" 2>/dev/null; then
+      echo "game-lib: steam container has stale shadercache mount, restarting" >&2
+      docker restart steam >/dev/null 2>&1 || true
+      local i
+      for i in $(seq 1 40); do
+        if docker exec steam pgrep -f '/\.local/share/Steam/ubuntu12_32/steam$' >/dev/null 2>&1; then
+          break
+        fi
+        sleep 0.5
+      done
+    else
+      docker exec steam rm -f "$dst/.aurora-bind-check" >/dev/null 2>&1 || true
+    fi
+  fi
+}
+
 # One container (`steam`) owns the library. Games are processes inside it.
 # Drop the old per-game containers. Never stop the Steam client here.
 game_ensure_steam() {
-  local compose="${COMPOSE:-${HOME:-/home/dd}/.local/share/aurora/containers/steam/compose.yml}"
+  local compose="${COMPOSE:-${HOME:-/home/dd}/containers/steam/compose.yml}"
   local i
+  game_fix_shadercache_bind
   docker rm -f overwatch terraria albion >/dev/null 2>&1 || true
   docker compose -f "$compose" up -d --no-deps --no-build steam
   for i in $(seq 1 40); do
@@ -116,7 +165,10 @@ game_low_latency() {
 game_gpu_perf() {
   DISPLAY="${DISPLAY:-:0}" \
     nvidia-settings -a "[gpu:0]/GPUPowerMizerMode=1" >/dev/null 2>&1 || true
+  # Mode often snaps back to 0; lock clocks so the card cannot idle in P3
+  # at half memory while Overwatch is open (feels like shader lag).
   timeout 2 run0 nvidia-smi -lgc 2700,3090 >/dev/null 2>&1 || true
+  timeout 2 run0 nvidia-smi -lmc 10501,14001 >/dev/null 2>&1 || true
 }
 
 game_gpu_idle() {
@@ -185,8 +237,8 @@ game_gamescope() {
 # Philips change resolution every Overwatch launch.
 game_outputs_ok() {
   game_host hyprctl monitors -j 2>/dev/null | awk '
-    /"name": "HDMI-A-1"/ { t="h" }
-    /"name": "DP-1"/ { t="d" }
+    /"name": "HDMI-A-2"/ || /"name": "HDMI-A-1"/ { t="h" }
+    /"name": "DP-4"/ || /"name": "DP-1"/ { t="d" }
     t=="h" && /"width": 1920/ { hw=1 }
     t=="h" && /"height": 1080/ { hh=1 }
     t=="h" && /"refreshRate": 60/ { hr=1 }
@@ -201,10 +253,20 @@ game_outputs_ok() {
 
 game_pin_outputs() {
   game_outputs_ok && return 0
-  game_host hyprctl eval '
-hl.monitor({ output = "DP-1", mode = "2560x1080@200.00Hz", position = "0x0", scale = 1, bitdepth = 8, disabled = false })
-hl.monitor({ output = "HDMI-A-1", mode = "1920x1080@60.00Hz", position = "2560x0", scale = 1, bitdepth = 8, disabled = false })
-' >/dev/null 2>&1 || true
+  # Prefer live connector names (NVIDIA can renumber DP-1→DP-4).
+  local dp hdmi
+  dp=$(game_host hyprctl monitors -j 2>/dev/null | awk '
+    /"name": "DP-/ { n=$0; gsub(/.*"name": "|".*/, "", n); if (n ~ /^DP-/) print n }
+  ' | head -1)
+  hdmi=$(game_host hyprctl monitors -j 2>/dev/null | awk '
+    /"name": "HDMI-/ { n=$0; gsub(/.*"name": "|".*/, "", n); if (n ~ /^HDMI-/) print n }
+  ' | head -1)
+  dp=${dp:-DP-4}
+  hdmi=${hdmi:-HDMI-A-2}
+  game_host hyprctl eval "
+hl.monitor({ output = \"${dp}\", mode = \"2560x1080@200.00Hz\", position = \"0x0\", scale = 1, bitdepth = 8, disabled = false })
+hl.monitor({ output = \"${hdmi}\", mode = \"1920x1080@60.00Hz\", position = \"2560x0\", scale = 1, bitdepth = 8, disabled = false })
+" >/dev/null 2>&1 || true
 }
 
 game_xwayland_ultrawide() {
@@ -252,7 +314,7 @@ game_monitor() {
     }
     END {
       if (n != "") printf "%s %s %d %s\n", w, h, hz, n
-      else print "2560 1080 200 DP-1"
+      else print "2560 1080 200 DP-4"
     }
   '
 }
@@ -368,18 +430,37 @@ game_fossil_alive() {
 # Steam applaunch starts the exe while these depots are still downloading.
 # Block until both pipeline caches are on disk and a replay is not running.
 game_wait_ow_shaders() {
-  local need_a=12500000000 need_b=1300000000
+  # Real depot sizes as of Steam manifest (stage bytes), with a small floor
+  # so a stub never counts as ready. Old 12.5G/1.3G floors were above the
+  # actual packages and left the wait stuck until the stall timeout.
+  local need_a=11000000000 need_b=1200000000
   local i=0 a b k waited=0
   a=$(game_ow_hash_bytes 904f69d2b1b44b65)
   b=$(game_ow_hash_bytes 2e6c105801134e9c)
   if [ "$a" -lt "$need_a" ] || [ "$b" -lt "$need_b" ]; then
     waited=1
+    local stall=0 prev_a prev_b
+    prev_a=$a
+    prev_b=$b
     while [ "$i" -lt 1800 ]; do
       a=$(game_ow_hash_bytes 904f69d2b1b44b65)
       b=$(game_ow_hash_bytes 2e6c105801134e9c)
       if [ "$a" -ge "$need_a" ] && [ "$b" -ge "$need_b" ]; then
         echo "game-lib: shader depots ready ($a $b)" >&2
         break
+      fi
+      # Nothing on disk and nothing arriving: do not sit an hour, then refuse.
+      # Launch anyway. Do not delete whatever bins are already there.
+      if [ "$a" = "$prev_a" ] && [ "$b" = "$prev_b" ]; then
+        stall=$((stall + 1))
+      else
+        stall=0
+      fi
+      prev_a=$a
+      prev_b=$b
+      if [ "$stall" -ge 8 ]; then
+        echo "game-lib: shader depots not downloading ($a $b), launching with what is on disk" >&2
+        return 0
       fi
       if [ $((i % 15)) -eq 0 ]; then
         echo "game-lib: waiting for shader cache $a/$need_a $b/$need_b" >&2
@@ -391,8 +472,8 @@ game_wait_ow_shaders() {
   a=$(game_ow_hash_bytes 904f69d2b1b44b65)
   b=$(game_ow_hash_bytes 2e6c105801134e9c)
   if [ "$a" -lt "$need_a" ] || [ "$b" -lt "$need_b" ]; then
-    echo "game-lib: shader cache not ready, not launching" >&2
-    return 1
+    echo "game-lib: shader depots still short ($a $b), launching anyway" >&2
+    return 0
   fi
   if [ "$waited" -eq 1 ]; then
     k=0

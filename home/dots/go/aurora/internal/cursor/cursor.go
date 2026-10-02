@@ -258,7 +258,7 @@ func Set(id, size, theme string) int {
 	_ = execx.RunOK(2*time.Second, "hyprctl", "eval", "hl.env('XCURSOR_SIZE', '"+hyprSize+"')")
 	_ = execx.RunOK(2*time.Second, "hyprctl", "eval", "hl.env('HYPRCURSOR_THEME', '"+theme+"')")
 	_ = execx.RunOK(2*time.Second, "hyprctl", "eval", "hl.env('HYPRCURSOR_SIZE', '"+hyprSize+"')")
-	_ = execx.RunOK(2*time.Second, "hyprctl", "eval", `hl.config({ cursor = { enable_hyprcursor = true, no_hardware_cursors = true, use_cpu_buffer = false, hide_on_key_press = false, default_monitor = 'DP-1' } })`)
+	_ = execx.RunOK(2*time.Second, "hyprctl", "eval", `hl.config({ cursor = { enable_hyprcursor = false, no_hardware_cursors = true, use_cpu_buffer = false, hide_on_key_press = false, default_monitor = 'DP-1' } })`)
 	_ = execx.RunOK(2*time.Second, "hyprctl", "setcursor", theme, hyprSize)
 	_ = execx.RunOK(2*time.Second, "hyprctl", "setcursor", theme, size)
 	return 0

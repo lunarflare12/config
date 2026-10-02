@@ -1,0 +1,16 @@
+use_default_settings: true
+general:
+  instance_name: "aurora-searxng"
+  enable_metrics: false
+search:
+  safe_search: 0
+  formats: [html, json]
+server:
+  secret_key: "CHANGE_ME"
+  limiter: false
+  image_proxy: true
+  method: "GET"
+ui:
+  static_use_hash: true
+outgoing:
+  request_timeout: 8.0

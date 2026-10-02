@@ -15,5 +15,9 @@ buildGoModule {
     ln -s aurora $out/bin/aurora-fossilize
     ln -s aurora $out/bin/aurora-monitor
     ln -s aurora $out/bin/aurora-helpers
+    ln -s aurora $out/bin/vpn-ctl
+    ln -s aurora $out/bin/lab-ctl
+    ln -s aurora $out/bin/brightnessctl
+    ln -s aurora $out/bin/spotify-theme
   '';
 }

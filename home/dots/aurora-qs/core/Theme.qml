@@ -229,7 +229,7 @@ QtObject {
 
     readonly property int centerSheetWidth: 320
 
-    readonly property int animDuration: 520
+    readonly property int animDuration: 320
 
     readonly property int notchGap: 64
 
@@ -256,10 +256,6 @@ QtObject {
     readonly property int wsPadding: 8
 
     readonly property int wsRadius: 16
-
-    // Dock glass sits 16px from the left and is 76px wide. Exclusive zone
-    // stops at that outer edge — window gaps_out is measured from here.
-    readonly property int dockReserve: 92
 
     readonly property int moduleHeight: 28
 
@@ -309,7 +305,7 @@ QtObject {
     // Motion is intentionally short and deterministic. Hover and press feel
     // lives in components/Tactile.qml, not here.
 
-    readonly property int durFast: 180
+    readonly property int durFast: 110
 
-    readonly property int durBase: 280
+    readonly property int durBase: 180
 }

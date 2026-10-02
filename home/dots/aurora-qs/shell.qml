@@ -75,8 +75,11 @@ Scope {
     IpcHandler {
         target: "bar"
 
+        // Keep IPC for game scripts, but never unmap the panel. Exclusive
+        // fullscreen already covers the notch; leaving it mapped keeps
+        // notifications / island / tray alive after the game exits.
         function hide(): void {
-            Core.Session.forceHideGameBar = true;
+            Core.Session.forceHideGameBar = false;
         }
 
         function show(): void {

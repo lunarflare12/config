@@ -13,6 +13,7 @@ Singleton {
     property var wireguard: []
     property var amnezia: []
     property var vless: []
+    property var openconnect: []
     property bool busy: false
     property string busyName: ""
     property string lastError: ""
@@ -86,13 +87,12 @@ Singleton {
             root.viewers -= 1;
     }
 
-    readonly property string ctl: (Quickshell.env("HOME") || "") + "/.config/scripts/lab-ctl.py"
     readonly property int vmCount: root.vms.length
     readonly property int containerCount: root.containers.length
     readonly property int appCount: root.apps.length
     readonly property int tunnelUp: {
         let n = 0;
-        const lists = [root.wireguard, root.amnezia, root.vless];
+        const lists = [root.wireguard, root.amnezia, root.vless, root.openconnect];
         for (let i = 0; i < lists.length; i++) {
             const list = lists[i];
             for (let j = 0; j < list.length; j++) {
@@ -103,25 +103,21 @@ Singleton {
         return n;
     }
 
-    readonly property var vpnActive: {
-        const lists = [root.amnezia, root.wireguard, root.vless];
+    readonly property bool vpnUp: root.tunnelUp > 0
+    readonly property string activeVpn: {
+        const names = [];
+        const lists = [root.wireguard, root.amnezia, root.vless, root.openconnect];
         for (let i = 0; i < lists.length; i++) {
             const list = lists[i];
             for (let j = 0; j < list.length; j++) {
-                if (list[j] && list[j].up)
-                    return list[j];
+                if (!(list[j] && list[j].up))
+                    continue;
+                const name = String(list[j].label || list[j].name || "").trim();
+                if (name)
+                    names.push(name);
             }
         }
-        return null;
-    }
-
-    readonly property bool vpnUp: !!root.vpnActive
-
-    readonly property string vpnLabel: {
-        const t = root.vpnActive;
-        if (!t)
-            return "";
-        return String(t.label || t.name || "");
+        return names.join(" · ");
     }
 
     readonly property var vpnSections: {
@@ -139,6 +135,10 @@ Singleton {
             {
                 kind: "vless",
                 list: root.vless
+            },
+            {
+                kind: "openconnect",
+                list: root.openconnect
             }
         ];
         for (let i = 0; i < lists.length; i++) {
@@ -146,7 +146,7 @@ Singleton {
             const list = lists[i].list;
             for (let j = 0; j < list.length; j++) {
                 const t = list[j];
-                const folder = String(t.folder || "").trim() || (kind === "wireguard" ? "WireGuard" : "personal");
+                const folder = String(t.folder || "").trim() || (kind === "wireguard" ? "WireGuard" : (kind === "openconnect" ? "work" : "personal"));
                 if (!buckets[folder]) {
                     buckets[folder] = [];
                     order.push(folder);
@@ -261,6 +261,7 @@ Singleton {
         const wireguard = Array.isArray(payload.wireguard) ? payload.wireguard : [];
         const amnezia = Array.isArray(payload.amnezia) ? payload.amnezia : [];
         const vless = Array.isArray(payload.vless) ? payload.vless : [];
+        const openconnect = Array.isArray(payload.openconnect) ? payload.openconnect : [];
         if (!root.sameJson(root.vms, vms))
             root.vms = vms;
         if (!root.sameJson(root.containers, containers))
@@ -273,6 +274,8 @@ Singleton {
             root.amnezia = amnezia;
         if (!root.sameJson(root.vless, vless))
             root.vless = vless;
+        if (!root.sameJson(root.openconnect, openconnect))
+            root.openconnect = openconnect;
         root.refreshHover();
     }
 
@@ -323,8 +326,6 @@ Singleton {
             "vscode": "VS Code",
             "obsidian": "Obsidian",
             "openlens": "OpenLens",
-            "prismlauncher": "Prism Launcher",
-            "qbittorrent": "qBittorrent",
             "libreoffice": "LibreOffice",
             "firefox": "Firefox",
             "zen": "Zen",
@@ -371,11 +372,11 @@ Singleton {
     function toggleVpn(kind, name) {
         if (!kind || !name)
             return;
-        if (kind !== "wireguard" && kind !== "amnezia" && kind !== "vless")
+        if (kind !== "wireguard" && kind !== "amnezia" && kind !== "vless" && kind !== "openconnect")
             return;
         if (!root.validCt(name))
             return;
-        root.run(["vpn-ctl", "gui-toggle", kind, name], "vpn:" + name);
+        root.run(["aurora", "lab", "gui-toggle", kind, name], "vpn:" + name);
     }
 
     function openVm(name) {
@@ -387,7 +388,7 @@ Singleton {
     function vmDo(action, name) {
         if (!root.validCt(name) || root.busy)
             return;
-        root.run(["python3", root.ctl, "vm", action, name], action + ":" + name);
+        root.run(["aurora", "lab", "vm", action, name], action + ":" + name);
     }
 
     function activateVm(vm) {
@@ -407,13 +408,13 @@ Singleton {
     function dockerDo(action, name) {
         if (!root.validCt(name) || root.busy)
             return;
-        root.run(["python3", root.ctl, "docker", action, name], action + ":" + name);
+        root.run(["aurora", "lab", "docker", action, name], action + ":" + name);
     }
 
     function togglePause(ct) {
         if (!ct || !ct.name)
             return;
-        const gui = /^(chrome-|vscode|obsidian|openlens|prismlauncher|qbittorrent|libreoffice|firefox|zen|spotify|idea|telegram-|steam|overwatch|terraria|albion)/.test(String(ct.name || ""));
+        const gui = /^(chrome-|vscode|obsidian|openlens|libreoffice|firefox|zen|spotify|idea|telegram-|steam|overwatch|terraria|albion)/.test(String(ct.name || ""));
         if (gui) {
             root.toggleRun(ct);
             return;
@@ -508,7 +509,7 @@ Singleton {
     }
 
     property Process statusProc: Process {
-        command: ["python3", root.ctl, "status-light"]
+        command: ["aurora", "lab", "status-light"]
         stdout: StdioCollector {
             onStreamFinished: root.parseStdout(text)
         }
@@ -527,43 +528,6 @@ Singleton {
         onTriggered: root.refresh()
     }
 
-    function refreshVpn() {
-        if (!vpnStatusProc.running)
-            vpnStatusProc.running = true;
-    }
-
-    property Process vpnStatusProc: Process {
-        command: ["python3", root.ctl, "status-vpn"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                const raw = String(text || "").trim();
-                if (!raw)
-                    return;
-                try {
-                    const payload = JSON.parse(raw.split("\n")[0]);
-                    if (!payload || typeof payload !== "object")
-                        return;
-                    const wireguard = Array.isArray(payload.wireguard) ? payload.wireguard : root.wireguard;
-                    const amnezia = Array.isArray(payload.amnezia) ? payload.amnezia : root.amnezia;
-                    const vless = Array.isArray(payload.vless) ? payload.vless : root.vless;
-                    if (!root.sameJson(root.wireguard, wireguard))
-                        root.wireguard = wireguard;
-                    if (!root.sameJson(root.amnezia, amnezia))
-                        root.amnezia = amnezia;
-                    if (!root.sameJson(root.vless, vless))
-                        root.vless = vless;
-                } catch (e) {}
-            }
-        }
-    }
-
-    property Timer vpnPoll: Timer {
-        interval: 4000
-        repeat: true
-        running: true
-        onTriggered: root.refreshVpn()
-    }
-
     property Timer settleTimer: Timer {
         interval: 900
         repeat: false
@@ -572,7 +536,6 @@ Singleton {
 
     Component.onCompleted: {
         root.loadToggles();
-        root.refreshVpn();
         if (root.viewers > 0)
             root.refresh();
     }

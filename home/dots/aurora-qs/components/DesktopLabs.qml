@@ -266,7 +266,7 @@ Item {
                     visible: root.svc.vpnItems.length === 0
                     width: parent.width
                     wrapMode: Text.WordWrap
-                    text: "Put *.conf in /etc/wireguard or /etc/amnesia, or *.json in ~/.config/vless (# name / # folder)."
+                    text: "Put *.conf in /etc/wireguard, /etc/amnesia, /etc/openconnect (# folder work), or *.json in ~/.config/vless."
                     color: Core.Theme.foregroundMuted
                     font.family: Core.Theme.fontFamily
                     font.pixelSize: Core.Theme.fontSizeSmall

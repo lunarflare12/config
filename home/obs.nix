@@ -1,4 +1,9 @@
-{ lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 {
   xdg.configFile."environment.d/90-nvenc.conf" = {
@@ -17,7 +22,7 @@
     # System obs-studio (with plugins) lives on the current-system profile, not
     # bare pkgs.obs-studio — that would drop vkcapture/pipewire plugins.
     # Absolute wrapper — thin Hypr PATH + skip VAAPI probe stalls (see obs.sh).
-    exec = "/home/dd/.config/scripts/obs.sh %U";
+    exec = "${config.home.homeDirectory}/.config/scripts/obs.sh %U";
     icon = "com.obsproject.Studio";
     terminal = false;
     categories = [
@@ -45,9 +50,9 @@
         -e 's/^SysTrayEnabled=.*/SysTrayEnabled=true/' \
         -e 's/^SysTrayWhenStarted=.*/SysTrayWhenStarted=true/' \
         "$dest/global.ini" || true
-      ${pkgs.gnused}/bin/grep -q '^SysTrayEnabled=' "$dest/global.ini" \
+      ${pkgs.gnugrep}/bin/grep -q '^SysTrayEnabled=' "$dest/global.ini" \
         || printf '\nSysTrayEnabled=true\n' >> "$dest/global.ini"
-      ${pkgs.gnused}/bin/grep -q '^SysTrayWhenStarted=' "$dest/global.ini" \
+      ${pkgs.gnugrep}/bin/grep -q '^SysTrayWhenStarted=' "$dest/global.ini" \
         || printf 'SysTrayWhenStarted=true\n' >> "$dest/global.ini"
     fi
   '';

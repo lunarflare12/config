@@ -7,20 +7,7 @@
 }:
 
 let
-  vpnCtl = pkgs.writeShellApplication {
-    name = "vpn-ctl";
-    runtimeInputs = [
-      pkgs.python3
-      pkgs.iproute2
-      pkgs.wireguard-tools
-      pkgs.amneziawg-tools
-      pkgs.amneziawg-go
-      pkgs.sing-box
-    ];
-    text = ''
-      exec python3 /home/${host.userName}/.config/scripts/lab-ctl.py "$@"
-    '';
-  };
+  vpnCtl = "${pkgs.aurora-helpers}/bin/vpn-ctl";
 in
 {
   networking = {
@@ -46,14 +33,27 @@ in
     pkgs.openconnect
     pkgs.networkmanager-openconnect
     pkgs.sing-box
-    vpnCtl
+    pkgs.aurora-helpers
   ];
 
   systemd.tmpfiles.rules = [
     "d /etc/wireguard 0750 root wheel -"
     "d /etc/amnesia 0750 root wheel -"
     "d /etc/amnesia/vless 0750 root wheel -"
+    "d /etc/openconnect 0750 root wheel -"
+    "d /run/aurora-openconnect 0755 root root -"
   ];
+
+  # SoftServe AnyConnect (password + Microsoft MFA in kitty). Folder tag: work.
+  environment.etc."openconnect/work.conf".text = ''
+    # name SoftServe
+    # folder work
+    url https://vpn.soft-serv.com/gx
+    user ddouhushau@scnsoft.com
+    protocol anyconnect
+    interface softserv
+    bypass 212.98.168.122 86.57.144.122
+  '';
 
   security.polkit.extraConfig = ''
     polkit.addRule(function(action, subject) {
@@ -77,7 +77,7 @@ in
           <allow_inactive>no</allow_inactive>
           <allow_active>yes</allow_active>
         </defaults>
-        <annotate key="org.freedesktop.policykit.exec.path">${lib.getExe vpnCtl}</annotate>
+        <annotate key="org.freedesktop.policykit.exec.path">${vpnCtl}</annotate>
         <annotate key="org.freedesktop.policykit.exec.allow_gui">true</annotate>
       </action>
     </policyconfig>
@@ -88,11 +88,16 @@ in
       users = [ host.userName ];
       commands = [
         {
-          command = lib.getExe vpnCtl;
+          command = vpnCtl;
           options = [ "NOPASSWD" ];
         }
         {
           command = "/run/current-system/sw/bin/vpn-ctl";
+          options = [ "NOPASSWD" ];
+        }
+        {
+          # Interactive SoftServe OpenConnect (password + MFA in termfloat).
+          command = "/home/${host.userName}/.config/scripts/openconnect-tunnel.sh";
           options = [ "NOPASSWD" ];
         }
       ];

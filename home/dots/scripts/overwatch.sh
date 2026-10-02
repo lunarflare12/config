@@ -4,7 +4,7 @@
 set -euo pipefail
 
 HOME="${HOME:-/home/dd}"
-COMPOSE="${HOME}/.local/share/aurora/containers/steam/compose.yml"
+COMPOSE="${HOME}/containers/steam/compose.yml"
 # shellcheck source=/dev/null
 . "${BASH_SOURCE[0]%/*}/game-lib.sh"
 
@@ -15,6 +15,9 @@ fi
 
 # ── Host path: only docker; never run Proton/OW on the host. ─────────────
 if [ "$in_box" -eq 0 ]; then
+  # Bind can point at a deleted inode after rm+mkdir of the cache dir.
+  # Fix that before waiting on /steam/.../shadercache or Steam Disk-write-fails.
+  game_fix_shadercache_bind
   # Do not touch the compositor until the shader depots are on disk.
   # applaunch otherwise starts Overwatch while Steam is still downloading.
   game_wait_ow_shaders
@@ -110,7 +113,7 @@ export __GL_SYNC_TO_VBLANK=0
 # Driver thread does shader-cache work. Without it that work sits on DXVK's
 # submit thread, that thread stays at 100%, and the GPU waits with nothing to draw.
 export __GL_THREADED_OPTIMIZATIONS=1
-export __GL_SYNC_DISPLAY_DEVICE="${__GL_SYNC_DISPLAY_DEVICE:-DP-1}"
+export __GL_SYNC_DISPLAY_DEVICE="${__GL_SYNC_DISPLAY_DEVICE:-DP-4}"
 export __GL_SHARPEN_ENABLE=0
 export __GL_GSYNC_ALLOWED=0
 export __GL_VRR_ALLOWED=0

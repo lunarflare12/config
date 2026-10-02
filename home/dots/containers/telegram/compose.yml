@@ -1,0 +1,115 @@
+name: telegram-isolated
+
+x-env: &env
+  WAYLAND_DISPLAY: wayland-1
+  XDG_RUNTIME_DIR: /tmp/xdg
+  PULSE_SERVER: unix:/tmp/pulse-native
+  HOME: /home/telegram
+  # Official Telegram follows QStyleHints::colorScheme (portal, then GtkSettings).
+  # Fusion override reports light and keeps night mode off. Do not set it here.
+  GTK_THEME: "WhiteSur-Dark-alt:dark"
+  GTK_APPLICATION_PREFER_DARK_THEME: "1"
+  GTK_ICON_THEME: WhiteSur-dark
+  ADW_DEBUG_COLOR_SCHEME: prefer-dark
+  QT_QPA_PLATFORM: wayland
+  XDG_CURRENT_DESKTOP: GNOME
+  GTK_USE_PORTAL: "0"
+  COLOR_SCHEME: prefer-dark
+
+x-base: &base
+  build: .
+  image: telegram-desktop:7.2.9
+  user: "1000:100"
+  read_only: true
+  privileged: false
+  init: true
+  ipc: private
+  shm_size: 1gb
+  cap_drop: [ALL]
+  security_opt:
+    - no-new-privileges:true
+  pids_limit: 512
+  mem_limit: 2g
+  memswap_limit: 2g
+  tmpfs:
+    - /tmp:size=512M,mode=1777,uid=1000,gid=100,exec,nosuid,nodev
+    - /tmp/xdg:size=32M,mode=0700,uid=1000,gid=100,exec,nosuid,nodev
+    - /run:size=32M,mode=0755,uid=1000,gid=100,exec,nosuid,nodev
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+  entrypoint: ["/usr/local/bin/entrypoint.sh"]
+  environment:
+    <<: *env
+    WAYLAND_DISPLAY: wayland-1
+  volumes:
+    - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
+    - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
+    - /run/user/1000/pulse/native:/tmp/pulse-native:ro
+    - /run/user/1000/pipewire-0:/tmp/pipewire-0:ro
+    - /etc/profiles/per-user/dd/share/themes:/usr/share/themes:ro
+    - /etc/profiles/per-user/dd/share/icons:/usr/share/icons:ro
+  stop_grace_period: 0s
+  restart: "no"
+
+services:
+  telegram-1:
+    <<: *base
+    container_name: telegram-1
+    hostname: telegram-1
+    networks: [tg1]
+    volumes:
+      - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
+      - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
+      - /run/user/1000/pulse/native:/tmp/pulse-native:ro
+      - /run/user/1000/pipewire-0:/tmp/pipewire-0:ro
+      - /run/user/1000/aurora-notify.sock:/tmp/xdg/notify.sock
+      - /etc/profiles/per-user/dd/share/themes:/usr/share/themes:ro
+      - /etc/profiles/per-user/dd/share/icons:/usr/share/icons:ro
+      - tg1-home:/home/telegram
+      - /home/dd/Downloads/telegram-1:/home/telegram/Downloads
+      - /home/dd/Downloads:/home/dd/Downloads:ro
+      - /home/dd/programs/telegram-1/ipc:/ipc
+
+  telegram-2:
+    <<: *base
+    container_name: telegram-2
+    hostname: telegram-2
+    networks: [tg2]
+    volumes:
+      - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
+      - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
+      - /run/user/1000/pulse/native:/tmp/pulse-native:ro
+      - /run/user/1000/pipewire-0:/tmp/pipewire-0:ro
+      - /run/user/1000/aurora-notify.sock:/tmp/xdg/notify.sock
+      - /etc/profiles/per-user/dd/share/themes:/usr/share/themes:ro
+      - /etc/profiles/per-user/dd/share/icons:/usr/share/icons:ro
+      - tg2-home:/home/telegram
+      - /home/dd/Downloads/telegram-2:/home/telegram/Downloads
+      - /home/dd/Downloads:/home/dd/Downloads:ro
+
+networks:
+  default:
+    driver: bridge
+    enable_ipv6: false
+    ipam:
+      config:
+        - subnet: 10.200.10.0/24
+  tg1:
+    driver: bridge
+    enable_ipv6: false
+    ipam:
+      config:
+        - subnet: 10.200.11.0/24
+  tg2:
+    driver: bridge
+    enable_ipv6: false
+    ipam:
+      config:
+        - subnet: 10.200.12.0/24
+
+volumes:
+  tg1-home:
+  tg2-home:

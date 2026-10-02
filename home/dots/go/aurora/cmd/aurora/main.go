@@ -6,14 +6,19 @@ import (
 	"path/filepath"
 
 	"aurora/internal/activate"
+	"aurora/internal/brightness"
 	"aurora/internal/cursor"
+	"aurora/internal/emoji"
 	"aurora/internal/fossilize"
 	"aurora/internal/helpers"
 	"aurora/internal/hyprfix"
+	"aurora/internal/lab"
 	"aurora/internal/monitor"
 	"aurora/internal/mpris"
 	"aurora/internal/reaper"
 	"aurora/internal/shot"
+	"aurora/internal/spotify"
+	"aurora/internal/state"
 	"aurora/internal/wallpaper"
 )
 
@@ -29,7 +34,12 @@ func usage() {
   reaper [watch|quit-orphans|name [action]]
   screenshot X Y W H
   cursor [load|set] [id] [size] [theme]
-  activate [--probe] name...`)
+  activate [--probe] name...
+  lab [status|toggle|docker|vm ...]
+  brightness [args]
+  emoji build SOURCE OUT
+  state prefer-layout-backup [layout backup]
+  spotify theme`)
 }
 
 func dispatch(cmd string, args []string) int {
@@ -58,6 +68,16 @@ func dispatch(cmd string, args []string) int {
 		return cursor.Main(args)
 	case "activate", "activate-existing":
 		return activate.Main(args)
+	case "lab", "lab-ctl", "vpn-ctl":
+		return lab.Main(args)
+	case "brightness", "brightnessctl":
+		return brightness.Main(args)
+	case "emoji":
+		return emoji.Main(args)
+	case "state":
+		return state.Main(args)
+	case "spotify":
+		return spotify.Main(args)
 	default:
 		usage()
 		return 2
@@ -84,6 +104,12 @@ func main() {
 		os.Exit(monitor.Main(args))
 	case "aurora-helpers":
 		os.Exit(helpers.Main(args))
+	case "vpn-ctl", "lab-ctl":
+		os.Exit(lab.Main(args))
+	case "brightnessctl":
+		os.Exit(brightness.Main(args))
+	case "spotify-theme":
+		os.Exit(spotify.Main(append([]string{"theme"}, args...)))
 	}
 	if len(args) == 0 {
 		usage()

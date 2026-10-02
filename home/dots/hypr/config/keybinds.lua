@@ -10,20 +10,50 @@ end
 local mod = "SUPER"
 local WS_PER = 12
 local WS_KEYS = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "minus", "equal" }
-local MONITORS = { "DP-1", "HDMI-A-1" }
+-- Same panel order as workspaces.lua. Match live connector OR description.
+local PANELS = {
+    {
+        aliases = { "DP-1", "DP-4" },
+        hints = { "Mi 30", "Xiaomi" },
+    },
+    {
+        aliases = { "HDMI-A-1", "HDMI-A-2" },
+        hints = { "PHL", "Philips" },
+    },
+}
 
 local function cursor_monitor()
     return hl.get_monitor_at_cursor() or hl.get_active_monitor()
 end
 
+local function panel_index(mon)
+    if not mon then
+        return nil
+    end
+    local n = tostring(mon.name or "")
+    local d = tostring(mon.description or mon.desc or mon.model or "")
+    for i, panel in ipairs(PANELS) do
+        for _, alias in ipairs(panel.aliases) do
+            if n == alias then
+                return i
+            end
+        end
+        for _, hint in ipairs(panel.hints) do
+            if d:find(hint, 1, true) then
+                return i
+            end
+        end
+    end
+    return nil
+end
+
 local function base_for_monitor(mon)
+    local idx = panel_index(mon)
+    if idx then
+        return (idx - 1) * WS_PER
+    end
     if not mon then
         return 0
-    end
-    for i, name in ipairs(MONITORS) do
-        if mon.name == name then
-            return (i - 1) * WS_PER
-        end
     end
     local ws = mon.active_workspace or hl.get_active_workspace(mon)
     if ws and ws.id then

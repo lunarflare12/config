@@ -1,0 +1,42 @@
+{
+  "DownloadDirectory": "/home/app/Downloads",
+  "DefaultDownloadDirectory": "/home/app/Downloads",
+  "CommandLineFlagSecurityWarningsEnabled": false,
+  "AutoLaunchProtocolsFromOrigins": [
+    {
+      "protocol": "tg",
+      "allowed_origins": [
+        "https://t.me",
+        "https://telegram.me",
+        "https://telegram.org",
+        "https://web.telegram.org",
+        "*"
+      ]
+    },
+    {
+      "protocol": "telegram",
+      "allowed_origins": [
+        "https://t.me",
+        "https://telegram.me",
+        "https://telegram.org",
+        "*"
+      ]
+    },
+    {
+      "protocol": "tonsite",
+      "allowed_origins": [
+        "*"
+      ]
+    }
+  ],
+  "ExtensionInstallForcelist": [
+    "didegimhafipceonhjepacocaffmoppf;https://clients2.google.com/service/update2/crx"
+  ],
+  "ExtensionSettings": {
+    "didegimhafipceonhjepacocaffmoppf": {
+      "installation_mode": "force_installed",
+      "toolbar_pin": "force_pinned",
+      "update_url": "https://clients2.google.com/service/update2/crx"
+    }
+  }
+}
