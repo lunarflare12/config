@@ -40,8 +40,7 @@ for _, rule in ipairs({
     { name = "opaque-code", match = { class = "^(code|Code)$" }, opaque = true, no_blur = true, render_unfocused = true },
     { name = "opaque-obsidian", match = { class = "^(obsidian)$" }, opaque = true, no_blur = true, render_unfocused = true },
     -- Steam CEF at 1x. Do not render_unfocused: GameMode then composites
-    -- Steam on the CPU. Plugin must not match class steam or Hyprland
-    -- stretches the 16:9 buffer across 2560 and clicks miss.
+    -- Steam on the CPU.
     { name = "steam-cef", match = { class = "^(steam)$", title = "^(Steam)$" }, opaque = true, no_blur = true, no_max_size = true, tile = true, suppress_event = "maximize" },
     { name = "steam-chrome", match = { class = "^(steam)$" }, opaque = true, no_blur = true },
     { name = "steam-menus", match = { class = "^(steam)$", title = "^\\s*$" }, float = true, stay_focused = true, no_initial_focus = true, no_follow_mouse = true, min_size = { 1, 1 }, no_anim = true, border_size = 0, rounding = 0, decorate = false, opaque = true, no_blur = true },
@@ -120,38 +119,6 @@ game_rule("gamescope-class", { class = GAMESCOPE_CLASS }, { confine_pointer = fa
 game_rule("games-initial-class", { initial_class = GAME_CLASS }, { confine_pointer = true })
 game_rule("gamescope-initial-class", { initial_class = GAMESCOPE_CLASS }, { confine_pointer = false, no_vrr = true })
 
--- Compositor covers the panel. Client stays windowed: client fullscreen
--- draws 16:9 on the left of 2560 and leaves a black strip on the right.
-local OW_CLASS = "^(steam_app_2357570|[Oo]verwatch\\.exe|[Oo]verwatch)$"
-game_rule("overwatch-class", { class = OW_CLASS }, {
-    -- Pointer stays free so Super+arrows and the other monitor work.
-    -- no_max_size let the client grow past DP-1 and sit on both desktops.
-    confine_pointer = false,
-    fullscreen_state = "2 0",
-    focus_on_activate = false,
-    suppress_event = "x11configurerequest",
-})
-game_rule("overwatch-initial-class", { initial_class = OW_CLASS }, {
-    confine_pointer = false,
-    fullscreen_state = "2 0",
-    focus_on_activate = false,
-    suppress_event = "x11configurerequest",
-})
--- Wine activate was pulling the desktop back onto the game.
-hl.window_rule({
-    name = "overwatch-suppress-activate",
-    match = { class = OW_CLASS },
-    suppress_event = "activate",
-})
-hl.window_rule({
-    name = "overwatch-suppress-activate-initial",
-    match = { initial_class = OW_CLASS },
-    suppress_event = "activate",
-})
-
--- Plugin is compositor-global. Never register from aurora-game alone:
--- Albion/Dota set that flag and the store matcher stretches Steam.
-
 -- Albion 2FA/login: Unity Input System drops text in exclusive FS.
 -- Confine also eats the click that focuses the code field.
 local ALBION_CLASS = "^(steam_app_761890|[Aa]lbion)"
@@ -172,22 +139,8 @@ local function window_class(w)
     return string.lower(tostring(w and (w.initial_class or "") or "") .. " " .. tostring(w and (w.class or "") or ""))
 end
 
--- Real Overwatch client only. Steam's store/library title is often
--- "Overwatch 2" — matching that yanked every desktop onto workspace 4.
-local function is_overwatch(w)
-    local cls = window_class(w)
-    if cls:find("steam_app_2357570", 1, true) then
-        return true
-    end
-    if cls:find("steam", 1, true) and not cls:find("steam_app_", 1, true) then
-        return false
-    end
-    return cls:find("overwatch", 1, true)
-end
-
 local function same_game_count(w)
     local n = 0
-    local want_ow = is_overwatch(w)
     local cls = window_class(w)
     local ok, wins = pcall(function()
         return hl.get_windows()
@@ -196,11 +149,7 @@ local function same_game_count(w)
         return 1
     end
     for _, x in ipairs(wins) do
-        if want_ow then
-            if is_overwatch(x) then
-                n = n + 1
-            end
-        elseif window_class(x) == cls or (cls ~= "" and window_class(x):find(cls, 1, true)) then
+        if window_class(x) == cls or (cls ~= "" and window_class(x):find(cls, 1, true)) then
             n = n + 1
         end
     end
@@ -259,23 +208,10 @@ local function game_to_desk(win)
     end
     local cls = string.lower(tostring(w.initial_class or "") .. " " .. tostring(w.class or ""))
     local title = string.lower(tostring(w.title or ""))
-    -- Nested gamescope first: title is "Overwatch" but client FS must stay 2.
-    -- Do not listen to window.fullscreen — re-dispatching there fights 1 2 vs 1 0.
+    -- Nested gamescope first. Do not listen to window.fullscreen —
+    -- re-dispatching there fights 1 2 vs 1 0.
     if cls:find("gamescope", 1, true) then
         pin_game(w, 2)
-        return
-    end
-    if is_overwatch(w) then
-        -- Same desk as every other game: ultrawide workspace 8.
-        -- Fullscreen stays on the window rule (2 0). Do not re-dispatch it.
-        pcall(function()
-            hl.dispatch(hl.dsp.window.move({ workspace = GAME_WORKSPACE, window = w, silent = true }))
-        end)
-        if same_game_count(w) <= 1 then
-            pcall(function()
-                hl.dispatch(hl.dsp.focus({ workspace = GAME_WORKSPACE }))
-            end)
-        end
         return
     end
     if cls:find("steam_app_761890", 1, true) or cls:find("albion", 1, true) then
@@ -377,9 +313,6 @@ local function is_game_focus(w)
     if not w then
         return false
     end
-    if is_overwatch(w) then
-        return true
-    end
     local cls = window_class(w)
     if cls:find("steam", 1, true) and not cls:find("steam_app_", 1, true) then
         return false
@@ -391,57 +324,100 @@ local function is_game_focus(w)
         or cls:find("minecraft", 1, true)
 end
 
-local function overwatch_mapped()
-    local ok, wins = pcall(function()
-        return hl.get_windows()
-    end)
-    if not ok or type(wins) ~= "table" then
-        return false
-    end
-    for _, x in ipairs(wins) do
-        if is_overwatch(x) then
-            return true
-        end
-    end
-    return false
-end
-
 _G.aurora_sync_texture_expand = function(win)
     local w = win and (win.window or win) or hl.get_active_window()
     local ingame = is_game_focus(w)
-    -- Stretch must stay on while the client exists. Alt-tab to HDMI used
-    -- to flip this off and the 1920 buffer sat in the middle of 2560.
-    local ow_open = overwatch_mapped() or is_overwatch(w)
+    -- Panels/gaps stay on every OTHER workspace. Light chrome only while
+    -- the focused window is the game.
+    local light = ingame
+    local hide_bar = ingame
+    if _G.aurora_compositor_light == light then
+        if light then
+            hl.exec_cmd("pkill -STOP -x cava >/dev/null 2>&1 || true")
+            hl.exec_cmd("awww pause >/dev/null 2>&1 || true")
+        else
+            hl.exec_cmd("pkill -CONT -x cava >/dev/null 2>&1 || true")
+            hl.exec_cmd("awww unpause >/dev/null 2>&1 || true")
+        end
+        hl.exec_cmd(hide_bar and "qs ipc call bar hide" or "qs ipc call bar show")
+        return
+    end
+    _G.aurora_compositor_light = light
     pcall(function()
         hl.config({
+            animations = { enabled = not light },
             decoration = {
-                blur = { enabled = not ingame },
-                shadow = { enabled = not ingame },
+                rounding = light and 0 or 16,
+                blur = { enabled = not light },
+                shadow = { enabled = not light },
+            },
+            general = {
+                border_size = light and 0 or 4,
+                gaps_in = light and 0 or 6,
+                gaps_out = light and 0 or 10,
             },
             render = {
-                expand_undersized_textures = ow_open,
-                send_content_type = ingame,
+                expand_undersized_textures = false,
+                send_content_type = light,
+            },
+            xwayland = {
+                use_nearest_neighbor = light,
             },
             misc = {
                 mouse_move_focuses_monitor = true,
-                -- Quiet Steam/Cursor/etc while the game is focused. Setting
-                -- this to 200+ made unfocused windows composite at game rate
-                -- and stole the 7700 from Overwatch.
-                render_unfocused_fps = ingame and 1 or 15,
+                render_unfocused_fps = 15,
             },
             debug = {
-                -- Forcing a redraw with no new damage kept the CPU in the
-                -- present path and the frame time missed 200 Hz.
                 render_solitary_wo_damage = false,
             },
         })
     end)
+    if light then
+        hl.exec_cmd("pkill -STOP -x cava >/dev/null 2>&1 || true")
+        -- Kill by PID only: pkill -f matches the hyprctl/eval cmdline and self-kills.
+        hl.exec_cmd("for p in $(pgrep -f '/aurora fossilize loop' || true); do kill -STOP \"$p\" 2>/dev/null || true; done")
+        hl.exec_cmd("awww pause >/dev/null 2>&1 || true")
+    else
+        hl.exec_cmd("pkill -CONT -x cava >/dev/null 2>&1 || true")
+        hl.exec_cmd("for p in $(pgrep -f '/aurora fossilize loop' || true); do kill -CONT \"$p\" 2>/dev/null || true; done")
+        hl.exec_cmd("awww unpause >/dev/null 2>&1 || true")
+    end
+    hl.exec_cmd(hide_bar and "qs ipc call bar hide" or "qs ipc call bar show")
 end
 
--- Load the stretch plugin once. Never unload it: unload+load is the
--- "plugin restarted" toast and it stalls launch and quit.
-local ow_plugin_script = (os.getenv("HOME") or "/home/dd") .. "/.config/scripts/ow-stretch-plugin.sh"
-_G.aurora_ow_plugin_loaded = _G.aurora_ow_plugin_loaded or false
+local function aurora_restore_desktop()
+    _G.aurora_compositor_light = false
+    pcall(function()
+        hl.config({
+            animations = { enabled = true },
+            decoration = {
+                rounding = 16,
+                blur = { enabled = true },
+                shadow = { enabled = true },
+            },
+            general = {
+                border_size = 4,
+                gaps_in = 6,
+                gaps_out = 10,
+            },
+            render = {
+                expand_undersized_textures = false,
+                send_content_type = false,
+            },
+            misc = {
+                mouse_move_focuses_monitor = true,
+                render_unfocused_fps = 15,
+            },
+            xwayland = {
+                use_nearest_neighbor = false,
+            },
+        })
+    end)
+    hl.exec_cmd("qs ipc call bar show")
+    hl.exec_cmd("pkill -CONT -x cava >/dev/null 2>&1 || true")
+    hl.exec_cmd("for p in $(pgrep -f '/aurora fossilize loop' || true); do kill -CONT \"$p\" 2>/dev/null || true; done")
+    hl.exec_cmd("awww unpause >/dev/null 2>&1 || true")
+end
 
 local function find_outputs()
     local ok, mons = pcall(function()
@@ -513,19 +489,6 @@ local function pin_outputs()
     end)
 end
 
-local function ow_plugin_load(w)
-    if not is_overwatch(w) then
-        return
-    end
-    -- Always re-register. hypr reload clears vkfix apps but leaves the
-    -- plugin loaded, so a one-shot flag would skip stretch forever.
-    _G.aurora_ow_plugin_loaded = true
-    hl.exec_cmd(ow_plugin_script .. " --force")
-end
-
-local function ow_plugin_unload(_)
-end
-
 if _G.aurora_tex_expand then
     pcall(function()
         _G.aurora_tex_expand:remove()
@@ -533,25 +496,42 @@ if _G.aurora_tex_expand then
 end
 _G.aurora_tex_expand = hl.on("window.active", function(ev)
     _G.aurora_sync_texture_expand(ev)
-    ow_plugin_load(ev and (ev.window or ev) or nil)
 end)
-if _G.aurora_ow_plugin_open then
+
+if _G.aurora_game_close then
     pcall(function()
-        _G.aurora_ow_plugin_open:remove()
+        _G.aurora_game_close:remove()
     end)
 end
-_G.aurora_ow_plugin_open = hl.on("window.open", function(ev)
-    ow_plugin_load(ev and (ev.window or ev) or nil)
+_G.aurora_game_close = hl.on("window.close", function(ev)
+    local w = ev and (ev.window or ev) or nil
+    if is_game_focus(w) or not is_game_focus(hl.get_active_window()) then
+        if not is_game_focus(hl.get_active_window()) then
+            aurora_restore_desktop()
+        else
+            _G.aurora_sync_texture_expand()
+        end
+    end
 end)
-if _G.aurora_ow_plugin_close then
-    pcall(function()
-        _G.aurora_ow_plugin_close:remove()
-    end)
+
+-- Drop leftover handlers from prior config loads (names split to avoid stale refs).
+do
+    local p = "aurora_" .. "ow_"
+    for _, suf in ipairs({
+        "plugin_open", "plugin_close", "desktop_watch",
+        "fs", "fs_active", "fs_open", "fs_focus", "mon",
+    }) do
+        local key = p .. suf
+        if _G[key] then
+            pcall(function()
+                _G[key]:remove()
+            end)
+            _G[key] = nil
+        end
+    end
+    _G[p .. "plugin_loaded"] = nil
 end
-_G.aurora_ow_plugin_close = hl.on("window.close", function(ev)
-    ow_plugin_unload(ev)
-    _G.aurora_sync_texture_expand()
-end)
+
 _G.aurora_sync_texture_expand()
 
 local function is_media_window(w)
@@ -623,87 +603,11 @@ if _G.aurora_media_fs_active then
 end
 _G.aurora_media_fs_active = hl.on("window.active", promote_media_fs)
 
--- One Overwatch surface keeps the compositor fullscreen. A second Wine
--- surface used to fullscreen as well and took the next workspace, so
--- switching desks just bounced between those two.
-local ow_fs_busy = false
-local function ow_area(w)
-    local sx = tonumber(w.width) or tonumber(w.w) or 0
-    local sy = tonumber(w.height) or tonumber(w.h) or 0
-    local sz = w.size
-    if type(sz) == "table" then
-        sx = tonumber(sz.x or sz[1]) or sx
-        sy = tonumber(sz.y or sz[2]) or sy
-    end
-    return sx * sy
-end
-local function settle_overwatch()
-    if ow_fs_busy then
-        return
-    end
-    local ok, wins = pcall(function()
-        return hl.get_windows()
-    end)
-    if not ok or type(wins) ~= "table" then
-        return
-    end
-    local list = {}
-    for _, x in ipairs(wins) do
-        if is_overwatch(x) then
-            list[#list + 1] = x
-        end
-    end
-    if #list < 2 then
-        return
-    end
-    local primary = list[1]
-    local best = ow_area(primary)
-    for i = 2, #list do
-        local area = ow_area(list[i])
-        if area > best then
-            primary = list[i]
-            best = area
-        end
-    end
-    ow_fs_busy = true
-    for _, x in ipairs(list) do
-        if x ~= primary and (tonumber(x.fullscreen) or 0) ~= 0 then
-            pcall(function()
-                hl.dispatch(hl.dsp.window.fullscreen_state({
-                    window = x,
-                    internal = 0,
-                    client = 0,
-                }))
-            end)
-        end
-    end
-    ow_fs_busy = false
-end
-if _G.aurora_ow_fs then
+if _G.aurora_monitor_pin then
     pcall(function()
-        _G.aurora_ow_fs:remove()
+        _G.aurora_monitor_pin:remove()
     end)
 end
-_G.aurora_ow_fs = hl.on("window.fullscreen", settle_overwatch)
-if _G.aurora_ow_fs_active then
-    pcall(function()
-        _G.aurora_ow_fs_active:remove()
-    end)
-    _G.aurora_ow_fs_active = nil
-end
-if _G.aurora_ow_fs_open then
-    pcall(function()
-        _G.aurora_ow_fs_open:remove()
-    end)
-end
-_G.aurora_ow_fs_open = hl.on("window.open", settle_overwatch)
-if _G.aurora_ow_mon then
-    pcall(function()
-        _G.aurora_ow_mon:remove()
-    end)
-end
-_G.aurora_ow_mon = hl.on("monitor.added", function()
-    if overwatch_mapped() then
-        pin_outputs()
-    end
+_G.aurora_monitor_pin = hl.on("monitor.added", function()
+    pin_outputs()
 end)

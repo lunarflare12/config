@@ -44,7 +44,7 @@ SKIP_NAME = re.compile(
 )
 
 # Dropped from the shader menu / bar — still may sit on disk.
-HIDDEN_APPIDS = frozenset({"570", "2357570"})
+HIDDEN_APPIDS = frozenset({"570"})
 
 # SteamKit EAppState. Bit 2 is "update required". Shader depots often
 # leave BytesToDownload != BytesDownloaded while StateFlags stays 4 —

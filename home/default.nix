@@ -81,8 +81,6 @@
     configHome="${config.xdg.configHome}"
     find "$configHome/aurora" "$configHome/hypr" "$configHome/systemd" "$configHome/gtk-3.0" "$configHome/gtk-4.0" \
       \( -name '*.hm.bak' -o -name '*.hm.bak.prev' -o -name '*.prev' \) -delete 2>/dev/null || true
-    rm -f "$configHome/hypr/ow-vkfix-dir" "$configHome/hypr/ow-vkfix-dir.prev"
-
     wantsDir="$configHome/systemd/user/graphical-session.target.wants"
     for name in opencluely.service obs-tray.service insta360-hold.service telegram-link.service telegram-link.path; do
       rm -f "$wantsDir/$name"

@@ -19,7 +19,7 @@ var appContainers = map[string]bool{
 	"chrome-dd": true, "chrome-az": true, "chrome-hika": true, "chrome-sciencesoft": true,
 	"firefox": true, "zen": true, "idea": true, "spotify": true, "vscode": true,
 	"obsidian": true, "openlens": true, "libreoffice": true, "telegram-1": true,
-	"telegram-2": true, "steam": true, "overwatch": true, "terraria": true, "albion": true,
+	"telegram-2": true, "steam": true, "terraria": true, "albion": true,
 }
 
 type containerRow struct {
@@ -207,7 +207,7 @@ func listDocker(full bool) ([]containerRow, []containerRow) {
 
 func dropContainerWindows(name, action string) {
 	skip := map[string]bool{
-		"steam": true, "overwatch": true, "terraria": true, "albion": true,
+		"steam": true, "terraria": true, "albion": true,
 		"ollama": true, "omniroute": true,
 	}
 	if skip[name] {
@@ -231,7 +231,7 @@ func dockerAction(action, name string) int {
 	var cmd []string
 	switch action {
 	case "pause":
-		if appContainers[name] && name != "steam" && name != "overwatch" {
+		if appContainers[name] && name != "steam" {
 			dropContainerWindows(name, "stop")
 			_, _, _ = run(10*time.Second, "docker", "update", "--restart", "no", name)
 			cmd = []string{"docker", "stop", "-t", "0", name}

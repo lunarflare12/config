@@ -75,15 +75,20 @@ Scope {
     IpcHandler {
         target: "bar"
 
-        // Keep IPC for game scripts, but never unmap the panel. Exclusive
-        // fullscreen already covers the notch; leaving it mapped keeps
-        // notifications / island / tray alive after the game exits.
         function hide(): void {
-            Core.Session.forceHideGameBar = false;
+            // Hint only — Bar/ScreenBorder hide from live focus+workspace,
+            // never from this latch alone (that killed panels on other desks).
+            Core.Session.forceHideGameBar = true;
+            if (!Core.Session.fsPoll.running)
+                Core.Session.fsPoll.running = true;
         }
 
         function show(): void {
             Core.Session.forceHideGameBar = false;
+            Core.Session.activeWindowFullscreen = false;
+            Core.Session.activeWindowCovers = false;
+            if (!Core.Session.fsPoll.running)
+                Core.Session.fsPoll.running = true;
         }
     }
 

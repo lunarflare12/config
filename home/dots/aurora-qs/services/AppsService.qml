@@ -907,7 +907,6 @@ QtObject {
     readonly property string amneziaIcon: "file://" + Quickshell.shellDir + "/assets/amnezia.png"
     readonly property string obsidianIcon: "file://" + Quickshell.shellDir + "/assets/obsidian.png"
     readonly property string chromeIcon: "file://" + Quickshell.shellDir + "/assets/google-chrome.png"
-    readonly property string overwatchIcon: "file://" + Quickshell.shellDir + "/assets/games/overwatch.png"
     readonly property string terrariaIcon: "file://" + Quickshell.shellDir + "/assets/games/terraria.png"
 
     function haystack(entry) {
@@ -940,12 +939,12 @@ QtObject {
         }
 
         const id = String(entry && entry.id || "").replace(/\.desktop$/i, "");
-        if (id === "Overwatch" || id === "overwatch" || id === "Terraria" || id === "Albion Online" || id === "org.telegram.desktop")
+        if (id === "Terraria" || id === "Albion Online" || id === "org.telegram.desktop")
             return true;
         if (id === "dota2" || id === "dota-2" || id === "Dota 2" || id === "com.valvesoftware.Steam.dota2")
             return true;
         const exec = String(entry && (entry.execString || entry.exec) || "");
-        if (exec.indexOf("steam://rungameid/2357570") !== -1 || exec.indexOf("steam://rungameid/570") !== -1 || exec.indexOf("steam://rungameid/105600") !== -1 || exec.indexOf("steam://rungameid/761890") !== -1)
+        if (exec.indexOf("steam://rungameid/570") !== -1 || exec.indexOf("steam://rungameid/105600") !== -1 || exec.indexOf("steam://rungameid/761890") !== -1)
             return true;
 
         return false;
@@ -1004,8 +1003,6 @@ QtObject {
             return "google-chrome";
         if (low === "albion online" || low === "albiononline" || low === "albion")
             return "albion-online";
-        if (low === "overwatch" || low === "overwatch®" || low === "steam_app_2357570")
-            return "overwatch";
         if (low === "terraria" || low === "steam_app_105600")
             return "terraria";
         return root.stripDesktopSuffix(id);
@@ -1022,16 +1019,6 @@ QtObject {
 
     function isObsidian(entry) {
         return root.haystack(entry).indexOf("obsidian") !== -1;
-    }
-
-    function isOverwatch(entry) {
-        if (!entry)
-            return false;
-        const id = String(entry.id || "").toLowerCase().replace(/\.desktop$/, "");
-        if (id === "overwatch" || id === "overwatch®" || id === "steam_app_2357570")
-            return true;
-        const hay = root.haystack(entry);
-        return hay.indexOf("overwatch") !== -1 || hay.indexOf("2357570") !== -1 || hay.indexOf("steam_icon_2357570") !== -1;
     }
 
     function isChrome(entry) {
@@ -1145,8 +1132,6 @@ QtObject {
         const fb = fallback || "application-x-executable";
         if (name.toLowerCase().indexOf("obsidian") !== -1)
             return root.obsidianIcon;
-        if (name.toLowerCase().indexOf("overwatch") !== -1 || name.toLowerCase().indexOf("2357570") !== -1)
-            return root.overwatchIcon;
         if (name.toLowerCase().indexOf("google-chrome") !== -1 || name.toLowerCase() === "chrome-dd" || name.toLowerCase() === "chrome-az" || name.toLowerCase() === "chrome-hika" || name.toLowerCase() === "chrome-sciencesoft")
             return root.chromeIcon;
         if (!name)
@@ -1180,8 +1165,6 @@ QtObject {
             return root.obsidianIcon;
         if (root.isChrome(entry))
             return root.chromeIcon;
-        if (root.isOverwatch(entry))
-            return root.overwatchIcon;
         if (root.isKitty(entry))
             return root.kittyIcon;
         if (root.isAmnezia(entry))
@@ -1839,8 +1822,6 @@ QtObject {
 
     function gameAssetIcon(blob) {
         const s = String(blob || "").toLowerCase();
-        if (s.indexOf("overwatch") !== -1 || s.indexOf("2357570") !== -1)
-            return root.overwatchIcon;
         if (s.indexOf("terraria") !== -1 || s.indexOf("105600") !== -1)
             return root.terrariaIcon;
         return "";
@@ -1881,8 +1862,6 @@ QtObject {
             return root.obsidianIcon;
         if (root.isChrome(entry))
             return root.chromeIcon;
-        if (root.isOverwatch(entry))
-            return root.overwatchIcon;
         if (root.isKitty(entry))
             return root.kittyIcon;
         if (root.isAmnezia(entry))

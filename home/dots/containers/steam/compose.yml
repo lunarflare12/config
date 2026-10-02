@@ -1,7 +1,7 @@
 name: steam-isolated
 
 # Minimal client env — Steam locks setenv; dumping DXVK/GL here breaks applaunch.
-# Game-specific env is applied by overwatch.sh via Steam launch options.
+# Game-specific env is applied by each game's launch wrapper via Steam launch options.
 x-env: &env
   DISPLAY: ":0"
   XDG_RUNTIME_DIR: /tmp/xdg
@@ -83,7 +83,6 @@ x-game: &game
   volumes:
     - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
     - ./game-session.sh:/usr/local/bin/game-session.sh:ro
-    - ./overwatch-entry.sh:/usr/local/bin/overwatch-entry.sh:ro
     - ./terraria-entry.sh:/usr/local/bin/terraria-entry.sh:ro
     - ./albion-entry.sh:/usr/local/bin/albion-entry.sh:ro
     - /nix/store:/nix/store:ro
@@ -134,7 +133,7 @@ x-game: &game
 
 services:
   # One box for the client and every game. A second container cannot
-  # share the Steam library lock, so Overwatch / Terraria / Albion
+  # share the Steam library lock, so Terraria / Albion
   # are `docker exec` into this service, not their own containers.
   steam:
     <<: *game

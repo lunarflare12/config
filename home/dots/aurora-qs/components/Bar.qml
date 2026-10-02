@@ -21,15 +21,28 @@ PanelWindow {
     }
 
     implicitHeight: Core.Theme.notchHeight
-    // Always reserve the notch. Games that go exclusive FS cover the bar
-    // themselves; we never unmap the panel or drop the exclusive zone.
-    exclusiveZone: Core.Theme.notchHeight
+    // Hide ONLY while a game is focused on THIS monitor's active workspace.
+    // OW sitting on ws 8 must not kill the notch on ws 2/3/… — exclusiveZone
+    // is monitor-global, so we re-show as soon as focus leaves the game.
+    readonly property bool gameClass: {
+        const cls = (Core.Session.activeWindowClass || "").toLowerCase();
+        return cls.indexOf("steam_app_") !== -1
+            || cls.indexOf("gamescope") !== -1
+            || cls.indexOf("dota2") !== -1
+            || cls.indexOf("minecraft") !== -1
+            || cls.indexOf("albion") !== -1;
+    }
+    readonly property bool gameCovers: root.onMain
+        && root.gameClass
+        && Core.Session.gameFullscreenOnScreen(root.screen)
+    exclusiveZone: root.gameCovers ? 0 : Core.Theme.notchHeight
     color: "transparent"
 
     readonly property string monitorName: Core.Session.monitorNameForScreen(root.screen)
     readonly property bool onMain: Core.Session.isDesktopMonitor(root.monitorName)
 
-    visible: true
+    // Desktop workspaces always keep the notch. Unmap only over the game ws.
+    visible: !root.gameCovers
 
     WlrLayershell.layer: WlrLayer.Top
     WlrLayershell.namespace: "aurora-bar"

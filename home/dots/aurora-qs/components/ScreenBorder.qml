@@ -18,6 +18,8 @@ PanelWindow {
     readonly property int thickness: Core.Theme.frameWidth
     readonly property int radius: Core.Theme.frameRadius
     readonly property color fillColor: Core.Theme.background
+    readonly property int strokeWidth: Core.Theme.borderWidth
+    readonly property color strokeColor: Core.Theme.borderActive
     readonly property int hit: 28
     readonly property bool mine: {
         const a = Core.PopupManager.anchorScreen;
@@ -41,11 +43,23 @@ PanelWindow {
     implicitHeight: root.edge === "bottom" ? root.hit : 0
 
     color: "transparent"
+    // Frame paints into the gaps_out band — do not reserve space or the
+    // hypr border and aurora stroke double up with uneven padding.
     exclusionMode: ExclusionMode.Ignore
     exclusiveZone: 0
 
-    // Frame stays mapped. Exclusive FS games cover it; we do not unmap.
-    visible: true
+    readonly property bool gameClass: {
+        const cls = (Core.Session.activeWindowClass || "").toLowerCase();
+        return cls.indexOf("steam_app_") !== -1
+            || cls.indexOf("gamescope") !== -1
+            || cls.indexOf("dota2") !== -1
+            || cls.indexOf("minecraft") !== -1
+            || cls.indexOf("albion") !== -1;
+    }
+    readonly property bool gameHide: root.onMain
+        && root.gameClass
+        && Core.Session.gameFullscreenOnScreen(root.screen)
+    visible: !root.gameHide
 
     anchors {
         left: root.edge === "left" || root.edge === "bottom"
@@ -73,6 +87,12 @@ PanelWindow {
             function onFillColorChanged() {
                 shape.requestPaint();
             }
+            function onStrokeColorChanged() {
+                shape.requestPaint();
+            }
+            function onStrokeWidthChanged() {
+                shape.requestPaint();
+            }
             function onWrapRightChanged() {
                 shape.requestPaint();
             }
@@ -93,6 +113,22 @@ PanelWindow {
             const h = height;
             const t = root.thickness;
             const r = root.radius;
+            const sw = root.strokeWidth;
+
+            function strokeInner(draw) {
+                if (sw <= 0)
+                    return;
+                ctx.save();
+                ctx.clip();
+                ctx.beginPath();
+                draw();
+                ctx.lineWidth = sw * 2;
+                ctx.strokeStyle = root.strokeColor;
+                ctx.lineJoin = "round";
+                ctx.lineCap = "butt";
+                ctx.stroke();
+                ctx.restore();
+            }
 
             if (root.edge === "left") {
                 ctx.beginPath();
@@ -103,6 +139,14 @@ PanelWindow {
                 ctx.lineTo(0, h);
                 ctx.closePath();
                 ctx.fill();
+                // Stop where the bottom frame starts — drawing through it
+                // left a leftover vertical stub under the window corner.
+                const stopY = Math.max(r, h - root.hit);
+                strokeInner(function () {
+                    ctx.moveTo(t + r, 0);
+                    ctx.arcTo(t, 0, t, r, r);
+                    ctx.lineTo(t, stopY);
+                });
                 return;
             }
 
@@ -156,6 +200,12 @@ PanelWindow {
                 ctx.lineTo(w, h);
                 ctx.closePath();
                 ctx.fill();
+                const stopYR = Math.max(r, h - root.hit);
+                strokeInner(function () {
+                    ctx.moveTo(w - (t + r), 0);
+                    ctx.arcTo(w - t, 0, w - t, r, r);
+                    ctx.lineTo(w - t, stopYR);
+                });
                 return;
             }
 
@@ -171,6 +221,12 @@ PanelWindow {
             ctx.lineTo(t, 0);
             ctx.closePath();
             ctx.fill();
+            strokeInner(function () {
+                ctx.moveTo(t, 0);
+                ctx.arcTo(t, h - t, t + r, h - t, r);
+                ctx.lineTo(w - t - r, h - t);
+                ctx.arcTo(w - t, h - t, w - t, 0, r);
+            });
         }
     }
 }

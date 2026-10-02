@@ -198,7 +198,6 @@ in
     (linkContainer "steam" "entrypoint.sh")
     (linkContainer "steam" "Dockerfile")
     (linkContainer "steam" "game-session.sh")
-    (linkContainer "steam" "overwatch-entry.sh")
     (linkContainer "steam" "albion-entry.sh")
     (linkContainer "steam" "terraria-entry.sh")
     (linkContainer "steam" "steam-profile")

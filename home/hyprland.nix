@@ -85,7 +85,6 @@ let
     unset QT_STYLE_OVERRIDE
     exec ${pkgs.hyprpolkitagent}/libexec/hyprpolkitagent "$@"
   '';
-  owStretchPluginDir = "${pkgs.hyprlandPlugins.csgo-vulkan-fix}";
   scripts = "${config.home.homeDirectory}/.config/scripts";
   luaEnv =
     lib.concatStrings (
@@ -117,8 +116,6 @@ in
       }) hyprLinks
     ))
     {
-      "hypr/ow-vkfix-dir".text = owStretchPluginDir;
-
       "hypr/config/programs.lua" = {
         force = true;
         text = ''
@@ -162,7 +159,7 @@ in
               },
               xwayland = {
                   force_zero_scaling = true,
-                  use_nearest_neighbor = false,
+                  use_nearest_neighbor = true,
               },
           })
         '';

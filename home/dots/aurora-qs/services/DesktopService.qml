@@ -77,8 +77,6 @@ QtObject {
     function gameIcon(item) {
         const blob = [item && item.name ? item.name : "", item && item.desktopIcon ? item.desktopIcon : "", item && item.path ? item.path : ""].join(" ").toLowerCase();
 
-        if (blob.indexOf("overwatch") !== -1 || blob.indexOf("2357570") !== -1)
-            return "file://" + Quickshell.shellDir + "/assets/games/overwatch.png";
         if (blob.indexOf("terraria") !== -1 || blob.indexOf("105600") !== -1)
             return "file://" + Quickshell.shellDir + "/assets/games/terraria.png";
         return "";

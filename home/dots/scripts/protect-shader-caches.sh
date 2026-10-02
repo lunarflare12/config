@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Keep Steam / DXVK / NVIDIA shader caches on durable /home storage.
+# Keep Steam / NVIDIA shader caches on durable /home storage.
 # Never delete cache trees. Never replace a larger cache with a smaller one.
 set -euo pipefail
 
@@ -8,50 +8,12 @@ XDG_CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
 
 shader_root="${XDG_CACHE_HOME}/steam-shadercache"
 dxvk_root="${XDG_CACHE_HOME}/dxvk"
-ow_dxvk="${dxvk_root}/overwatch"
-ow_dxvk_file="${ow_dxvk}/Overwatch.dxvk-cache"
-ow_nv="${shader_root}/2357570/nvidiav1"
-# Durable mirror only. The live NVIDIA path is steam-shadercache (bind).
-ow_nv_keep="${XDG_CACHE_HOME}/nvidia/overwatch"
-ow_pfx_dxvk="/steam/steamapps/compatdata/2357570/pfx/drive_c/users/steamuser/AppData/Local/dxvk"
-ow_pfx_file="${ow_pfx_dxvk}/Overwatch.dxvk-cache"
-steam_nv="/steam/steamapps/shadercache/2357570/nvidiav1"
 
-mkdir -p "$shader_root" "$dxvk_root" "$ow_dxvk" "$ow_nv" "$ow_nv_keep" "$ow_pfx_dxvk" \
-  "$shader_root/2357570" "$shader_root/761890" "$shader_root/105600"
+mkdir -p "$shader_root" "$dxvk_root" \
+  "$shader_root/761890" "$shader_root/105600" \
+  "${XDG_CACHE_HOME}/nvidia/terraria" "${XDG_CACHE_HOME}/nvidia/albion"
 
 chmod u+rwx "$shader_root" "$dxvk_root" 2>/dev/null || true
-
-# Copy src → dst only when src exists and is strictly larger (or dst missing).
-promote_larger() {
-  local src=$1 dst=$2
-  local sb db
-  [ -f "$src" ] || return 0
-  if [ ! -f "$dst" ]; then
-    cp -a "$src" "$dst" || true
-    return 0
-  fi
-  sb=$(wc -c <"$src" 2>/dev/null || echo 0)
-  db=$(wc -c <"$dst" 2>/dev/null || echo 0)
-  if [ "${sb:-0}" -gt "${db:-0}" ]; then
-    cp -a "$src" "$dst" || true
-  fi
-}
-
-# Home is canonical. Never hardlink into the prefix: DXVK writes a 51-byte
-# stub there on boot and that would truncate the real cache.
-sync_dxvk_hardlink() {
-  promote_larger "$ow_pfx_file" "$ow_dxvk_file"
-  # Drop prefix stubs so Proton does not pick the empty file.
-  if [ -f "$ow_pfx_file" ]; then
-    local psz
-    psz=$(wc -c <"$ow_pfx_file" 2>/dev/null || echo 0)
-    if [ "${psz:-0}" -lt 4096 ]; then
-      rm -f "$ow_pfx_file"
-    fi
-  fi
-  [ -f "$ow_dxvk_file" ] || return 0
-}
 
 # Separate inode. A hardlink would die with the Steam copy: Steam truncates
 # that path on the next launch. Never replace a larger file with a smaller one.
@@ -100,93 +62,6 @@ keep_nvidia() {
   fi
 }
 
-# Steam/fossilize truncates live nvidiav1 shards to 32‑byte stubs while the
-# durable mirror still holds the real bins. Put the larger files back on the
-# path the driver reads (__GL_SHADER_DISK_CACHE_PATH → steam nvidiav1).
-restore_nvidia_from_keep() {
-  local src=$1 dest=$2
-  [ -d "$src" ] || return 0
-  mkdir -p "$dest"
-  local f rel dst sb db
-  while IFS= read -r -d '' f; do
-    rel="${f#"$src"/}"
-    dst="${dest}/${rel}"
-    mkdir -p "$(dirname "$dst")"
-    sb=$(wc -c <"$f" 2>/dev/null || echo 0)
-    db=0
-    if [ -f "$dst" ]; then
-      db=$(wc -c <"$dst" 2>/dev/null || echo 0)
-    fi
-    if [ "${sb:-0}" -gt "${db:-0}" ] && [ "${sb:-0}" -ge 4096 ]; then
-      cp -a "$f" "$dst" || true
-    fi
-  done < <(find "$src" -type f -name '*.bin' -print0 2>/dev/null)
-  printf 'protected\n' >"${dest}/.aurora-no-delete"
-}
-
-# NVIDIA GLCache lives under ~/.cache and is bind-mounted at
-# /steam/steamapps/shadercache — same directory. Never wipe it; only
-# seed an empty home tree from steam if somehow empty (should be rare).
-seed_nvidia_if_empty() {
-  if [ -d "$ow_nv/GLCache" ]; then
-    return 0
-  fi
-  if [ -d "$steam_nv/GLCache" ] && ! [ "$ow_nv" -ef "$steam_nv" ]; then
-    cp -a "$steam_nv/." "$ow_nv/" || true
-  fi
-}
-
-dxvk_magic_ok() {
-  local f=$1
-  [ -f "$f" ] || return 1
-  # DXVK state cache magic "DXVK" + version u32
-  head -c 4 "$f" 2>/dev/null | grep -q '^DXVK$' || return 1
-  # Reject empty/tiny stubs
-  local sz
-  sz=$(wc -c <"$f" 2>/dev/null || echo 0)
-  [ "${sz:-0}" -ge 4096 ]
-}
-
-# Real OW NVIDIA cache floor (merged bins). Below this Steam may rebuild;
-# never stamp .frozen on a half-written tree — that used to flip processing
-# off mid-fossilize and invite a wipe on the next launch.
-OW_CACHE_READY_BYTES=2147483648
-
-nvidia_cache_ok() {
-  local root merged sz f
-  for root in "$ow_nv_keep" "$ow_nv"; do
-    [ -d "$root/GLCache" ] || continue
-    for f in "$root"/GLCache/*/*/steamapp_merged_shader_cache.bin \
-             "$root"/GLCache/*/*/steamapp_shader_cache1.bin \
-             "$root"/GLCache/*/*/steamapp_shader_cache0.bin \
-             "$root"/GLCache/*/*/steam_shader_cache.bin; do
-      [ -f "$f" ] || continue
-      sz=$(wc -c <"$f" 2>/dev/null || echo 0)
-      if [ "${sz:-0}" -ge "$OW_CACHE_READY_BYTES" ]; then
-        return 0
-      fi
-    done
-    # Whole tree large enough (multi-file compile in progress / done).
-    sz=$(du -sb "$root" 2>/dev/null | awk '{print $1}')
-    if [ "${sz:-0}" -ge "$OW_CACHE_READY_BYTES" ]; then
-      return 0
-    fi
-  done
-  return 1
-}
-
-sync_dxvk_hardlink
-seed_nvidia_if_empty
-keep_nvidia "$ow_nv" "$ow_nv_keep"
-if [ -d "$steam_nv" ] && ! [ "$steam_nv" -ef "$ow_nv" ]; then
-  keep_nvidia "$steam_nv" "$ow_nv_keep"
-fi
-# If Steam truncated the live tree, put the durable bins back before play.
-restore_nvidia_from_keep "$ow_nv_keep" "$ow_nv"
-if [ -d "$steam_nv" ] && ! [ "$steam_nv" -ef "$ow_nv" ]; then
-  restore_nvidia_from_keep "$ow_nv_keep" "$steam_nv"
-fi
-# Same rule for the other boxes. Their bins must not be replaced either.
 keep_nvidia "${shader_root}/105600/nvidiav1" "${XDG_CACHE_HOME}/nvidia/terraria"
 keep_nvidia "${shader_root}/761890/nvidiav1" "${XDG_CACHE_HOME}/nvidia/albion"
 keep_nvidia "/steam/steamapps/shadercache/105600/nvidiav1" "${XDG_CACHE_HOME}/nvidia/terraria"
@@ -195,38 +70,8 @@ keep_nvidia "/steam/steamapps/shadercache/761890/nvidiav1" "${XDG_CACHE_HOME}/nv
 # Stamp: tools must not rm -rf these trees.
 printf 'protected\n' >"${shader_root}/.aurora-no-delete"
 printf 'protected\n' >"${dxvk_root}/.aurora-no-delete"
-printf 'protected\n' >"${ow_nv}/.aurora-no-delete"
-printf 'protected\n' >"${ow_nv_keep}/.aurora-no-delete"
 printf 'protected\n' >"${XDG_CACHE_HOME}/nvidia/terraria/.aurora-no-delete"
 printf 'protected\n' >"${XDG_CACHE_HOME}/nvidia/albion/.aurora-no-delete"
 
-nv_bytes=0
-if [ -d "$ow_nv" ]; then
-  nv_bytes=$(du -sb "$ow_nv" 2>/dev/null | awk '{print $1}')
-fi
-dxvk_bytes=0
-if [ -f "$ow_dxvk_file" ]; then
-  dxvk_bytes=$(wc -c <"$ow_dxvk_file")
-fi
-
-nv_ok=0
-dxvk_ok=0
-nvidia_cache_ok && nv_ok=1
-dxvk_magic_ok "$ow_dxvk_file" && dxvk_ok=1
-
-printf 'shader-protect: nvidia=%s ok=%s dxvk=%s ok=%s link=%s path=%s\n' \
-  "${nv_bytes:-0}" "$nv_ok" "${dxvk_bytes:-0}" "$dxvk_ok" \
-  "$(if [ -e "$ow_pfx_file" ] && [ -f "$ow_dxvk_file" ]; then
-       if [ -L "$ow_pfx_file" ]; then echo sym
-       elif [ "$ow_dxvk_file" -ef "$ow_pfx_file" ]; then echo hard
-       else echo copy
-       fi
-     else echo missing
-     fi)" \
-  "$shader_root"
-
-# Non-zero if caches look wiped — caller may warn; do not delete anything.
-if [ "$nv_ok" -ne 1 ] || [ "$dxvk_ok" -ne 1 ]; then
-  exit 2
-fi
+printf 'shader-protect: terraria+albion ok path=%s\n' "$shader_root"
 exit 0

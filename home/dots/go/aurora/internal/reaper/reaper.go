@@ -51,7 +51,7 @@ var (
 	ghost         = regexp.MustCompile(`(?i)chrome_status_icon|status.?notifier|xdg-desktop-portal`)
 	deadStates    = map[string]bool{"paused": true, "exited": true, "dead": true, "removing": true, "created": true}
 	stopActions   = map[string]bool{"pause": true, "die": true, "stop": true, "kill": true, "oom": true}
-	skipEvents    = map[string]bool{"ollama": true, "omniroute": true, "steam": true, "overwatch": true, "terraria": true, "albion": true}
+	skipEvents    = map[string]bool{"ollama": true, "omniroute": true, "steam": true, "terraria": true, "albion": true}
 )
 
 type win struct {

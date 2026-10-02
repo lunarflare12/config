@@ -76,7 +76,7 @@ lib.mkIf (host.enabled "steam") {
         export __GL_SHADER_DISK_CACHE_SIZE=34359738368
         export __GL_SHADER_DISK_CACHE_READ_ONLY_APP_NAME='steam_shader_cache;steamapp_merged_shader_cache'
         # Steam otherwise starts fossilize_replay with --num-threads=$(nproc)
-        # and the desktop freezes while Overwatch shaders compile.
+        # and the desktop freezes while game shaders compile.
         export FOSSILIZE_CONCURRENCY=2
         # Session GBM_BACKEND=nvidia-drm breaks Steam CEF on XWayland (black window).
         unset GBM_BACKEND
@@ -141,7 +141,6 @@ lib.mkIf (host.enabled "steam") {
     "d ${shaderCacheDir} 0755 ${host.userName} users -"
     "d ${dxvkCacheDir} 0755 ${host.userName} users -"
     "d ${nvidiaCacheDir} 0755 ${host.userName} users -"
-    "d ${nvidiaCacheDir}/overwatch 0755 ${host.userName} users -"
     "d ${nvidiaCacheDir}/terraria 0755 ${host.userName} users -"
     "d ${nvidiaCacheDir}/albion 0755 ${host.userName} users -"
     # Exclude from systemd-tmpfiles-clean. Never age-delete shader/DXVK caches.

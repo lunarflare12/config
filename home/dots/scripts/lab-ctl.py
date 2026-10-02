@@ -545,7 +545,6 @@ APP_CONTAINERS = {
     "telegram-1",
     "telegram-2",
     "steam",
-    "overwatch",
     "terraria",
     "albion",
 }
@@ -832,7 +831,7 @@ def gui_toggle(kind: str, name: str) -> int:
 
 
 def drop_container_windows(name: str, action: str) -> None:
-    if name in {"steam", "overwatch", "terraria", "albion", "ollama", "omniroute"}:
+    if name in {"steam", "terraria", "albion", "ollama", "omniroute"}:
         return
     script = os.path.expanduser("~/.config/scripts/reap-container-windows")
     if os.path.isfile(script):
@@ -849,7 +848,7 @@ def docker_action(action: str, name: str) -> int:
         return 2
     if action == "pause":
         # Pause freezes the last Wayland frame. GUI apps must stop instead.
-        if name in APP_CONTAINERS and name not in {"steam", "overwatch"}:
+        if name in APP_CONTAINERS and name not in {"steam"}:
             drop_container_windows(name, "stop")
             run(["docker", "update", "--restart", "no", name], timeout=10.0)
             cmd = ["docker", "stop", "-t", "0", name]

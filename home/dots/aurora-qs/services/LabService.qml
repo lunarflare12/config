@@ -332,7 +332,6 @@ Singleton {
             "spotify": "Spotify",
             "idea": "IntelliJ IDEA",
             "steam": "Steam",
-            "overwatch": "Overwatch",
             "terraria": "Terraria",
             "albion": "Albion Online",
             "ollama": "Ollama",
@@ -414,7 +413,7 @@ Singleton {
     function togglePause(ct) {
         if (!ct || !ct.name)
             return;
-        const gui = /^(chrome-|vscode|obsidian|openlens|libreoffice|firefox|zen|spotify|idea|telegram-|steam|overwatch|terraria|albion)/.test(String(ct.name || ""));
+        const gui = /^(chrome-|vscode|obsidian|openlens|libreoffice|firefox|zen|spotify|idea|telegram-|steam|terraria|albion)/.test(String(ct.name || ""));
         if (gui) {
             root.toggleRun(ct);
             return;

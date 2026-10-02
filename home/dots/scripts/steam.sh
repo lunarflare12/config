@@ -35,7 +35,7 @@ esac
 
 mkdir -p "${HOME}/programs/steam"
 # One container. Old per-game boxes cannot share the library with this client.
-docker rm -f overwatch terraria albion >/dev/null 2>&1 || true
+docker rm -f terraria albion >/dev/null 2>&1 || true
 docker compose -f "$COMPOSE" up -d --no-deps --no-build steam
 
 # Wait until the container is up.

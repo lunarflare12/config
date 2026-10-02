@@ -22,7 +22,6 @@ let
     "entrypoint.sh"
     "game-session.sh"
     "albion-entry.sh"
-    "overwatch-entry.sh"
     "terraria-entry.sh"
     "steam-profile"
   ];

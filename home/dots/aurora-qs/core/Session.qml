@@ -70,6 +70,7 @@ QtObject {
     property bool activeWindowFullscreen: false
     property bool activeWindowCovers: false
     property string activeWindowMonitor: ""
+    property int activeWindowWorkspace: 0
     property string activeWindowClass: ""
     property string activeWindowTitle: ""
     property var openClasses: []
@@ -90,10 +91,12 @@ QtObject {
                         root.activeWindowCovers = false;
                         root.activeWindowClass = "";
                         root.activeWindowTitle = "";
+                        root.activeWindowWorkspace = 0;
                         return;
                     }
                     root.activeWindowClass = String(o.class || o.initialClass || "");
                     root.activeWindowTitle = String(o.title || "");
+                    root.activeWindowWorkspace = Number((o.workspace && o.workspace.id) || 0);
                     const fs = Number(o.fullscreen || 0);
                     const fsc = Number(o.fullscreenClient || 0);
                     const cls = String(o.class || o.initialClass || "").toLowerCase();
@@ -101,7 +104,9 @@ QtObject {
                     const vm = cls.indexOf("virt-viewer") !== -1 || cls.indexOf("remote-viewer") !== -1 || cls.indexOf("looking-glass") !== -1;
                     const game = cls.indexOf("steam_app_") !== -1 || cls.indexOf("gamescope") !== -1 || cls.indexOf("dota2") !== -1 || cls.indexOf("minecraft") !== -1 || cls.indexOf("albion") !== -1;
                     const media = cls.indexOf("google-chrome") !== -1 || cls === "chrome" || cls.indexOf("firefox") !== -1 || cls.indexOf("zen") !== -1 || cls === "mpv" || cls.indexOf("vlc") !== -1 || cls.indexOf("celluloid") !== -1;
-                    root.activeWindowFullscreen = !vm && (exclusive || (media && (fs >= 1 || fsc >= 1)));
+                    // Exclusive FS only counts for games/media — never for a
+                    // maximized terminal that filled the panel after bar hide.
+                    root.activeWindowFullscreen = !vm && ((game && exclusive) || (media && (fs >= 1 || fsc >= 1)));
                     const at = o.at || [0, 0];
                     const size = o.size || [0, 0];
                     let covers = false;
@@ -127,7 +132,9 @@ QtObject {
                             }
                         }
                     }
-                    root.activeWindowCovers = vm ? false : covers;
+                    // Cover-detect only for games. Desktop apps often sit at
+                    // 0,0×full after exclusiveZone dropped and must not latch hide.
+                    root.activeWindowCovers = vm ? false : (covers && game);
                     root.activeWindowMonitor = monName;
                     root.fsTick += 1;
                 } catch (e) {}
@@ -145,7 +152,7 @@ QtObject {
     }
 
     property Timer fsTimer: Timer {
-        interval: (root.activeWindowFullscreen || root.activeWindowCovers) ? 2000 : 1000
+        interval: (root.activeWindowFullscreen || root.activeWindowCovers || root.forceHideGameBar) ? 400 : 700
         running: root.ipcReady && !root.screenshotOpen
         repeat: true
         onTriggered: {
@@ -785,7 +792,11 @@ QtObject {
             return false;
         const focusedWs = Hyprland.focusedWorkspace ? Number(Hyprland.focusedWorkspace.id) : -1;
         const active = root.activeWorkspaceOnMonitor(want);
+        // Other workspaces on this monitor keep the bar — only the workspace
+        // that actually hosts the focused game may hide it.
         if (focusedWs >= 0 && active >= 0 && focusedWs !== active)
+            return false;
+        if (root.activeWindowWorkspace > 0 && active >= 0 && root.activeWindowWorkspace !== active)
             return false;
         return true;
     }

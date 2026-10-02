@@ -17,7 +17,7 @@ import (
 var media = []string{"chrome-dd", "chrome-az", "chrome-hika", "firefox", "zen", "spotify"}
 
 var skipMPRIS = map[string]bool{
-	"steam": true, "overwatch": true, "terraria": true, "albion": true,
+	"steam": true, "terraria": true, "albion": true,
 	"ollama": true, "omniroute": true, "vscode": true, "idea": true,
 	"obsidian": true, "openlens": true, "libreoffice": true,
 	"telegram-1": true, "telegram-2": true,

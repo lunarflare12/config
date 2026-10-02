@@ -38,7 +38,7 @@ local function game_window(w)
     if cls:find("dota2", 1, true) or cls:find("gamescope", 1, true) then
         return true
     end
-    if cls:find("overwatch", 1, true) or cls:find("albion", 1, true) then
+    if cls:find("albion", 1, true) then
         return true
     end
     if cls:find("minecraft", 1, true) then

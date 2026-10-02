@@ -45,8 +45,7 @@ hl.config({
         -- Auto scanout on NVIDIA exclusive FS blanks the other output.
         direct_scanout = 0,
         cm_enabled = false,
-        -- Never globally. Overwatch 2560x1440→2560x1080 is toggled with the plugin
-        -- when that window is focused; otherwise Steam CEF clicks miss.
+        -- Never globally: undersized texture expand breaks Steam CEF hit-testing.
         expand_undersized_textures = false,
         send_content_type = false,
         -- Triple-buffer scheduling made 1% lows worse on 200Hz+60Hz NVIDIA.
