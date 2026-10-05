@@ -16,10 +16,11 @@ Rectangle {
 
     visible: root.totalBytes > 0
     implicitHeight: root.visible ? 52 : 0
-    radius: Core.Theme.frameRadius
+    radius: Core.Theme.radius
     color: Core.Theme.surface
     border.color: Core.Theme.border
     border.width: Core.Theme.borderWidth
+    antialiasing: Core.Theme.radius > 0
 
     Column {
         anchors.fill: parent
@@ -55,7 +56,8 @@ Rectangle {
                 font.family: Core.Theme.fontFamily
                 font.pixelSize: Core.Theme.fontSizeSmall
                 font.weight: Font.DemiBold
-                renderType: Text.QtRendering
+                font.hintingPreference: Font.PreferFullHinting
+                renderType: Text.NativeRendering
             }
 
             Text {
@@ -66,6 +68,7 @@ Rectangle {
                 color: Core.Theme.foregroundFaint
                 font.family: Core.Theme.fontFamily
                 font.pixelSize: Core.Theme.fontSizeSmall
+                font.hintingPreference: Font.PreferFullHinting
                 renderType: Text.NativeRendering
             }
         }
@@ -73,7 +76,8 @@ Rectangle {
         Rectangle {
             width: parent.width
             height: Math.max(8, parent.height - 22)
-            radius: 4
+            radius: Core.Theme.radiusSmall
+            antialiasing: Core.Theme.radiusSmall > 0
             color: Qt.rgba(Core.Theme.foreground.r, Core.Theme.foreground.g, Core.Theme.foreground.b, 0.12)
 
             Rectangle {
@@ -82,6 +86,7 @@ Rectangle {
                 anchors.bottom: parent.bottom
                 width: Math.max(0, Math.min(1, root.percent / 100.0)) * parent.width
                 radius: parent.radius
+                antialiasing: parent.antialiasing
                 color: root.barColor
             }
         }

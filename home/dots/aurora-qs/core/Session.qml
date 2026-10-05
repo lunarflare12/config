@@ -73,6 +73,11 @@ QtObject {
     property int activeWindowWorkspace: 0
     property string activeWindowClass: ""
     property string activeWindowTitle: ""
+    // Sticky hide for game chrome. Focus blips (overlay, qs, notify) used to
+    // clear exclusiveZone for one poll → reserved 40px → OW window resize hitch.
+    property bool gameChromeLatched: false
+    property string gameChromeMonitor: ""
+    property int gameChromeWorkspace: 0
     property var openClasses: []
     property var openClients: []
     property int clientsTick: 0
@@ -87,11 +92,10 @@ QtObject {
                 try {
                     const o = JSON.parse(text);
                     if (!o || o.class === undefined) {
-                        root.activeWindowFullscreen = false;
-                        root.activeWindowCovers = false;
+                        // Empty poll — do NOT drop latched game chrome or the
+                        // bar snaps reserved=40 and hitchs the game window.
                         root.activeWindowClass = "";
                         root.activeWindowTitle = "";
-                        root.activeWindowWorkspace = 0;
                         return;
                     }
                     root.activeWindowClass = String(o.class || o.initialClass || "");
@@ -104,9 +108,11 @@ QtObject {
                     const vm = cls.indexOf("virt-viewer") !== -1 || cls.indexOf("remote-viewer") !== -1 || cls.indexOf("looking-glass") !== -1;
                     const game = cls.indexOf("steam_app_") !== -1 || cls.indexOf("gamescope") !== -1 || cls.indexOf("dota2") !== -1 || cls.indexOf("minecraft") !== -1 || cls.indexOf("albion") !== -1;
                     const media = cls.indexOf("google-chrome") !== -1 || cls === "chrome" || cls.indexOf("firefox") !== -1 || cls.indexOf("zen") !== -1 || cls === "mpv" || cls.indexOf("vlc") !== -1 || cls.indexOf("celluloid") !== -1;
-                    // Exclusive FS only counts for games/media — never for a
-                    // maximized terminal that filled the panel after bar hide.
-                    root.activeWindowFullscreen = !vm && ((game && exclusive) || (media && (fs >= 1 || fsc >= 1)));
+                    // Games use fullscreen_state 1 2 (maximize + client FS). If
+                    // client FS drops, bar exclusiveZone=40 tiles the window at
+                    // y=40 and XWayland mouse hits miss by ~40px. Treat any
+                    // game FS like media so the bar clears first.
+                    root.activeWindowFullscreen = !vm && ((game && (fs >= 1 || fsc >= 1 || exclusive)) || (media && (fs >= 1 || fsc >= 1)));
                     const at = o.at || [0, 0];
                     const size = o.size || [0, 0];
                     let covers = false;
@@ -118,7 +124,13 @@ QtObject {
                         const my = Number(m.y || 0);
                         const mw = Number(m.width || 0);
                         const mh = Number(m.height || 0);
-                        if (Math.abs(Number(at[0]) - mx) <= 8 && Math.abs(Number(at[1]) - my) <= 8 && Number(size[0]) >= mw - 16 && Number(size[1]) >= mh - 16) {
+                        // Maximize under the bar is ~10,47 2540×1023. Tight
+                        // slop never latched, reserved stayed 40, clicks missed.
+                        const xSlop = game ? 16 : 8;
+                        const ySlop = game ? 56 : 8;
+                        const wSlop = game ? 32 : 16;
+                        const hSlop = game ? 72 : 16;
+                        if (Math.abs(Number(at[0]) - mx) <= xSlop && Math.abs(Number(at[1]) - my) <= ySlop && Number(size[0]) >= mw - wSlop && Number(size[1]) >= mh - hSlop) {
                             covers = true;
                             monName = m.name || "";
                             break;
@@ -136,6 +148,39 @@ QtObject {
                     // 0,0×full after exclusiveZone dropped and must not latch hide.
                     root.activeWindowCovers = vm ? false : (covers && game);
                     root.activeWindowMonitor = monName;
+
+                    if (!vm && game && (root.activeWindowFullscreen || root.activeWindowCovers)) {
+                        root.gameChromeLatched = true;
+                        root.gameChromeMonitor = monName;
+                        root.gameChromeWorkspace = root.activeWindowWorkspace;
+                    } else if (root.gameChromeLatched) {
+                        // Keep latch while the game client still exists.
+                        // Clearing on focus-leave puts reserved=40 under the
+                        // exclusive FS window; returning to ws8 then resizes
+                        // XWayland and hitchs for a frame (or many).
+                        let still = false;
+                        const clients = root.openClients || [];
+                        for (let i = 0; i < clients.length; i++) {
+                            const c = clients[i];
+                            const ccls = String(c.class || "").toLowerCase();
+                            const isGame = ccls.indexOf("steam_app_") !== -1
+                                || ccls.indexOf("gamescope") !== -1
+                                || ccls.indexOf("dota2") !== -1
+                                || ccls.indexOf("minecraft") !== -1
+                                || ccls.indexOf("albion") !== -1;
+                            if (!isGame)
+                                continue;
+                            if (root.gameChromeWorkspace > 0 && Number(c.workspace) !== Number(root.gameChromeWorkspace))
+                                continue;
+                            still = true;
+                            break;
+                        }
+                        if (!still) {
+                            root.gameChromeLatched = false;
+                            root.gameChromeMonitor = "";
+                            root.gameChromeWorkspace = 0;
+                        }
+                    }
                     root.fsTick += 1;
                 } catch (e) {}
             }
@@ -221,6 +266,15 @@ QtObject {
                     root.openClasses = classes;
                     if (!same)
                         root.clientsTick += 1;
+                    for (let i = 0; i < clients.length; i++) {
+                        const ccls = String(clients[i].class || "").toLowerCase();
+                        if (ccls.indexOf("steam_app_2357570") === -1)
+                            continue;
+                        root.gameChromeLatched = true;
+                        if (Number(clients[i].workspace) > 0)
+                            root.gameChromeWorkspace = Number(clients[i].workspace);
+                        break;
+                    }
                 } catch (e) {}
             }
         }
@@ -786,12 +840,23 @@ QtObject {
         if (!screen)
             return false;
         const want = root.monitorNameForScreen(screen);
+        const active = root.activeWorkspaceOnMonitor(want);
+
+        // Latched: keep chrome down for the whole game workspace visit, even
+        // when focus briefly leaves Overwatch (overlay / notify / qs).
+        if (root.gameChromeLatched) {
+            if (root.gameChromeMonitor && root.gameChromeMonitor !== want)
+                return false;
+            if (root.gameChromeWorkspace > 0 && active >= 0 && active !== root.gameChromeWorkspace)
+                return false;
+            return true;
+        }
+
         if (!(root.activeWindowFullscreen || root.activeWindowCovers))
             return false;
         if (root.activeWindowMonitor && root.activeWindowMonitor !== want)
             return false;
         const focusedWs = Hyprland.focusedWorkspace ? Number(Hyprland.focusedWorkspace.id) : -1;
-        const active = root.activeWorkspaceOnMonitor(want);
         // Other workspaces on this monitor keep the bar — only the workspace
         // that actually hosts the focused game may hide it.
         if (focusedWs >= 0 && active >= 0 && focusedWs !== active)

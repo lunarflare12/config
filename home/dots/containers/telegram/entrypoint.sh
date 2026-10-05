@@ -5,23 +5,39 @@ runtime="${XDG_RUNTIME_DIR:-/tmp/xdg}"
 home="${HOME:-/home/telegram}"
 workdir="$home/.local/share/TelegramDesktop"
 
-mkdir -p "$runtime" "$home/Downloads" "$workdir"
+mkdir -p "$runtime" "$home/Downloads" "$home/ipc" "$workdir"
 
 rm -f "$runtime/bus" "$workdir/lock" "$workdir/.lock"
 
-if [ -S "$runtime/notify.sock" ]; then
-  bus="$runtime/notify.sock"
-elif [ ! -S "$runtime/bus" ]; then
+# Private session bus. Host bus is not mounted — FileManager1 stub + xdg-open
+# hand paths out through ~/ipc for the host path unit.
+if [ ! -S "$runtime/bus" ]; then
   dbus-daemon --session --fork --address="unix:path=$runtime/bus"
-  bus="$runtime/bus"
-else
-  bus="$runtime/bus"
+fi
+bus="$runtime/bus"
+
+# "Show in folder" talks FileManager1; without an owner it fails silently.
+fm1=""
+for cand in \
+  /usr/local/bin/filemanager1-stub \
+  "$home/.local/bin/filemanager1-stub"
+do
+  if [ -x "$cand" ]; then
+    fm1=$cand
+    break
+  fi
+done
+if [ -n "$fm1" ]; then
+  DBUS_SESSION_BUS_ADDRESS="unix:path=$bus" HOME="$home" "$fm1" &
 fi
 
 link=""
 if [ -s /ipc/telegram.url ]; then
   link=$(cat /ipc/telegram.url)
   : > /ipc/telegram.url
+elif [ -s "$home/ipc/telegram.url" ]; then
+  link=$(cat "$home/ipc/telegram.url")
+  : >"$home/ipc/telegram.url"
 fi
 
 # Official Telegram night mode follows Qt colorScheme → GtkSettings.

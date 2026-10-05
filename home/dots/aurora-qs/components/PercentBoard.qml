@@ -13,10 +13,11 @@ Rectangle {
     property string detailText: ""
     property int hoverIndex: -1
 
-    radius: Core.Theme.frameRadius
+    radius: Core.Theme.radius
     color: Core.Theme.surface
     border.color: Core.Theme.border
     border.width: Core.Theme.borderWidth
+    antialiasing: Core.Theme.radius > 0
     clip: true
 
     function indexAtX(x, width) {
@@ -69,8 +70,8 @@ Rectangle {
             font.family: Core.Theme.fontFamily
             font.pixelSize: Core.Theme.fontSizeSmall
             font.weight: Font.DemiBold
-
-            renderType: Text.QtRendering
+            font.hintingPreference: Font.PreferFullHinting
+            renderType: Text.NativeRendering
         }
     }
 
@@ -82,6 +83,7 @@ Rectangle {
         color: Core.Theme.foregroundFaint
         font.family: Core.Theme.fontFamily
         font.pixelSize: Core.Theme.fontSizeSmall
+        font.hintingPreference: Font.PreferFullHinting
         renderType: Text.NativeRendering
     }
 
@@ -99,9 +101,12 @@ Rectangle {
         Canvas {
             id: graph
             anchors.fill: parent
+            antialiasing: true
+            renderStrategy: Canvas.Cooperative
 
             onPaint: {
                 const context = getContext("2d");
+                context.reset();
                 context.clearRect(0, 0, width, height);
 
                 const padTop = 4;
@@ -203,7 +208,8 @@ Rectangle {
             visible: board.hoverIndex >= 0 && board.values.length > 0
             width: tipText.implicitWidth + 16
             height: tipText.implicitHeight + 12
-            radius: 8
+            radius: Core.Theme.radius
+            antialiasing: Core.Theme.radius > 0
             color: "#2A2A2E"
             border.color: "#3D3D42"
             border.width: 1

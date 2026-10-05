@@ -156,9 +156,11 @@ Item {
 
         anchors.fill: parent
         anchors.margins: Math.floor(root.grid.gap / 2)
-        radius: Core.Theme.frameRadius
+        // Theme.radius (ui.radius), not frameRadius — the melting-frame
+        // corner (17) on small cards AA-blurs text/borders into mush.
+        radius: Core.Theme.radius
         color: root.framed ? Core.Theme.background : "transparent"
-        border.width: root.framed ? 2 : 0
+        border.width: root.framed ? Core.Theme.borderWidth : 0
         border.color: root.framed ? Qt.alpha(Core.Theme.foreground, 0.9) : "transparent"
         clip: root.framed
 

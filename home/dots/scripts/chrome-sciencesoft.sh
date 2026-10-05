@@ -25,6 +25,7 @@ if [ "$#" -gt 0 ]; then
     --enable-gpu-rasterization \
     --enable-zero-copy \
     --no-sandbox \
-    --disable-features=MemorySaverMode \
+    --disable-features=WebRtcPipeWireCamera \
+    --renderer-process-limit=6 \
     "$@"
 fi

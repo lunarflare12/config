@@ -24,10 +24,13 @@ let
     "config/layerules.lua"
     "config/workspaces.lua"
     "config/windows.lua"
+    "config/liixini-shaders.lua"
     "config/keybinds.lua"
     "config/permissions.lua"
     "config/monitor-pin.lua"
   ];
+  windowShadePluginDir = "${pkgs.hyprlandPlugins.hypr-window-shade}";
+  csgoVulkanFixPluginDir = "${pkgs.hyprlandPlugins.csgo-vulkan-fix}";
 
   monitorLua =
     let
@@ -171,6 +174,14 @@ in
 
       "uwsm/env".text = uwsmEnv;
 
+      "hypr/hypr-window-shade-dir".text = windowShadePluginDir;
+      "hypr/hypr-csgo-vulkan-fix-dir".text = csgoVulkanFixPluginDir;
+
+      "hypr/shaders/liixini" = {
+        source = config.lib.file.mkOutOfStoreSymlink "${hyprDots}/shaders/liixini";
+        force = true;
+      };
+
       "hypr/config/environment.lua" = {
         force = true;
         text = luaEnv;
@@ -184,6 +195,8 @@ in
               hl.exec_cmd("hypridle")
               hl.exec_cmd("${scripts}/steam-lock-shaders.sh")
               hl.exec_cmd("${scripts}/cap-fossilize.sh")
+              hl.exec_cmd("${scripts}/hypr-window-shade.sh load")
+              hl.exec_cmd("${scripts}/hypr-csgo-vulkan-fix.sh ensure")
               hl.exec_cmd("${scripts}/qs-session-start.sh")
           end)
 

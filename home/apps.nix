@@ -204,6 +204,7 @@ in
     (linkContainer "telegram" "compose.yml")
     (linkContainer "telegram" "entrypoint.sh")
     (linkContainer "telegram" "Dockerfile")
+    (linkContainer "telegram" "td-setup.tar.xz")
     (linkContainer "llm" "compose.yml")
     (linkContainer "llm" ".env.example")
     (linkContainer "llm" "settings.yml.example")
@@ -685,6 +686,43 @@ in
       "${config.home.homeDirectory}/programs/firefox/ipc/telegram.url"
       "${config.home.homeDirectory}/programs/zen/ipc/telegram.url"
       "${config.home.homeDirectory}/programs/ipc/telegram.url"
+    ];
+    Install.WantedBy = [ "default.target" ];
+  };
+
+  # Container xdg-open / FileManager1 → host Finder or default app.
+  systemd.user.services.container-open = {
+    Unit = {
+      Description = "Open or reveal a path handed out of an isolated container";
+      # Path unit can fire a burst when Telegram writes open+launch together.
+      StartLimitIntervalSec = 10;
+      StartLimitBurst = 20;
+    };
+    Service = {
+      Type = "oneshot";
+      ExecStart = "${config.home.homeDirectory}/.config/scripts/container-open-dispatch.sh";
+    };
+  };
+
+  systemd.user.paths.container-open = {
+    Unit.Description = "Watch container ipc for open/reveal requests";
+    Path.PathChanged = [
+      "${config.home.homeDirectory}/programs/chrome-dd/ipc/open.path"
+      "${config.home.homeDirectory}/programs/chrome-dd/ipc/launch.path"
+      "${config.home.homeDirectory}/programs/chrome-az/ipc/open.path"
+      "${config.home.homeDirectory}/programs/chrome-az/ipc/launch.path"
+      "${config.home.homeDirectory}/programs/chrome-hika/ipc/open.path"
+      "${config.home.homeDirectory}/programs/chrome-hika/ipc/launch.path"
+      "${config.home.homeDirectory}/programs/chrome-sciencesoft/ipc/open.path"
+      "${config.home.homeDirectory}/programs/chrome-sciencesoft/ipc/launch.path"
+      "${config.home.homeDirectory}/programs/firefox/ipc/open.path"
+      "${config.home.homeDirectory}/programs/firefox/ipc/launch.path"
+      "${config.home.homeDirectory}/programs/zen/ipc/open.path"
+      "${config.home.homeDirectory}/programs/zen/ipc/launch.path"
+      "${config.home.homeDirectory}/programs/telegram-1/ipc/open.path"
+      "${config.home.homeDirectory}/programs/telegram-1/ipc/launch.path"
+      "${config.home.homeDirectory}/programs/telegram-2/ipc/open.path"
+      "${config.home.homeDirectory}/programs/telegram-2/ipc/launch.path"
     ];
     Install.WantedBy = [ "default.target" ];
   };

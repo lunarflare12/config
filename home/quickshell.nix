@@ -128,6 +128,11 @@ in
       Environment = [
         "QT_QPA_PLATFORM=wayland"
         "QT_NO_XDG_DESKTOP_PORTAL=1"
+        # Integer-scale monitors: do not let Qt invent a fractional factor
+        # that rasterizes the shell soft and then upscales it.
+        "QT_AUTO_SCREEN_SCALE_FACTOR=0"
+        "QT_ENABLE_HIGHDPI_SCALING=1"
+        "QT_SCALE_FACTOR_ROUNDING_POLICY=Round"
         "QML_IMPORT_PATH=${pkgs.qt6.qtmultimedia}/lib/qt-6/qml"
         # Prepend multimedia plugins; keep qtwayland/qtdeclarative from the qs wrap.
         "QT_PLUGIN_PATH=${pkgs.qt6.qtmultimedia}/lib/qt-6/plugins:${pkgs.qt6.qtwayland}/lib/qt-6/plugins:${pkgs.qt6.qtdeclarative}/lib/qt-6/plugins:${pkgs.qt6.qtsvg}/lib/qt-6/plugins"

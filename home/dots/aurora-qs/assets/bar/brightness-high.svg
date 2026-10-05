@@ -1,15 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-  <circle cx="12" cy="12" r="4.35" fill="#F5F5F7"/>
+  <circle fill="#F5F5F7" cx="12" cy="12" r="4.5"/>
   <g fill="#F5F5F7">
-    <rect x="11" y="1.55" width="2" height="3.9" rx="1"/>
-    <rect x="11" y="18.55" width="2" height="3.9" rx="1"/>
-    <rect x="1.55" y="11" width="3.9" height="2" rx="1"/>
-    <rect x="18.55" y="11" width="3.9" height="2" rx="1"/>
-    <g transform="rotate(45 12 12)">
-      <rect x="11" y="1.55" width="2" height="3.9" rx="1"/>
-      <rect x="11" y="18.55" width="2" height="3.9" rx="1"/>
-      <rect x="1.55" y="11" width="3.9" height="2" rx="1"/>
-      <rect x="18.55" y="11" width="3.9" height="2" rx="1"/>
-    </g>
+    <rect x="11" y="0.5" width="2" height="3.5" rx="1"/>
+    <rect x="11" y="20" width="2" height="3.5" rx="1"/>
+    <rect x="0.5" y="11" width="3.5" height="2" rx="1"/>
+    <rect x="20" y="11" width="3.5" height="2" rx="1"/>
+    <rect x="3.2" y="3.2" width="2" height="3.5" rx="1" transform="rotate(-45 4.2 4.95)"/>
+    <rect x="18.8" y="17.3" width="2" height="3.5" rx="1" transform="rotate(-45 19.8 19.05)"/>
+    <rect x="18.8" y="3.2" width="2" height="3.5" rx="1" transform="rotate(45 19.8 4.95)"/>
+    <rect x="3.2" y="17.3" width="2" height="3.5" rx="1" transform="rotate(45 4.2 19.05)"/>
   </g>
 </svg>

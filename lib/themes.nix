@@ -43,13 +43,13 @@
 
     ui = {
 
-      borderWidth = 2;
+      borderWidth = 1;
 
       radius = 0;
       radiusSmall = 0;
       radiusLarge = 0;
 
-      iconSize = 16;
+      iconSize = 20;
 
       fontSize = 13;
       fontSizeSmall = 11;

@@ -118,6 +118,43 @@ QtObject {
         return connected ? "network" : "network-off";
     }
 
+    // ThemeIcon `name` → Nerd Font codepoint. Empty = use SVG brand asset.
+    function barGlyph(name) {
+        switch (String(name || "")) {
+        case "update":
+            return refresh;
+        case "edit":
+            return pencil;
+        case "volume-high":
+            return volumeHigh;
+        case "volume-medium":
+            return volumeMedium;
+        case "volume-low":
+            return volumeLow;
+        case "volume-muted":
+            return volumeOff;
+        case "brightness":
+        case "brightness-high":
+            return brightness;
+        case "brightness-low":
+            return brightnessRamp[0];
+        case "mic":
+            return mic;
+        case "mic-off":
+            return micOff;
+        case "network":
+            return ethernet;
+        case "network-off":
+            return wifiOff;
+        case "download":
+            return download;
+        case "upload":
+            return upload;
+        default:
+            return "";
+        }
+    }
+
     readonly property string bell: "\udb80\udc9c"            // F009C  bell-outline
     readonly property string bellFilled: "\udb80\udc9a"      // F009A  bell
     readonly property string bellOff: "\udb80\udc9b"         // F009B  bell-off
@@ -134,6 +171,7 @@ QtObject {
     readonly property string message: "\udb80\udf61"      // F0361
     readonly property string musicNote: "\udb80\udf87"    // F0387
     readonly property string download: "\udb80\uddda"     // F01DA
+    readonly property string upload: "\udb80\udddb"       // F01DB
     readonly property string folder: "\udb80\ude4b"       // F024B
     readonly property string file: "\udb80\ude13"         // F0213
     readonly property string folderPlus: "\udb80\ude5a"   // F025A

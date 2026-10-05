@@ -14,4 +14,18 @@ final: prev: {
       ./patches/thunar-hide-symlink-emblem.patch
     ];
   });
+  hyprlandPlugins = prev.hyprlandPlugins // {
+    hypr-window-shade = prev.callPackage ./hypr-window-shade.nix {
+      inherit (prev.hyprlandPlugins) mkHyprlandPlugin;
+    };
+    # Stock vkfix damages the whole monitor every OW frame (200 Hz × two
+    # outputs). That hitch is not the 16:9 stretch. Damage only the window.
+    csgo-vulkan-fix = prev.hyprlandPlugins.csgo-vulkan-fix.overrideAttrs (old: {
+      postPatch = (old.postPatch or "") + ''
+        substituteInPlace main.cpp \
+          --replace-fail 'g_pHyprRenderer->damageMonitor(PMONITOR);' \
+          'g_pHyprRenderer->damageWindow(WINDOW);'
+      '';
+    });
+  };
 }

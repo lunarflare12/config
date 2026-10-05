@@ -253,7 +253,8 @@ Item {
                 id: card
 
                 anchors.fill: parent
-                radius: Core.Theme.frameRadius
+                radius: Core.Theme.radius
+                antialiasing: Core.Theme.radius > 0
                 color: Core.Theme.background
                 border.width: Core.Theme.borderWidth
                 border.color: Core.Theme.border

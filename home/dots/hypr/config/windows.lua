@@ -27,7 +27,9 @@ hl.window_rule({
 })
 
 for _, rule in ipairs({
-    { name = "opaque-discord", match = { class = "^([Dd]iscord|vesktop)$" }, opaque = true, no_blur = true, render_unfocused = true },
+    -- Never render_unfocused here: with OW FS on the ultrawide, Electron
+    -- (Cursor/Obsidian/Discord) keeps compositing underneath and hitchs the game.
+    { name = "opaque-discord", match = { class = "^([Dd]iscord|vesktop)$" }, opaque = true, no_blur = true },
     -- HTML5 `f` is client FS (2) while dwindle's layout-aware handler keeps
     -- internal=0 (player stays in the bar/dock tile). sync + immediate + no
     -- ICCCM max size so the lua promoter can set internal=2 covering the output.
@@ -36,9 +38,9 @@ for _, rule in ipairs({
     -- so HTML5 fullscreen does not grow as a rectangle.
     { name = "browser-sync-fs", match = { class = "^(google-chrome|chrome|chrome-dd|chrome-az|chrome-hika|chrome-sciencesoft|firefox|zen)$" }, sync_fullscreen = true, no_max_size = true, immediate = true, idle_inhibit = "fullscreen" },
     { name = "player-sync-fs", match = { class = "^(mpv|vlc|celluloid)$" }, sync_fullscreen = true, no_anim = true, no_max_size = true, immediate = true, idle_inhibit = "fullscreen" },
-    { name = "opaque-cursor", match = { class = "^(cursor)$" }, opaque = true, no_blur = true, render_unfocused = true },
-    { name = "opaque-code", match = { class = "^(code|Code)$" }, opaque = true, no_blur = true, render_unfocused = true },
-    { name = "opaque-obsidian", match = { class = "^(obsidian)$" }, opaque = true, no_blur = true, render_unfocused = true },
+    { name = "opaque-cursor", match = { class = "^(cursor)$" }, opaque = true, no_blur = true },
+    { name = "opaque-code", match = { class = "^(code|Code)$" }, opaque = true, no_blur = true },
+    { name = "opaque-obsidian", match = { class = "^(obsidian)$" }, opaque = true, no_blur = true },
     -- Steam CEF at 1x. Do not render_unfocused: GameMode then composites
     -- Steam on the CPU.
     { name = "steam-cef", match = { class = "^(steam)$", title = "^(Steam)$" }, opaque = true, no_blur = true, no_max_size = true, tile = true, suppress_event = "maximize" },
@@ -119,6 +121,18 @@ game_rule("gamescope-class", { class = GAMESCOPE_CLASS }, { confine_pointer = fa
 game_rule("games-initial-class", { initial_class = GAME_CLASS }, { confine_pointer = true })
 game_rule("gamescope-initial-class", { initial_class = GAMESCOPE_CLASS }, { confine_pointer = false, no_vrr = true })
 
+-- Client stays windowed (0) so OW keeps a 1920×16:9 buffer. Internal
+-- exclusive stretches it. Client=2 makes the game pick 2560 21:9.
+local OVERWATCH_CLASS = "^steam_app_2357570$"
+game_rule("overwatch-class", { class = OVERWATCH_CLASS }, {
+    fullscreen_state = "2 0",
+    no_max_size = true,
+})
+game_rule("overwatch-initial-class", { initial_class = OVERWATCH_CLASS }, {
+    fullscreen_state = "2 0",
+    no_max_size = true,
+})
+
 -- Albion 2FA/login: Unity Input System drops text in exclusive FS.
 -- Confine also eats the click that focuses the code field.
 local ALBION_CLASS = "^(steam_app_761890|[Aa]lbion)"
@@ -158,6 +172,28 @@ end
 
 local function pin_game(w, client_fs, internal_fs)
     local steal = same_game_count(w) <= 1
+    local cls = window_class(w)
+    -- Shade plugin remaps the cursor on tagged windows. Strip before FS.
+    if cls:find("steam_app_2357570", 1, true) then
+        pcall(function()
+            hl.exec_cmd((os.getenv("HOME") or "/home/dd") .. "/.config/scripts/hypr-window-shade.sh unload")
+        end)
+        pcall(function()
+            local home = os.getenv("HOME") or "/home/dd"
+            local open = home .. "/.config/hypr/shaders/liixini/crosshatch/open.glsl"
+            local close = home .. "/.config/hypr/shaders/liixini/crosshatch/close.glsl"
+            hl.window_rule({
+                name = "ow-strip-shader-open",
+                match = { class = "^steam_app_2357570$" },
+                tag = "-shader_open:" .. open,
+            })
+            hl.window_rule({
+                name = "ow-strip-shader-close",
+                match = { class = "^steam_app_2357570$" },
+                tag = "-shader_close:" .. close,
+            })
+        end)
+    end
     pcall(function()
         hl.dispatch(hl.dsp.window.move({ workspace = GAME_WORKSPACE, window = w, silent = true }))
     end)
@@ -219,6 +255,10 @@ local function game_to_desk(win)
         return
     end
     if cls:find("prism", 1, true) then
+        return
+    end
+    if cls:find("steam_app_2357570", 1, true) then
+        pin_game(w, 0, 2)
         return
     end
     if cls:find("steam_app_", 1, true) or cls:find("dota2", 1, true) or cls:find("minecraft", 1, true) then
@@ -324,22 +364,30 @@ local function is_game_focus(w)
         or cls:find("minecraft", 1, true)
 end
 
+local function ow_mapped()
+    local ok, wins = pcall(function()
+        return hl.get_windows()
+    end)
+    if not ok or type(wins) ~= "table" then
+        return false
+    end
+    for i = 1, #wins do
+        local x = wins[i]
+        if x and window_class(x):find("steam_app_2357570", 1, true) then
+            return true
+        end
+    end
+    return false
+end
+
 _G.aurora_sync_texture_expand = function(win)
     local w = win and (win.window or win) or hl.get_active_window()
+    -- Keep nearest/expand for the whole OW map. Focus blips were flipping
+    -- blur+bilinear back on — that is why the picture never changed.
     local ingame = is_game_focus(w)
-    -- Panels/gaps stay on every OTHER workspace. Light chrome only while
-    -- the focused window is the game.
     local light = ingame
     local hide_bar = ingame
     if _G.aurora_compositor_light == light then
-        if light then
-            hl.exec_cmd("pkill -STOP -x cava >/dev/null 2>&1 || true")
-            hl.exec_cmd("awww pause >/dev/null 2>&1 || true")
-        else
-            hl.exec_cmd("pkill -CONT -x cava >/dev/null 2>&1 || true")
-            hl.exec_cmd("awww unpause >/dev/null 2>&1 || true")
-        end
-        hl.exec_cmd(hide_bar and "qs ipc call bar hide" or "qs ipc call bar show")
         return
     end
     _G.aurora_compositor_light = light
@@ -352,16 +400,16 @@ _G.aurora_sync_texture_expand = function(win)
                 shadow = { enabled = not light },
             },
             general = {
-                border_size = light and 0 or 4,
+                border_size = light and 0 or 2,
                 gaps_in = light and 0 or 6,
-                gaps_out = light and 0 or 10,
+                gaps_out = light and 0 or { top = 7, right = 10, bottom = 10, left = 10 },
             },
             render = {
-                expand_undersized_textures = false,
+                expand_undersized_textures = light,
                 send_content_type = light,
             },
             xwayland = {
-                use_nearest_neighbor = light,
+                use_nearest_neighbor = false,
             },
             misc = {
                 mouse_move_focuses_monitor = true,
@@ -374,18 +422,23 @@ _G.aurora_sync_texture_expand = function(win)
     end)
     if light then
         hl.exec_cmd("pkill -STOP -x cava >/dev/null 2>&1 || true")
+        hl.exec_cmd("pkill -STOP -x quickshell >/dev/null 2>&1 || true")
         -- Kill by PID only: pkill -f matches the hyprctl/eval cmdline and self-kills.
         hl.exec_cmd("for p in $(pgrep -f '/aurora fossilize loop' || true); do kill -STOP \"$p\" 2>/dev/null || true; done")
-        hl.exec_cmd("awww pause >/dev/null 2>&1 || true")
+        hl.exec_cmd("pid=$(pgrep -x awww-daemon | head -1); [ -n \"$pid\" ] && kill -STOP \"$pid\" || true")
     else
         hl.exec_cmd("pkill -CONT -x cava >/dev/null 2>&1 || true")
+        hl.exec_cmd("pkill -CONT -x quickshell >/dev/null 2>&1 || true")
         hl.exec_cmd("for p in $(pgrep -f '/aurora fossilize loop' || true); do kill -CONT \"$p\" 2>/dev/null || true; done")
-        hl.exec_cmd("awww unpause >/dev/null 2>&1 || true")
+        hl.exec_cmd("pid=$(pgrep -x awww-daemon | head -1); [ -n \"$pid\" ] && kill -CONT \"$pid\" || true")
     end
     hl.exec_cmd(hide_bar and "qs ipc call bar hide" or "qs ipc call bar show")
 end
 
 local function aurora_restore_desktop()
+    if is_game_focus(hl.get_active_window()) then
+        return
+    end
     _G.aurora_compositor_light = false
     pcall(function()
         hl.config({
@@ -396,9 +449,9 @@ local function aurora_restore_desktop()
                 shadow = { enabled = true },
             },
             general = {
-                border_size = 4,
+                border_size = 2,
                 gaps_in = 6,
-                gaps_out = 10,
+                gaps_out = { top = 7, right = 10, bottom = 10, left = 10 },
             },
             render = {
                 expand_undersized_textures = false,
@@ -415,8 +468,11 @@ local function aurora_restore_desktop()
     end)
     hl.exec_cmd("qs ipc call bar show")
     hl.exec_cmd("pkill -CONT -x cava >/dev/null 2>&1 || true")
+    hl.exec_cmd("pkill -CONT -x quickshell >/dev/null 2>&1 || true")
     hl.exec_cmd("for p in $(pgrep -f '/aurora fossilize loop' || true); do kill -CONT \"$p\" 2>/dev/null || true; done")
-    hl.exec_cmd("awww unpause >/dev/null 2>&1 || true")
+    hl.exec_cmd("pid=$(pgrep -x awww-daemon | head -1); [ -n \"$pid\" ] && kill -CONT \"$pid\" || true")
+    -- Shade was unloaded for OW; bring open/close GLSL back on the desktop.
+    hl.exec_cmd((os.getenv("HOME") or "/home/dd") .. "/.config/scripts/hypr-window-shade.sh load")
 end
 
 local function find_outputs()
@@ -590,6 +646,76 @@ local function promote_media_fs(w)
     media_fs_busy[addr] = nil
 end
 
+-- Wine re-maps the surface on every alt-tab and Hyprland falls back to
+-- maximize. Maximize honours the bar band, so the cursor desyncs again.
+local ow_fs_busy = {}
+
+local function ow_live_fs(w)
+    local fs = tonumber(w.fullscreen) or 0
+    local fsc = tonumber(w.fullscreen_client or w.fullscreenClient)
+    if fsc ~= nil then
+        return fs, fsc
+    end
+    local addr = tostring(w.address or "")
+    local ok, wins = pcall(function()
+        return hl.get_windows()
+    end)
+    if ok and type(wins) == "table" then
+        for i = 1, #wins do
+            local x = wins[i]
+            if x and tostring(x.address or "") == addr then
+                return tonumber(x.fullscreen) or fs, tonumber(x.fullscreen_client or x.fullscreenClient or 0) or 0
+            end
+        end
+    end
+    return fs, -1
+end
+
+local function keep_overwatch_exclusive(w)
+    w = w and (w.window or w) or nil
+    if not w then
+        return
+    end
+    if not window_class(w):find("steam_app_2357570", 1, true) then
+        return
+    end
+    local addr = tostring(w.address or "")
+    if addr == "" or ow_fs_busy[addr] then
+        return
+    end
+    local fs, fsc = ow_live_fs(w)
+    if fs >= 2 and fsc == 0 then
+        return
+    end
+    ow_fs_busy[addr] = true
+    pcall(function()
+        hl.dispatch(hl.dsp.window.fullscreen_state({
+            window = w,
+            internal = 2,
+            client = 0,
+            action = "set",
+            layout_aware = false,
+        }))
+    end)
+    pcall(function()
+        if _G.aurora_sync_texture_expand then
+            _G.aurora_sync_texture_expand(w)
+        end
+    end)
+    ow_fs_busy[addr] = nil
+end
+
+for _, slot in ipairs({ "aurora_ow_fs", "aurora_ow_fs_active" }) do
+    if _G[slot] then
+        pcall(function()
+            _G[slot]:remove()
+        end)
+        _G[slot] = nil
+    end
+end
+_G.aurora_ow_fs = hl.on("window.fullscreen", keep_overwatch_exclusive)
+_G.aurora_ow_fs_active = hl.on("window.active", keep_overwatch_exclusive)
+
 if _G.aurora_media_fs then
     pcall(function()
         _G.aurora_media_fs:remove()
@@ -611,3 +737,15 @@ end
 _G.aurora_monitor_pin = hl.on("monitor.added", function()
     pin_outputs()
 end)
+
+-- Re-apply 16:9 vkfix after hypr reload (preReload clears the app list).
+local vkfix = (os.getenv("HOME") or "/home/dd") .. "/.config/scripts/hypr-csgo-vulkan-fix.sh"
+if _G.aurora_vkfix_cfg then
+    pcall(function()
+        _G.aurora_vkfix_cfg:remove()
+    end)
+end
+_G.aurora_vkfix_cfg = hl.on("config.reloaded", function()
+    hl.exec_cmd(vkfix .. " reload")
+end)
+hl.exec_cmd(vkfix .. " ensure")

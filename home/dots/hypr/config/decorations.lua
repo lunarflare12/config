@@ -10,15 +10,21 @@ hl.config({
         -- Keep desktop chrome even if aurora-game is left behind. Games already
         -- get border_size 0 + fullscreen via window rules.
         gaps_in = 6,
-        gaps_out = 10,
-        border_size = 4,
+        -- Top is tighter: the bar already reserves notchHeight, so a full
+        -- gaps_out there stacked into a band wider than the sides. Sides
+        -- keep 10 so the aurora frame (frameWidth) + wallpaper pad match.
+        gaps_out = { top = 7, right = 10, bottom = 10, left = 10 },
+        -- Thinner than the old 4 — still the real per-window outline.
+        -- Aurora frame is screen chrome, not a substitute for this.
+        border_size = 2,
         resize_on_border = false,
         allow_tearing = true,
         layout = "dwindle",
     },
     decoration = {
         rounding = 16,
-        rounding_power = 2,
+        -- 2 left hairline gaps in the stroke at the arc→flat join.
+        rounding_power = 1,
         active_opacity = 1,
         fullscreen_opacity = 1,
         shadow = {
@@ -29,9 +35,9 @@ hl.config({
             offset = "0 10",
         },
         blur = {
-            -- Games already set no_blur. Keep compositor blur so Kitty's
-            -- background_blur protocol still works if aurora-game is leftover.
-            enabled = true,
+            -- Off while a game flag is present so a reload does not put
+            -- three-pass blur back over the 1920→2560 stretch.
+            enabled = not playing,
             size = 8,
             passes = 3,
             xray = false,

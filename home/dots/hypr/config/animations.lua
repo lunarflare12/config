@@ -7,12 +7,14 @@ end
 
 hl.config({ animations = { enabled = not in_game } })
 
--- Native window open/close stay minimal. Keep a short fade so surfaces settle.
+-- Native window open/close stay minimal: liixini GLSL (HyprWindowShade)
+-- owns the look. Keep a short fade so non-shader surfaces still settle.
 hl.curve("smoothOut", { type = "bezier", points = { { 0.16, 1 }, { 0.3, 1 } } })
 
 hl.animation({ leaf = "borderangle", enabled = false })
 hl.animation({ leaf = "border", enabled = false })
 hl.animation({ leaf = "windowsMove", enabled = false })
+-- Disable popin so it does not fight the shader wipe.
 hl.animation({ leaf = "windowsIn", enabled = false })
 hl.animation({ leaf = "windowsOut", enabled = false })
 

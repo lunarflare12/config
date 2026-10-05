@@ -137,9 +137,12 @@ Rectangle {
         Canvas {
             id: graph
             anchors.fill: parent
+            antialiasing: true
+            renderStrategy: Canvas.Cooperative
 
             onPaint: {
                 const context = getContext("2d");
+                context.reset();
                 context.clearRect(0, 0, width, height);
 
                 const padTop = 4;

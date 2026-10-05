@@ -180,7 +180,7 @@ QtObject {
     readonly property int radiusLarge: ui.radiusLarge !== undefined ? ui.radiusLarge : 0
 
     readonly property int iconSize: {
-        const n = Math.max(8, ui.iconSize !== undefined ? ui.iconSize : 16);
+        const n = Math.max(8, ui.iconSize !== undefined ? ui.iconSize : 20);
         return n % 2 === 0 ? n : n - 1;
     }
 
@@ -205,6 +205,8 @@ QtObject {
 
     readonly property int exclusionGap: 34
 
+    // Must match hypr gaps_out left/right/bottom. Top hypr gap is smaller
+    // because the bar exclusiveZone already eats notchHeight.
     readonly property int outerGap: 10
 
     readonly property int barHeight: notchHeight
@@ -233,9 +235,10 @@ QtObject {
 
     readonly property int notchGap: 64
 
-    readonly property int frameWidth: 6
+    // Screen-chrome melting frame (not the per-window hypr border).
+    readonly property int frameWidth: 4
 
-    readonly property int frameRadius: 17
+    readonly property int frameRadius: 16
 
     readonly property color wsBackground: Qt.rgba(0, 0, 0, 0.22)
 
@@ -272,14 +275,19 @@ QtObject {
     readonly property int spacing: 4
 
     // Typography
+    //
+    // Prefer NativeRendering + full hinting at call sites. QtRendering on
+    // Inter looks soft on NVIDIA Wayland at scale 1.
 
     readonly property string fontFamily: fonts.interface || "Inter"
     readonly property string fontMono: fonts.terminal || "JetBrainsMono Nerd Font Mono"
+    readonly property int fontHinting: Font.PreferFullHinting
 
     // The family that actually contains the Nerd Font glyphs. Derived from the
     // theme so it cannot drift from fonts.terminal the way the hardcoded string
     // here had already drifted from lib/themes.nix.
-    readonly property string iconFont: fonts.terminal || "JetBrainsMono Nerd Font Mono"
+    // Non-Mono Nerd Font for bar glyphs — Mono squeezes icons into a cell.
+    readonly property string iconFont: "JetBrainsMono Nerd Font"
 
     // Colour font. Only NativeRendering draws its glyphs in colour.
     readonly property string emojiFont: fonts.emoji || "Noto Color Emoji"

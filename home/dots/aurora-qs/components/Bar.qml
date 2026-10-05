@@ -32,8 +32,11 @@ PanelWindow {
             || cls.indexOf("minecraft") !== -1
             || cls.indexOf("albion") !== -1;
     }
+    // Keep in lockstep with ScreenBorder.gameHide. Latched game chrome does
+    // not require the active window to still be the game class — otherwise a
+    // focus blip restores exclusiveZone=40 and hitchs the OW window.
     readonly property bool gameCovers: root.onMain
-        && root.gameClass
+        && (root.gameClass || Core.Session.gameChromeLatched)
         && Core.Session.gameFullscreenOnScreen(root.screen)
     exclusiveZone: root.gameCovers ? 0 : Core.Theme.notchHeight
     color: "transparent"
@@ -104,9 +107,6 @@ PanelWindow {
                 name: "nix"
                 width: 22
                 height: 22
-                sourceSize.width: 88
-                sourceSize.height: 88
-                smooth: true
 
                 MouseArea {
                     anchors.fill: parent

@@ -51,6 +51,10 @@ export WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-wayland-1}"
 export GDK_BACKEND="${GDK_BACKEND:-wayland}"
 export MOZ_ENABLE_WAYLAND="${MOZ_ENABLE_WAYLAND:-1}"
 export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-wayland}"
+export PIPEWIRE_REMOTE="${PIPEWIRE_REMOTE:-unix:/tmp/pipewire-0}"
+# Do NOT symlink PipeWire into XDG_RUNTIME_DIR. Chrome then prefers the
+# PipeWire/libcamera camera path and Insta360 often goes magenta/red.
+# Keep PIPEWIRE_REMOTE for screen share; camera stays on V4L2 /dev/video*.
 unset DISPLAY
 
 # Persist dark GTK into the mounted home so apps that read settings.ini
@@ -110,6 +114,7 @@ env \
   ELECTRON_FORCE_DARK="$ELECTRON_FORCE_DARK" \
   GTK_USE_PORTAL="$GTK_USE_PORTAL" \
   COLOR_SCHEME="$COLOR_SCHEME" \
+  PIPEWIRE_REMOTE="$PIPEWIRE_REMOTE" \
   "$@" &
 pid=$!
 trap 'kill -TERM "$pid" ${fwd_pid:+"$fwd_pid"} 2>/dev/null; wait "$pid"' TERM INT

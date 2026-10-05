@@ -36,6 +36,9 @@ esac
 mkdir -p "${HOME}/programs/steam"
 # One container. Old per-game boxes cannot share the library with this client.
 docker rm -f terraria albion >/dev/null 2>&1 || true
+if ! docker image inspect steam-box:1 >/dev/null 2>&1; then
+  docker build -t steam-box:1 "${HOME}/Documents/projects/config/home/dots/containers/steam"
+fi
 docker compose -f "$COMPOSE" up -d --no-deps --no-build steam
 
 # Wait until the container is up.

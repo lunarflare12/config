@@ -88,7 +88,7 @@ x-game: &game
     - /nix/store:/nix/store:ro
     # The Nix Steam profile forces GE-Proton. Its driver query crashes
     # (glibc mismatch) and Steam then drops the NVIDIA shader cache.
-    - ./steam-profile:/nix/store/i2j5kv5i7ww27gb1m4hlji5g24qhzs46-steam-1.0.0.87-fhsenv-rootfs/etc/profile:ro
+    - ./steam-profile:/nix/store/j2l42myiich8fzr8lg07s99avqikk0g0-steam-1.0.0.87-fhsenv-rootfs/etc/profile:ro
     - /run/current-system:/run/current-system:ro
     - /run/opengl-driver:/run/opengl-driver:ro
     - /run/opengl-driver-32:/run/opengl-driver-32:ro
@@ -108,6 +108,10 @@ x-game: &game
     - /run/user/1000/pipewire-0.lock:/run/user/1000/pipewire-0.lock
     - /run/user/1000/hypr:/run/user/1000/hypr
     - /run/user/1000/bus:/run/user/1000/bus
+    # gamescope --backend wayland needs the host compositor socket.
+    # Without it, nested Xwayland binds :0 and kills the session display.
+    - /run/user/1000/wayland-1:/run/user/1000/wayland-1
+    - /run/user/1000/wayland-1.lock:/run/user/1000/wayland-1.lock
     - /run/dbus:/run/dbus:ro
     - /dev/input:/dev/input
     - /steam:/steam

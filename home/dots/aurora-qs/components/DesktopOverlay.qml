@@ -266,8 +266,10 @@ PanelWindow {
         bottom: true
     }
 
+    // Stay below the bar exclusive zone (Normal/0). Do not use Ignore here —
+    // full-bleed desktop would require subtracting barHeight from every Y, and
+    // setting exclusiveZone forces ExclusionMode.Normal anyway.
     exclusiveZone: 0
-    exclusionMode: ExclusionMode.Ignore
     color: "transparent"
     visible: root.layerShown
 

@@ -32,7 +32,7 @@ Item {
         id: glyph
         anchors.centerIn: parent
         name: "update"
-        opacity: root.running || mouse.containsMouse ? 1 : 0.92
+        opacity: 1
         scale: 1
 
         RotationAnimator on rotation {
@@ -41,21 +41,6 @@ Item {
             from: 0
             to: 360
             duration: 900
-        }
-
-        Behavior on opacity {
-            NumberAnimation {
-                duration: 140
-                easing.type: Easing.OutCubic
-            }
-        }
-
-        Behavior on scale {
-            NumberAnimation {
-                duration: 180
-                easing.type: Easing.OutBack
-                easing.overshoot: 1.4
-            }
         }
     }
 

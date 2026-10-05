@@ -22,7 +22,7 @@ Item {
     Components.ThemeIcon {
         anchors.centerIn: parent
         name: "edit"
-        opacity: root.on ? 1 : 0.92
+        opacity: 1
         scale: root.on ? 1.08 : 1
 
         Behavior on scale {

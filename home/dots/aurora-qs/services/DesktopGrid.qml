@@ -5,19 +5,20 @@ import QtQuick
 import "../core" as Core
 
 // Shared desktop snap grid. Icons and widgets both occupy cells.
-// Cells grow to fill the monitor; only a few pixels of padding stay around the edges.
+// Cells grow to fill the monitor; equal edge inset on every side so
+// cards clear the melting frame the same way on all workspaces/monitors.
 QtObject {
     id: root
 
     readonly property int minCell: 90
-    readonly property int originX: 4
-    // Desktop layer already sits below the bar exclusive zone.
-    readonly property int originY: 4
-    // Keep the same inset on the right as on the bottom so bottom-right
-    // cards (metrics) don't sit flush against the side while floating above
-    // the bottom edge.
-    readonly property int bottomPad: 14
-    readonly property int rightPad: 14
+    // outerGap (10) + frameWidth (6) — matches hypr gaps_out + aurora stroke.
+    // Desktop layer is already placed below the bar exclusive zone (y=barHeight),
+    // so top pad is the same edgePad as left/right/bottom — do NOT add barHeight.
+    readonly property int edgePad: Core.Theme.outerGap + Core.Theme.frameWidth
+    readonly property int originX: root.edgePad
+    readonly property int originY: root.edgePad
+    readonly property int bottomPad: root.edgePad
+    readonly property int rightPad: root.edgePad
     readonly property int gap: 8
 
     readonly property int cellW: 96

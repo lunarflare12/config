@@ -68,10 +68,13 @@ services:
       - /run/user/1000/aurora-notify.sock:/tmp/xdg/notify.sock
       - /etc/profiles/per-user/dd/share/themes:/usr/share/themes:ro
       - /etc/profiles/per-user/dd/share/icons:/usr/share/icons:ro
+      - /home/dd/.config/scripts/xdg-open-in-container.sh:/usr/bin/xdg-open:ro
+      - /home/dd/programs/chrome-dd/.local/bin/filemanager1-stub:/usr/local/bin/filemanager1-stub:ro
       - tg1-home:/home/telegram
       - /home/dd/Downloads/telegram-1:/home/telegram/Downloads
       - /home/dd/Downloads:/home/dd/Downloads:ro
       - /home/dd/programs/telegram-1/ipc:/ipc
+      - /home/dd/programs/telegram-1/ipc:/home/telegram/ipc
 
   telegram-2:
     <<: *base
@@ -86,9 +89,12 @@ services:
       - /run/user/1000/aurora-notify.sock:/tmp/xdg/notify.sock
       - /etc/profiles/per-user/dd/share/themes:/usr/share/themes:ro
       - /etc/profiles/per-user/dd/share/icons:/usr/share/icons:ro
+      - /home/dd/.config/scripts/xdg-open-in-container.sh:/usr/bin/xdg-open:ro
+      - /home/dd/programs/chrome-dd/.local/bin/filemanager1-stub:/usr/local/bin/filemanager1-stub:ro
       - tg2-home:/home/telegram
       - /home/dd/Downloads/telegram-2:/home/telegram/Downloads
       - /home/dd/Downloads:/home/dd/Downloads:ro
+      - /home/dd/programs/telegram-2/ipc:/home/telegram/ipc
 
 networks:
   default:

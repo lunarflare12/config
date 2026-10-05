@@ -4,6 +4,8 @@ x-env: &env
   WAYLAND_DISPLAY: wayland-1
   XDG_RUNTIME_DIR: /tmp/xdg
   PULSE_SERVER: unix:/tmp/pulse-native
+  # Socket is bind-mounted at /tmp/pipewire-0, not under XDG_RUNTIME_DIR.
+  PIPEWIRE_REMOTE: unix:/tmp/pipewire-0
   GDK_BACKEND: wayland
   MOZ_ENABLE_WAYLAND: "1"
   QT_QPA_PLATFORM: wayland
@@ -32,6 +34,8 @@ x-base: &base
   image: desktop-box:1
   build: .
   user: "1000:100"
+  group_add:
+    - "26" # video (host) — /dev/video* + OBS v4l2loopback
   read_only: true
   privileged: false
   init: true
@@ -60,6 +64,13 @@ x-base: &base
     - /dev/nvidia-uvm-tools
     - /dev/dri/renderD128
     - /dev/dri/renderD129
+    # Only Insta360 capture. video1=OBS loopback, video2=UVC metadata —
+    # Chrome picking those (or PipeWire H264) shows a red/magenta picture.
+    - /dev/video0
+    - /dev/media0
+  device_cgroup_rules:
+    - "c 81:* rmw" # V4L2
+    - "c 243:* rmw" # media controllers
   environment:
     <<: *env
   volumes:
@@ -70,6 +81,7 @@ x-base: &base
     - /run/opengl-driver:/run/opengl-driver:ro
     - /run/user/1000/pulse/native:/tmp/pulse-native:ro
     - /run/user/1000/pipewire-0:/tmp/pipewire-0:ro
+    - /run/user/1000/pipewire-0-manager:/tmp/pipewire-0-manager:ro
     - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
     - /etc/profiles/per-user/dd/share/themes:/usr/share/themes:ro
     - /etc/profiles/per-user/dd/share/icons:/usr/share/icons:ro
@@ -111,6 +123,7 @@ services:
       - /run/opengl-driver:/run/opengl-driver:ro
       - /run/user/1000/pulse/native:/tmp/pulse-native:ro
       - /run/user/1000/pipewire-0:/tmp/pipewire-0:ro
+      - /run/user/1000/pipewire-0-manager:/tmp/pipewire-0-manager:ro
       - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
       - /home/dd/programs/chrome-dd:/home/app
       - /home/dd/Downloads:/home/app/Downloads
@@ -129,7 +142,7 @@ services:
       - --enable-gpu-rasterization
       - --enable-zero-copy
       - --no-sandbox
-      - --disable-features=MemorySaverMode
+      - --disable-features=MemorySaverMode,WebRtcPipeWireCamera
 
   chrome-az:
     <<: *chrome
@@ -150,6 +163,7 @@ services:
       - /run/opengl-driver:/run/opengl-driver:ro
       - /run/user/1000/pulse/native:/tmp/pulse-native:ro
       - /run/user/1000/pipewire-0:/tmp/pipewire-0:ro
+      - /run/user/1000/pipewire-0-manager:/tmp/pipewire-0-manager:ro
       - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
       - /home/dd/programs/chrome-az:/home/app
       - /home/dd/Downloads:/home/app/Downloads
@@ -168,7 +182,7 @@ services:
       - --enable-gpu-rasterization
       - --enable-zero-copy
       - --no-sandbox
-      - --disable-features=MemorySaverMode
+      - --disable-features=MemorySaverMode,WebRtcPipeWireCamera
 
   chrome-hika:
     <<: *chrome
@@ -189,6 +203,7 @@ services:
       - /run/opengl-driver:/run/opengl-driver:ro
       - /run/user/1000/pulse/native:/tmp/pulse-native:ro
       - /run/user/1000/pipewire-0:/tmp/pipewire-0:ro
+      - /run/user/1000/pipewire-0-manager:/tmp/pipewire-0-manager:ro
       - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
       - /home/dd/programs/chrome-hika:/home/app
       - /home/dd/Downloads:/home/app/Downloads
@@ -207,7 +222,7 @@ services:
       - --enable-gpu-rasterization
       - --enable-zero-copy
       - --no-sandbox
-      - --disable-features=MemorySaverMode
+      - --disable-features=MemorySaverMode,WebRtcPipeWireCamera
 
   chrome-sciencesoft:
     <<: *chrome
@@ -226,6 +241,7 @@ services:
       - /run/opengl-driver:/run/opengl-driver:ro
       - /run/user/1000/pulse/native:/tmp/pulse-native:ro
       - /run/user/1000/pipewire-0:/tmp/pipewire-0:ro
+      - /run/user/1000/pipewire-0-manager:/tmp/pipewire-0-manager:ro
       - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
       - /home/dd/programs/chrome-sciencesoft:/home/app
       - /home/dd/Downloads:/home/app/Downloads
@@ -246,7 +262,7 @@ services:
       - --enable-gpu-rasterization
       - --enable-zero-copy
       - --no-sandbox
-      - --disable-features=MemorySaverMode
+      - --disable-features=MemorySaverMode,WebRtcPipeWireCamera
 
   firefox:
     <<: *base
@@ -265,6 +281,7 @@ services:
       - /run/opengl-driver:/run/opengl-driver:ro
       - /run/user/1000/pulse/native:/tmp/pulse-native:ro
       - /run/user/1000/pipewire-0:/tmp/pipewire-0:ro
+      - /run/user/1000/pipewire-0-manager:/tmp/pipewire-0-manager:ro
       - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
       - /home/dd/programs/firefox:/home/app
       - /home/dd/programs/firefox/distribution/policies.json:/etc/firefox/policies/policies.json:ro
@@ -293,6 +310,7 @@ services:
       - /run/opengl-driver:/run/opengl-driver:ro
       - /run/user/1000/pulse/native:/tmp/pulse-native:ro
       - /run/user/1000/pipewire-0:/tmp/pipewire-0:ro
+      - /run/user/1000/pipewire-0-manager:/tmp/pipewire-0-manager:ro
       - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
       - /home/dd/programs/zen:/home/app
       - /home/dd/Downloads:/home/app/Downloads
@@ -327,6 +345,7 @@ services:
       - /run/opengl-driver:/run/opengl-driver:ro
       - /run/user/1000/pulse/native:/tmp/pulse-native:ro
       - /run/user/1000/pipewire-0:/tmp/pipewire-0:ro
+      - /run/user/1000/pipewire-0-manager:/tmp/pipewire-0-manager:ro
       - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
       - /etc/profiles/per-user/dd:/etc/profiles/per-user/dd:ro
       - /home/dd/programs/idea:/home/app
@@ -363,6 +382,7 @@ services:
       - /run/opengl-driver:/run/opengl-driver:ro
       - /run/user/1000/pulse/native:/tmp/pulse-native:ro
       - /run/user/1000/pipewire-0:/tmp/pipewire-0:ro
+      - /run/user/1000/pipewire-0-manager:/tmp/pipewire-0-manager:ro
       - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
       - /home/dd/programs/spotify:/home/app
       - /home/dd/.config/spicetify:/home/app/.config/spicetify
@@ -395,6 +415,7 @@ services:
       - /run/opengl-driver:/run/opengl-driver:ro
       - /run/user/1000/pulse/native:/tmp/pulse-native:ro
       - /run/user/1000/pipewire-0:/tmp/pipewire-0:ro
+      - /run/user/1000/pipewire-0-manager:/tmp/pipewire-0-manager:ro
       - /etc/profiles/per-user/dd/share/themes:/usr/share/themes:ro
       - /etc/profiles/per-user/dd/share/icons:/usr/share/icons:ro
       - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
@@ -426,6 +447,7 @@ services:
       - /run/opengl-driver:/run/opengl-driver:ro
       - /run/user/1000/pulse/native:/tmp/pulse-native:ro
       - /run/user/1000/pipewire-0:/tmp/pipewire-0:ro
+      - /run/user/1000/pipewire-0-manager:/tmp/pipewire-0-manager:ro
       - /etc/profiles/per-user/dd/share/themes:/usr/share/themes:ro
       - /etc/profiles/per-user/dd/share/icons:/usr/share/icons:ro
       - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
@@ -457,6 +479,7 @@ services:
       - /run/opengl-driver:/run/opengl-driver:ro
       - /run/user/1000/pulse/native:/tmp/pulse-native:ro
       - /run/user/1000/pipewire-0:/tmp/pipewire-0:ro
+      - /run/user/1000/pipewire-0-manager:/tmp/pipewire-0-manager:ro
       - /etc/profiles/per-user/dd/share/themes:/usr/share/themes:ro
       - /etc/profiles/per-user/dd/share/icons:/usr/share/icons:ro
       - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
@@ -485,6 +508,7 @@ services:
       - /run/opengl-driver:/run/opengl-driver:ro
       - /run/user/1000/pulse/native:/tmp/pulse-native:ro
       - /run/user/1000/pipewire-0:/tmp/pipewire-0:ro
+      - /run/user/1000/pipewire-0-manager:/tmp/pipewire-0-manager:ro
       - /etc/profiles/per-user/dd/share/themes:/usr/share/themes:ro
       - /etc/profiles/per-user/dd/share/icons:/usr/share/icons:ro
       - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
@@ -519,6 +543,7 @@ services:
       - /run/opengl-driver:/run/opengl-driver:ro
       - /run/user/1000/pulse/native:/tmp/pulse-native:ro
       - /run/user/1000/pipewire-0:/tmp/pipewire-0:ro
+      - /run/user/1000/pipewire-0-manager:/tmp/pipewire-0-manager:ro
       - /etc/profiles/per-user/dd/share/themes:/usr/share/themes:ro
       - /etc/profiles/per-user/dd/share/icons:/usr/share/icons:ro
       - /etc/profiles/per-user/dd/lib/qt-6/plugins:/etc/profiles/per-user/dd/lib/qt-6/plugins:ro
@@ -556,6 +581,7 @@ services:
       - /run/opengl-driver:/run/opengl-driver:ro
       - /run/user/1000/pulse/native:/tmp/pulse-native:ro
       - /run/user/1000/pipewire-0:/tmp/pipewire-0:ro
+      - /run/user/1000/pipewire-0-manager:/tmp/pipewire-0-manager:ro
       - /etc/profiles/per-user/dd/share/themes:/usr/share/themes:ro
       - /etc/profiles/per-user/dd/share/icons:/usr/share/icons:ro
       - /etc/profiles/per-user/dd/lib/qt-6/plugins:/etc/profiles/per-user/dd/lib/qt-6/plugins:ro

@@ -26,4 +26,11 @@ mkdir -p "${HOME}/programs/telegram-1/ipc"
 if [[ -n "$url" ]]; then
   printf '%s\n' "$url" > "$ipc"
 fi
+if ! docker image inspect telegram-desktop:7.2.9 >/dev/null 2>&1; then
+  ctx="${HOME}/Documents/projects/config/home/dots/containers/telegram"
+  tarball="${HOME}/.local/share/aurora/containers/telegram/td-setup.tar.xz"
+  [ -f "$tarball" ] || tarball="${tarball}.hm.bak"
+  [ -f "$ctx/td-setup.tar.xz" ] || cp -f "$tarball" "$ctx/td-setup.tar.xz"
+  docker build -t telegram-desktop:7.2.9 "$ctx"
+fi
 docker compose -f "$compose" up -d --no-build telegram-1

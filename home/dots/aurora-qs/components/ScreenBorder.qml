@@ -18,7 +18,10 @@ PanelWindow {
     readonly property int thickness: Core.Theme.frameWidth
     readonly property int radius: Core.Theme.frameRadius
     readonly property color fillColor: Core.Theme.background
-    readonly property int strokeWidth: Core.Theme.borderWidth
+    // No stroke on side/bottom frames. The per-window hypr border is the
+    // cyan outline; stroking here too made a second, broken line that never
+    // quite met the bar. Fill still paints the melting chrome in the gaps.
+    readonly property int strokeWidth: 0
     readonly property color strokeColor: Core.Theme.borderActive
     readonly property int hit: 28
     readonly property bool mine: {
@@ -56,8 +59,10 @@ PanelWindow {
             || cls.indexOf("minecraft") !== -1
             || cls.indexOf("albion") !== -1;
     }
+    // Same hide rule as Bar.gameCovers — frames must vanish/reappear with
+    // the notch, not linger as orphan strokes around a fullscreen game.
     readonly property bool gameHide: root.onMain
-        && root.gameClass
+        && (root.gameClass || Core.Session.gameChromeLatched)
         && Core.Session.gameFullscreenOnScreen(root.screen)
     visible: !root.gameHide
 
@@ -68,7 +73,9 @@ PanelWindow {
         top: root.edge !== "bottom"
     }
 
-    margins.top: root.edge !== "bottom" ? Core.Theme.notchHeight : 0
+    // Overlap the bar by a few px. Exact abut at notchHeight left a hairline
+    // seam between two layer-shell surfaces in the melting stroke.
+    margins.top: root.edge !== "bottom" ? Math.max(0, Core.Theme.notchHeight - 3) : 0
 
     WlrLayershell.namespace: "aurora-frame-" + root.edge
     WlrLayershell.layer: WlrLayer.Overlay
@@ -115,6 +122,9 @@ PanelWindow {
             const r = root.radius;
             const sw = root.strokeWidth;
 
+            // Overlap joins with the bar / opposite frame so butt-clipping
+            // cannot leave a one-pixel hole in the melting stroke.
+            const join = Math.max(3, sw * 2);
             function strokeInner(draw) {
                 if (sw <= 0)
                     return;
@@ -125,12 +135,15 @@ PanelWindow {
                 ctx.lineWidth = sw * 2;
                 ctx.strokeStyle = root.strokeColor;
                 ctx.lineJoin = "round";
-                ctx.lineCap = "butt";
+                ctx.lineCap = "round";
                 ctx.stroke();
                 ctx.restore();
             }
 
             if (root.edge === "left") {
+                // Fill keeps the melting L-lip; stroke is vertical only.
+                // Drawing the top arc here fought the bar stroke and left a
+                // visible gap at the handoff. The bar owns the horizontal.
                 ctx.beginPath();
                 ctx.moveTo(0, 0);
                 ctx.lineTo(t + r, 0);
@@ -139,12 +152,9 @@ PanelWindow {
                 ctx.lineTo(0, h);
                 ctx.closePath();
                 ctx.fill();
-                // Stop where the bottom frame starts — drawing through it
-                // left a leftover vertical stub under the window corner.
-                const stopY = Math.max(r, h - root.hit);
+                const stopY = Math.max(r, h - root.hit + join);
                 strokeInner(function () {
-                    ctx.moveTo(t + r, 0);
-                    ctx.arcTo(t, 0, t, r, r);
+                    ctx.moveTo(t, -join);
                     ctx.lineTo(t, stopY);
                 });
                 return;
@@ -200,10 +210,9 @@ PanelWindow {
                 ctx.lineTo(w, h);
                 ctx.closePath();
                 ctx.fill();
-                const stopYR = Math.max(r, h - root.hit);
+                const stopYR = Math.max(r, h - root.hit + join);
                 strokeInner(function () {
-                    ctx.moveTo(w - (t + r), 0);
-                    ctx.arcTo(w - t, 0, w - t, r, r);
+                    ctx.moveTo(w - t, -join);
                     ctx.lineTo(w - t, stopYR);
                 });
                 return;
@@ -221,11 +230,14 @@ PanelWindow {
             ctx.lineTo(t, 0);
             ctx.closePath();
             ctx.fill();
+            // Start above the panel top so the side-frame vertical overlaps.
             strokeInner(function () {
-                ctx.moveTo(t, 0);
+                ctx.moveTo(t, -join);
+                ctx.lineTo(t, 0);
                 ctx.arcTo(t, h - t, t + r, h - t, r);
                 ctx.lineTo(w - t - r, h - t);
                 ctx.arcTo(w - t, h - t, w - t, 0, r);
+                ctx.lineTo(w - t, -join);
             });
         }
     }

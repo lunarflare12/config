@@ -67,10 +67,11 @@ Canvas {
             ctx.lineTo(w, h);
         }
 
-        // Stroke stops at the side-frame meet points — never to x=0/w
-        // (that drew the horizontal "stick" across the melting corners).
+        // Run the horizontal to the side-frame inner edge (frameWidth). The
+        // side panels only stroke vertically now, so this is the continuous
+        // join — no arc↔arc handoff gap.
         function traceStroke() {
-            ctx.moveTo(meet, h);
+            ctx.moveTo(b, h);
             ctx.lineTo(leftW - r, h);
             ctx.arcTo(leftW, h, leftW, h - r, r);
             ctx.lineTo(leftW, b + r);
@@ -89,7 +90,7 @@ Canvas {
             ctx.arcTo(rightStart, b, rightStart, b + r, r);
             ctx.lineTo(rightStart, h - r);
             ctx.arcTo(rightStart, h, rightStart + r, h, r);
-            ctx.lineTo(w - meet, h);
+            ctx.lineTo(w - b, h);
         }
 
         ctx.beginPath();
@@ -108,7 +109,7 @@ Canvas {
             ctx.lineWidth = root.strokeWidth * 2;
             ctx.strokeStyle = root.strokeColor;
             ctx.lineJoin = "round";
-            ctx.lineCap = "butt";
+            ctx.lineCap = "round";
             ctx.stroke();
             ctx.restore();
         }

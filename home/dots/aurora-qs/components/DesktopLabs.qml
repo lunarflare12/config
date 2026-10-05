@@ -284,7 +284,8 @@ Item {
         z: 90
         width: tipCol.implicitWidth + 20
         height: tipCol.implicitHeight + 16
-        radius: Core.Theme.frameRadius
+        radius: Core.Theme.radius
+        antialiasing: Core.Theme.radius > 0
         color: Core.Theme.surface
         border.width: Core.Theme.borderWidth
         border.color: Core.Theme.border
