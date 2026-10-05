@@ -81,10 +81,7 @@ x-game: &game
   environment:
     <<: *env
   volumes:
-    - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
-    - ./game-session.sh:/usr/local/bin/game-session.sh:ro
-    - ./terraria-entry.sh:/usr/local/bin/terraria-entry.sh:ro
-    - ./albion-entry.sh:/usr/local/bin/albion-entry.sh:ro
+    - /etc/profiles/per-user/dd/bin/aurora:/etc/profiles/per-user/dd/bin/aurora:ro
     - /nix/store:/nix/store:ro
     # The Nix Steam profile forces GE-Proton. Its driver query crashes
     # (glibc mismatch) and Steam then drops the NVIDIA shader cache.
@@ -119,7 +116,7 @@ x-game: &game
     - /home/dd/.local/share/Terraria:/home/dd/.local/share/Terraria
     - /home/dd/.config/unity3d:/home/dd/.config/unity3d
     - /home/dd/.steam:/home/dd/.steam
-    - /home/dd/.config/scripts:/home/dd/.config/scripts:ro
+    - 
     - /home/dd/.config/dxvk:/home/dd/.config/dxvk
     - /home/dd/.cache/steam-shadercache:/home/dd/.cache/steam-shadercache
     - /home/dd/.cache/dxvk:/home/dd/.cache/dxvk
@@ -143,7 +140,7 @@ services:
     <<: *game
     container_name: steam
     hostname: steam
-    entrypoint: ["/usr/local/bin/entrypoint.sh"]
+    entrypoint: ["/etc/profiles/per-user/dd/bin/aurora", "container", "steam"]
     command:
       - /bin/sh
       - -c

@@ -10,13 +10,13 @@ let
   shaderCacheDir = "/home/${host.userName}/.cache/steam-shadercache";
   dxvkCacheDir = "/home/${host.userName}/.cache/dxvk";
   nvidiaCacheDir = "/home/${host.userName}/.cache/nvidia";
-  scripts = "/home/${host.userName}/.config/scripts";
   steamBinFile = "/home/${host.userName}/.local/share/aurora/steam-bin";
+  auroraBin = lib.getExe pkgs.aurora-helpers;
 
   # Host PATH must not expose the real Steam client — only the container launcher.
   steamHostShim =
     (pkgs.writeShellScriptBin "steam" ''
-      exec ${scripts}/steam.sh "$@"
+      exec ${auroraBin} game steam "$@"
     '').overrideAttrs
       (old: {
         meta = (old.meta or { }) // {

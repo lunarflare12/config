@@ -13,22 +13,16 @@ let
   appsFiles = [
     "compose.yml"
     "Dockerfile"
-    "entrypoint.sh"
     "chrome-policy.json"
   ];
   steamFiles = [
     "compose.yml"
     "Dockerfile"
-    "entrypoint.sh"
-    "game-session.sh"
-    "albion-entry.sh"
-    "terraria-entry.sh"
     "steam-profile"
   ];
   telegramFiles = [
     "compose.yml"
     "Dockerfile"
-    "entrypoint.sh"
     "td-setup.tar.xz"
   ];
   llmFiles = [

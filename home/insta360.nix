@@ -75,7 +75,7 @@ in
     };
     Service = {
       Type = "simple";
-      ExecStart = "${config.home.homeDirectory}/.config/scripts/insta360-hold.sh";
+      ExecStart = "${lib.getExe pkgs.aurora-helpers} insta360 hold";
       Restart = "always";
       RestartSec = "2";
     };
@@ -85,7 +85,7 @@ in
   xdg.desktopEntries.insta360linkgui = {
     name = "Insta360 Link Controller";
     genericName = "Webcam Controller";
-    exec = "${config.home.homeDirectory}/.config/scripts/insta360-link.sh";
+    exec = "${lib.getExe pkgs.aurora-helpers} insta360";
     icon = "camera-web";
     categories = [
       "AudioVideo"

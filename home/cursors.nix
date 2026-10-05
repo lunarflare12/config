@@ -12,7 +12,6 @@ let
     "Moga"
     "Hatsune-Miku"
     "Mita"
-    "Overwatch-Pointer"
     "Gradient-Blue"
     "Terracota"
   ];

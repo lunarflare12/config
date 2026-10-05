@@ -10,7 +10,7 @@ QtObject {
     id: root
 
     readonly property string home: Quickshell.env("HOME")
-    readonly property string ctl: root.home + "/.config/scripts/shader-ctl.sh"
+    readonly property string ctl: "shader-ctl"
     readonly property string statusPath: root.home + "/.cache/aurora/shader-status.json"
 
     property var games: []

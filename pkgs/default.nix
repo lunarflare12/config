@@ -4,7 +4,7 @@ final: prev: {
   openlens = final.callPackage ./openlens.nix { };
   aurora-helpers = final.callPackage ./aurora-helpers.nix { };
   finder-pick = final.callPackage ./finder-pick.nix {
-    script = ../home/dots/scripts/finder-pick.py;
+    script = ./finder-pick.py;
   };
   aurora-cursors = final.callPackage ./aurora-cursors.nix { };
   thunar-unwrapped = prev.thunar-unwrapped.overrideAttrs (old: {
@@ -18,14 +18,5 @@ final: prev: {
     hypr-window-shade = prev.callPackage ./hypr-window-shade.nix {
       inherit (prev.hyprlandPlugins) mkHyprlandPlugin;
     };
-    # Stock vkfix damages the whole monitor every OW frame (200 Hz × two
-    # outputs). That hitch is not the 16:9 stretch. Damage only the window.
-    csgo-vulkan-fix = prev.hyprlandPlugins.csgo-vulkan-fix.overrideAttrs (old: {
-      postPatch = (old.postPatch or "") + ''
-        substituteInPlace main.cpp \
-          --replace-fail 'g_pHyprRenderer->damageMonitor(PMONITOR);' \
-          'g_pHyprRenderer->damageWindow(WINDOW);'
-      '';
-    });
   };
 }

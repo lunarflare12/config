@@ -10,7 +10,17 @@
 
 let
   inherit (space) mkSpaces;
-  scripts = "${config.home.homeDirectory}/.config/scripts";
+  aurora = lib.getExe pkgs.aurora-helpers;
+  aShim =
+    name: subcmd:
+    (pkgs.writeShellApplication {
+      inherit name;
+      text = ''exec ${aurora} ${subcmd} "$@"'';
+    }).overrideAttrs (old: {
+      meta = (old.meta or { }) // {
+        priority = 0;
+      };
+    });
   repoRoot = "${config.home.homeDirectory}/${params.repo}";
   containersDots = "${repoRoot}/home/dots/containers";
   # Static compose/Dockerfile/entrypoint live in the git tree; ~/containers is just a view.
@@ -34,7 +44,7 @@ let
   chromeEntry = {
     name = "Chrome DD";
     genericName = "Web Browser";
-    exec = "${scripts}/google-chrome.sh %U";
+    exec = "${lib.getExe (aShim "google-chrome" "apps chrome")} %U";
     icon = "google-chrome";
     categories = [
       "Network"
@@ -49,21 +59,6 @@ let
     "text/plain"
     "inode/directory"
   ];
-
-  # Thin PATH shims that keep calling the git-tree scripts (compose + store
-  # pins live there). Dark theme is injected by those scripts via space-env.
-  shim =
-    name: script:
-    (pkgs.writeShellApplication {
-      inherit name;
-      text = ''exec ${scripts}/${script} "$@"'';
-    }).overrideAttrs
-      (old: {
-        meta = (old.meta or { }) // {
-          # Beat leftover vendor bins if a container pin still leaks into the profile.
-          priority = 0;
-        };
-      });
 
   spaces = mkSpaces {
     discord = {
@@ -138,8 +133,6 @@ in
     force = true;
   };
 
-  home.sessionPath = [ scripts ];
-
   home.packages = [
     pkgs.aurora-helpers
     pkgs.xrandr
@@ -148,27 +141,34 @@ in
     spaces.spotify.package
     spaces.idea-ultimate.package
     spaces.telegram-2.package
-    (shim "google-chrome" "google-chrome.sh")
-    (shim "chrome-az" "chrome-az.sh")
-    (shim "chrome-hika" "chrome-hika.sh")
-    (shim "chrome-sciencesoft" "chrome-sciencesoft.sh")
-    (shim "firefox" "firefox.sh")
-    (shim "zen" "zen.sh")
-    (shim "telegram-1" "telegram-1.sh")
-    (shim "telegram" "telegram-1.sh")
-    (shim "steam" "steam.sh")
-    (shim "terraria" "terraria.sh")
-    (shim "albion" "albion.sh")
-    (shim "alien-shooter" "alien-shooter.sh")
-    (shim "code" "code.sh")
-    (shim "obsidian" "obsidian.sh")
-    (shim "openlens" "openlens.sh")
-    (shim "libreoffice" "libreoffice.sh")
-    (shim "soffice" "libreoffice.sh")
-    (pkgs.writeShellApplication {
-      name = "wayland-box";
-      text = ''exec ${./dots/scripts/wayland-box.sh} "$@"'';
-    })
+    (aShim "google-chrome" "apps chrome")
+    (aShim "chrome-az" "apps chrome-az")
+    (aShim "chrome-hika" "apps chrome-hika")
+    (aShim "chrome-sciencesoft" "apps chrome-sciencesoft")
+    (aShim "firefox" "apps firefox")
+    (aShim "zen" "apps zen")
+    (aShim "telegram-1" "apps telegram-1")
+    (aShim "telegram" "apps telegram-1")
+    (aShim "telegram-2" "apps telegram-2")
+    (aShim "steam" "game steam")
+    (aShim "terraria" "game terraria")
+    (aShim "albion" "game albion")
+    (aShim "alien-shooter" "game alien-shooter")
+    (aShim "code" "apps code")
+    (aShim "obsidian" "apps obsidian")
+    (aShim "openlens" "apps openlens")
+    (aShim "libreoffice" "apps libreoffice")
+    (aShim "soffice" "apps libreoffice")
+    (aShim "discord" "apps discord")
+    (aShim "spotify" "apps spotify")
+    (aShim "cursor" "apps cursor")
+    (aShim "idea-ultimate" "apps idea")
+    (aShim "finder" "finder")
+    (aShim "obs" "obs")
+    (aShim "insta360-link" "insta360")
+    (aShim "prismlauncher" "apps prismlauncher")
+    (aShim "qbittorrent" "apps qbittorrent")
+    (aShim "wayland-box" "box")
   ];
 
   # Keep store paths for containerized apps without installing their .desktop files.
@@ -191,18 +191,12 @@ in
       '';
     }
     (linkContainer "apps" "compose.yml")
-    (linkContainer "apps" "entrypoint.sh")
     (linkContainer "apps" "Dockerfile")
     (linkContainer "apps" "chrome-policy.json")
     (linkContainer "steam" "compose.yml")
-    (linkContainer "steam" "entrypoint.sh")
     (linkContainer "steam" "Dockerfile")
-    (linkContainer "steam" "game-session.sh")
-    (linkContainer "steam" "albion-entry.sh")
-    (linkContainer "steam" "terraria-entry.sh")
     (linkContainer "steam" "steam-profile")
     (linkContainer "telegram" "compose.yml")
-    (linkContainer "telegram" "entrypoint.sh")
     (linkContainer "telegram" "Dockerfile")
     (linkContainer "telegram" "td-setup.tar.xz")
     (linkContainer "llm" "compose.yml")
@@ -280,7 +274,7 @@ in
     };
     steam = {
       name = "Steam";
-      exec = "${scripts}/steam.sh %U";
+      exec = "${lib.getExe (aShim "steam" "game steam")} %U";
       icon = "steam";
       categories = [ "Game" ];
       mimeType = [
@@ -291,7 +285,7 @@ in
     };
     "albion-online" = {
       name = "Albion Online";
-      exec = "${scripts}/albion.sh";
+      exec = "${lib.getExe (aShim "albion" "game albion")}";
       icon = "steam_icon_761890";
       categories = [ "Game" ];
       terminal = false;
@@ -299,7 +293,7 @@ in
     };
     terraria = {
       name = "Terraria";
-      exec = "${scripts}/terraria.sh";
+      exec = "${lib.getExe (aShim "terraria" "game terraria")}";
       icon = "steam_icon_105600";
       categories = [ "Game" ];
       terminal = false;
@@ -307,7 +301,7 @@ in
     };
     alien-shooter = {
       name = "Alien Shooter";
-      exec = "${scripts}/alien-shooter.sh";
+      exec = "${lib.getExe (aShim "alien-shooter" "game alien-shooter")}";
       icon = "steam_icon_33100";
       categories = [ "Game" ];
       terminal = false;
@@ -315,7 +309,7 @@ in
     };
     discord = {
       name = "Discord";
-      exec = "${scripts}/discord.sh";
+      exec = "${lib.getExe (aShim "discord" "apps discord")}";
       icon = "discord";
       categories = [
         "Network"
@@ -345,7 +339,7 @@ in
     code = {
       name = "Visual Studio Code";
       genericName = "Text Editor";
-      exec = "${scripts}/code.sh %F";
+      exec = "${lib.getExe (aShim "code" "apps code")} %F";
       icon = "vscode";
       categories = [
         "Utility"
@@ -359,7 +353,7 @@ in
     };
     obsidian = {
       name = "Obsidian";
-      exec = "${scripts}/obsidian.sh %U";
+      exec = "${lib.getExe (aShim "obsidian" "apps obsidian")} %U";
       icon = "${pkgs.obsidian}/share/icons/hicolor/256x256/apps/obsidian.png";
       categories = [ "Office" ];
       mimeType = [ "x-scheme-handler/obsidian" ];
@@ -368,7 +362,7 @@ in
     openlens = {
       name = "OpenLens";
       genericName = "Kubernetes IDE";
-      exec = "${scripts}/openlens.sh";
+      exec = "${lib.getExe (aShim "openlens" "apps openlens")}";
       icon = "${pkgs.openlens}/share/icons/hicolor/512x512/apps/openlens.png";
       categories = [ "Development" ];
       startupNotify = true;
@@ -376,7 +370,7 @@ in
     };
     libreoffice-startcenter = {
       name = "LibreOffice";
-      exec = "${scripts}/libreoffice.sh";
+      exec = "${lib.getExe (aShim "libreoffice" "apps libreoffice")}";
       icon = "libreoffice-startcenter";
       categories = [ "Office" ];
       startupNotify = true;
@@ -384,7 +378,7 @@ in
     libreoffice-writer = {
       name = "LibreOffice Writer";
       genericName = "Word Processor";
-      exec = "${scripts}/libreoffice.sh --writer %U";
+      exec = "${lib.getExe (aShim "libreoffice" "apps libreoffice")} --writer %U";
       icon = "libreoffice-writer";
       categories = [
         "Office"
@@ -400,7 +394,7 @@ in
     libreoffice-calc = {
       name = "LibreOffice Calc";
       genericName = "Spreadsheet";
-      exec = "${scripts}/libreoffice.sh --calc %U";
+      exec = "${lib.getExe (aShim "libreoffice" "apps libreoffice")} --calc %U";
       icon = "libreoffice-calc";
       categories = [
         "Office"
@@ -415,7 +409,7 @@ in
     libreoffice-impress = {
       name = "LibreOffice Impress";
       genericName = "Presentation";
-      exec = "${scripts}/libreoffice.sh --impress %U";
+      exec = "${lib.getExe (aShim "libreoffice" "apps libreoffice")} --impress %U";
       icon = "libreoffice-impress";
       categories = [
         "Office"
@@ -429,7 +423,7 @@ in
     };
     libreoffice-draw = {
       name = "LibreOffice Draw";
-      exec = "${scripts}/libreoffice.sh --draw %U";
+      exec = "${lib.getExe (aShim "libreoffice" "apps libreoffice")} --draw %U";
       icon = "libreoffice-draw";
       categories = [ "Office" ];
       startupNotify = true;
@@ -438,7 +432,7 @@ in
       name = "IntelliJ IDEA Ultimate";
       genericName = "Java IDE";
       comment = "Java IDE";
-      exec = "${scripts}/idea-ultimate.sh %F";
+      exec = "${lib.getExe (aShim "idea-ultimate" "apps idea")} %F";
       icon = "${pkgs.jetbrains.idea}/idea/bin/idea.svg";
       categories = [
         "Development"
@@ -454,7 +448,7 @@ in
     chrome-az = {
       name = "Chrome Aziza";
       genericName = "Web Browser";
-      exec = "${scripts}/chrome-az.sh %U";
+      exec = "${lib.getExe (aShim "chrome-az" "apps chrome-az")} %U";
       icon = "google-chrome";
       categories = [
         "Network"
@@ -466,7 +460,7 @@ in
     chrome-hika = {
       name = "Chrome hika911";
       genericName = "Web Browser";
-      exec = "${scripts}/chrome-hika.sh %U";
+      exec = "${lib.getExe (aShim "chrome-hika" "apps chrome-hika")} %U";
       icon = "google-chrome";
       categories = [
         "Network"
@@ -478,7 +472,7 @@ in
     chrome-sciencesoft = {
       name = "Chrome ScienceSoft";
       genericName = "Web Browser";
-      exec = "${scripts}/chrome-sciencesoft.sh %U";
+      exec = "${lib.getExe (aShim "chrome-sciencesoft" "apps chrome-sciencesoft")} %U";
       icon = "google-chrome";
       categories = [
         "Network"
@@ -490,7 +484,7 @@ in
     firefox = {
       name = "Firefox";
       genericName = "Web Browser";
-      exec = "${scripts}/firefox.sh";
+      exec = "${lib.getExe (aShim "firefox" "apps firefox")}";
       icon = "${pkgs.firefox}/share/icons/hicolor/128x128/apps/firefox.png";
       categories = [
         "Network"
@@ -502,7 +496,7 @@ in
     zen = {
       name = "Zen";
       genericName = "Web Browser";
-      exec = "${scripts}/zen.sh";
+      exec = "${lib.getExe (aShim "zen" "apps zen")}";
       icon = "${zenBrowser}/share/icons/hicolor/128x128/apps/zen.png";
       categories = [
         "Network"
@@ -514,7 +508,7 @@ in
     spotify = {
       name = "Spotify";
       genericName = "Music Player";
-      exec = "${scripts}/spotify.sh";
+      exec = "${lib.getExe (aShim "spotify" "apps spotify")}";
       icon = "spotify-client";
       categories = [
         "Audio"
@@ -526,7 +520,7 @@ in
     };
     telegram-1 = {
       name = "Telegram 1";
-      exec = "${scripts}/telegram-1.sh %U";
+      exec = "${lib.getExe (aShim "telegram-1" "apps telegram-1")} %U";
       icon = "org.telegram.desktop";
       categories = [
         "Network"
@@ -541,7 +535,7 @@ in
     };
     telegram-2 = {
       name = "Telegram 2";
-      exec = "${scripts}/telegram-2.sh";
+      exec = "${lib.getExe (aShim "telegram-2" "apps telegram-2")}";
       icon = "org.telegram.desktop";
       categories = [
         "Network"
@@ -630,7 +624,7 @@ in
       PartOf = [ "graphical-session.target" ];
     };
     Service = {
-      ExecStart = "${config.home.homeDirectory}/.config/scripts/hypr-fix-safe-mode.sh loop";
+      ExecStart = "${lib.getExe pkgs.aurora-helpers} hypr-fix loop";
       Restart = "always";
       RestartSec = 3;
     };
@@ -647,7 +641,7 @@ in
       PartOf = [ "graphical-session.target" ];
     };
     Service = {
-      ExecStart = "${config.home.homeDirectory}/.config/scripts/cap-fossilize.sh loop";
+      ExecStart = "${lib.getExe pkgs.aurora-helpers} fossilize loop";
       Restart = "always";
       RestartSec = 10;
     };
@@ -661,7 +655,7 @@ in
       PartOf = [ "graphical-session.target" ];
     };
     Service = {
-      ExecStart = "${config.home.homeDirectory}/.config/scripts/reap-container-windows watch";
+      ExecStart = "${lib.getExe pkgs.aurora-helpers} reaper watch";
       Restart = "on-failure";
       RestartSec = 2;
     };
@@ -672,7 +666,7 @@ in
     Unit.Description = "Open a t.me or tg: link in Telegram 1";
     Service = {
       Type = "oneshot";
-      ExecStart = "${config.home.homeDirectory}/.config/scripts/telegram-link-dispatch.sh";
+      ExecStart = "${lib.getExe pkgs.aurora-helpers} dispatch telegram-link";
     };
   };
 
@@ -700,7 +694,7 @@ in
     };
     Service = {
       Type = "oneshot";
-      ExecStart = "${config.home.homeDirectory}/.config/scripts/container-open-dispatch.sh";
+      ExecStart = "${lib.getExe pkgs.aurora-helpers} dispatch open";
     };
   };
 

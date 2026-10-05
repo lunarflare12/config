@@ -8,7 +8,7 @@ QtObject {
     id: root
 
     readonly property string home: Quickshell.env("HOME")
-    readonly property string script: root.home + "/.config/scripts/system-update.sh"
+    readonly property string script: "aurora"
     property bool running: false
 
     function start() {
@@ -18,7 +18,7 @@ QtObject {
     }
 
     property Process proc: Process {
-        command: ["kitty", "--class", "sysupdate", "-e", root.script]
+        command: ["kitty", "--class", "sysupdate", "-e", root.script, "update"]
         running: false
         onRunningChanged: root.running = running
     }

@@ -40,12 +40,11 @@ x-base: &base
     options:
       max-size: "10m"
       max-file: "3"
-  entrypoint: ["/usr/local/bin/entrypoint.sh"]
+  entrypoint: ["/etc/profiles/per-user/dd/bin/aurora", "container", "telegram"]
   environment:
     <<: *env
     WAYLAND_DISPLAY: wayland-1
   volumes:
-    - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
     - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
     - /run/user/1000/pulse/native:/tmp/pulse-native:ro
     - /run/user/1000/pipewire-0:/tmp/pipewire-0:ro
@@ -61,14 +60,13 @@ services:
     hostname: telegram-1
     networks: [tg1]
     volumes:
-      - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
       - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
       - /run/user/1000/pulse/native:/tmp/pulse-native:ro
       - /run/user/1000/pipewire-0:/tmp/pipewire-0:ro
       - /run/user/1000/aurora-notify.sock:/tmp/xdg/notify.sock
       - /etc/profiles/per-user/dd/share/themes:/usr/share/themes:ro
       - /etc/profiles/per-user/dd/share/icons:/usr/share/icons:ro
-      - /home/dd/.config/scripts/xdg-open-in-container.sh:/usr/bin/xdg-open:ro
+      - /run/current-system/sw/bin/container-xdg-open:/usr/bin/xdg-open:ro
       - /home/dd/programs/chrome-dd/.local/bin/filemanager1-stub:/usr/local/bin/filemanager1-stub:ro
       - tg1-home:/home/telegram
       - /home/dd/Downloads/telegram-1:/home/telegram/Downloads
@@ -82,14 +80,13 @@ services:
     hostname: telegram-2
     networks: [tg2]
     volumes:
-      - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
       - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
       - /run/user/1000/pulse/native:/tmp/pulse-native:ro
       - /run/user/1000/pipewire-0:/tmp/pipewire-0:ro
       - /run/user/1000/aurora-notify.sock:/tmp/xdg/notify.sock
       - /etc/profiles/per-user/dd/share/themes:/usr/share/themes:ro
       - /etc/profiles/per-user/dd/share/icons:/usr/share/icons:ro
-      - /home/dd/.config/scripts/xdg-open-in-container.sh:/usr/bin/xdg-open:ro
+      - /run/current-system/sw/bin/container-xdg-open:/usr/bin/xdg-open:ro
       - /home/dd/programs/chrome-dd/.local/bin/filemanager1-stub:/usr/local/bin/filemanager1-stub:ro
       - tg2-home:/home/telegram
       - /home/dd/Downloads/telegram-2:/home/telegram/Downloads

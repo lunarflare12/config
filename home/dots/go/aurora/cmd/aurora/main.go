@@ -6,40 +6,46 @@ import (
 	"path/filepath"
 
 	"aurora/internal/activate"
+	"aurora/internal/apps"
+	"aurora/internal/awgprotect"
+	"aurora/internal/box"
+	"aurora/internal/container"
 	"aurora/internal/brightness"
 	"aurora/internal/cursor"
+	auroradispatch "aurora/internal/dispatch"
 	"aurora/internal/emoji"
+	"aurora/internal/finder"
+	"aurora/internal/finderaction"
 	"aurora/internal/fossilize"
+	"aurora/internal/game"
 	"aurora/internal/helpers"
 	"aurora/internal/hyprfix"
+	"aurora/internal/insta360"
 	"aurora/internal/lab"
+	"aurora/internal/libreofficeui"
 	"aurora/internal/monitor"
 	"aurora/internal/mpris"
+	"aurora/internal/obs"
+	"aurora/internal/openconnect"
+	"aurora/internal/protect"
 	"aurora/internal/reaper"
+	"aurora/internal/shade"
+	"aurora/internal/shader"
 	"aurora/internal/shot"
 	"aurora/internal/spotify"
 	"aurora/internal/state"
+	"aurora/internal/steamlock"
+	"aurora/internal/update"
 	"aurora/internal/wallpaper"
 )
 
 func usage() {
 	fmt.Fprintln(os.Stderr, `aurora <cmd> [args]
-  wallpaper [set|apply|load|ensure|daemon|path|thumbs] [path]
-  hypr-fix [loop]
-  fossilize [loop]
-  monitor [light]
-  helpers [kill-qs|session]
-  session
-  mpris [ctl args]
-  reaper [watch|quit-orphans|name [action]]
-  screenshot X Y W H
-  cursor [load|set] [id] [size] [theme]
-  activate [--probe] name...
-  lab [status|toggle|docker|vm ...]
-  brightness [args]
-  emoji build SOURCE OUT
-  state prefer-layout-backup [layout backup]
-  spotify theme`)
+  wallpaper|hypr-fix|fossilize|monitor|helpers|session|mpris|reaper
+  screenshot|cursor|activate|lab|brightness|emoji|state|spotify
+  shade|steam-lock|protect-shaders|game|apps|shader
+  finder|finder-action|update|awg-protect|openconnect
+  box|wayland-box|dispatch|obs|insta360|libreoffice-ui|container`)
 }
 
 func dispatch(cmd string, args []string) int {
@@ -78,6 +84,40 @@ func dispatch(cmd string, args []string) int {
 		return state.Main(args)
 	case "spotify":
 		return spotify.Main(args)
+	case "shade", "hypr-window-shade":
+		return shade.Main(args)
+	case "steam-lock", "steam-lock-shaders":
+		return steamlock.Main(args)
+	case "protect-shaders", "protect-shader-caches":
+		return protect.Main(args)
+	case "game":
+		return game.Main(args)
+	case "apps":
+		return apps.Main(args)
+	case "shader", "shader-ctl":
+		return shader.Main(args)
+	case "finder":
+		return finder.Main(args)
+	case "finder-action":
+		return finderaction.Main(args)
+	case "update", "system-update":
+		return update.Main(args)
+	case "awg-protect", "awg-protect-endpoint":
+		return awgprotect.Main(args)
+	case "openconnect", "openconnect-tunnel":
+		return openconnect.Main(args)
+	case "box", "wayland-box":
+		return box.Main(args)
+	case "dispatch":
+		return auroradispatch.Main(args)
+	case "obs":
+		return obs.Main(args)
+	case "insta360":
+		return insta360.Main(args)
+	case "libreoffice-ui":
+		return libreofficeui.Main(args)
+	case "container":
+		return container.Main(args)
 	default:
 		usage()
 		return 2
@@ -110,6 +150,8 @@ func main() {
 		os.Exit(brightness.Main(args))
 	case "spotify-theme":
 		os.Exit(spotify.Main(append([]string{"theme"}, args...)))
+	case "shader-ctl":
+		os.Exit(shader.Main(args))
 	}
 	if len(args) == 0 {
 		usage()

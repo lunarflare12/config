@@ -57,9 +57,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && useradd --uid 1000 --gid 100 --create-home --shell /bin/bash \
          --groups steam,gamemode,input,video app
 
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod 755 /usr/local/bin/entrypoint.sh
-
 WORKDIR /home/dd
 ENV LANG=ru_RU.UTF-8 \
     LC_ALL=ru_RU.UTF-8 \
@@ -71,4 +68,4 @@ ENV LANG=ru_RU.UTF-8 \
 RUN mkdir -p /home/dd && chown -R 1000:100 /home/dd
 
 USER app
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+ENTRYPOINT ["/etc/profiles/per-user/dd/bin/aurora", "container", "steam"]

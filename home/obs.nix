@@ -22,7 +22,7 @@
     # System obs-studio (with plugins) lives on the current-system profile, not
     # bare pkgs.obs-studio — that would drop vkcapture/pipewire plugins.
     # Absolute wrapper — thin Hypr PATH + skip VAAPI probe stalls (see obs.sh).
-    exec = "${config.home.homeDirectory}/.config/scripts/obs.sh %U";
+    exec = "${lib.getExe pkgs.aurora-helpers} obs %U";
     icon = "com.obsproject.Studio";
     terminal = false;
     categories = [

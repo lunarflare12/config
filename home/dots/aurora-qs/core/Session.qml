@@ -60,7 +60,6 @@ QtObject {
         }
     }
 
-    readonly property string scripts: Quickshell.env("HOME") + "/.config/scripts"
     readonly property int workspacesPerMonitor: 12
     // Local workspace that hosts wallpaper widgets on every monitor.
     readonly property int widgetWorkspaceLocal: 7
@@ -266,15 +265,6 @@ QtObject {
                     root.openClasses = classes;
                     if (!same)
                         root.clientsTick += 1;
-                    for (let i = 0; i < clients.length; i++) {
-                        const ccls = String(clients[i].class || "").toLowerCase();
-                        if (ccls.indexOf("steam_app_2357570") === -1)
-                            continue;
-                        root.gameChromeLatched = true;
-                        if (Number(clients[i].workspace) > 0)
-                            root.gameChromeWorkspace = Number(clients[i].workspace);
-                        break;
-                    }
                 } catch (e) {}
             }
         }
@@ -842,8 +832,8 @@ QtObject {
         const want = root.monitorNameForScreen(screen);
         const active = root.activeWorkspaceOnMonitor(want);
 
-        // Latched: keep chrome down for the whole game workspace visit, even
-        // when focus briefly leaves Overwatch (overlay / notify / qs).
+        // Держим chrome скрытым на весь визит в game workspace,
+        // даже если фокус на миг ушёл (overlay / notify / qs).
         if (root.gameChromeLatched) {
             if (root.gameChromeMonitor && root.gameChromeMonitor !== want)
                 return false;
@@ -1467,7 +1457,7 @@ QtObject {
         root.screenshotOpen = false;
         root.overviewOpen = false;
         root.armSattySuppress();
-        Quickshell.execDetached([root.scripts + "/screenshot.sh", String(Math.round(x)), String(Math.round(y)), String(Math.round(w)), String(Math.round(h))]);
+        Quickshell.execDetached(["aurora", "screenshot", String(Math.round(x)), String(Math.round(y)), String(Math.round(w)), String(Math.round(h))]);
     }
 
     function runScreenshot() {

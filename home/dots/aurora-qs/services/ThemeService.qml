@@ -161,6 +161,6 @@ QtObject {
             return;
         Quickshell.execDetached([root.switcherPath, themeId]);
         Quickshell.execDetached(["ln", "-sfn", root.auroraDirectory + "/themes/" + themeId + ".gtk.css", root.auroraDirectory + "/gtk-colors.css"]);
-        Quickshell.execDetached([root.home + "/.config/scripts/spotify-theme"]);
+        Quickshell.execDetached(["spotify-theme"]);
     }
 }

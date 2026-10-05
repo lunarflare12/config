@@ -2,9 +2,9 @@ local ok_programs, programs = pcall(require, "config/programs")
 if not ok_programs or type(programs) ~= "table" then
     programs = {
         terminal = "kitty",
-        browser = (os.getenv("HOME") or "/home/dd") .. "/.config/scripts/google-chrome.sh",
-        file_manager = (os.getenv("HOME") or "/home/dd") .. "/.config/scripts/finder.sh",
-        scripts = (os.getenv("HOME") or "/home/dd") .. "/.config/scripts",
+        browser = (os.getenv("HOME") or "/home/dd") .. "/.nix-profile/bin/google-chrome",
+        file_manager = (os.getenv("HOME") or "/home/dd") .. "/.nix-profile/bin/finder",
+        aurora = (os.getenv("HOME") or "/home/dd") .. "/.nix-profile/bin/aurora",
     }
 end
 local mod = "SUPER"
@@ -85,7 +85,7 @@ end
 hl.bind(mod .. " + Return", hl.dsp.exec_cmd(programs.terminal))
 hl.bind(mod .. " + T", hl.dsp.exec_cmd(programs.terminal))
 hl.bind(mod .. " + B", hl.dsp.exec_cmd(programs.browser))
-hl.bind(mod .. " + E", hl.dsp.exec_cmd(programs.scripts .. "/finder.sh"))
+hl.bind(mod .. " + E", hl.dsp.exec_cmd(programs.file_manager))
 hl.bind(mod .. " + R", hl.dsp.exec_cmd("qs ipc call launcher toggle"))
 hl.bind(mod .. " + C", hl.dsp.exec_cmd("qs ipc call theme toggle"))
 hl.bind(mod .. " + X", hl.dsp.exec_cmd("qs ipc call power toggle"))
@@ -111,7 +111,7 @@ hl.bind(mod .. " + Q", hl.dsp.window.close())
 hl.bind(mod .. " + SHIFT + Q", hl.dsp.window.kill())
 hl.bind(mod .. " + SHIFT + F", hl.dsp.window.float({ action = "toggle" }))
 hl.bind(mod .. " + F", hl.dsp.window.fullscreen({ mode = "fullscreen", action = "toggle", layout_aware = false }))
-hl.bind(mod .. " + SHIFT + R", hl.dsp.exec_cmd(programs.scripts .. "/reload-hypr.sh"))
+hl.bind(mod .. " + SHIFT + R", hl.dsp.exec_cmd("hyprctl reload"))
 hl.bind(mod .. " + SHIFT + W", hl.dsp.exec_cmd("qs ipc call wallpaper toggle"))
 hl.bind(mod .. " + SHIFT + G", hl.dsp.exec_cmd("qs ipc call shaders toggle"))
 hl.bind(mod .. " + ALT + L", hl.dsp.exec_cmd("qs ipc call lock lock"))

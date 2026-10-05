@@ -14,7 +14,7 @@ QtObject {
     readonly property string previewDir: Quickshell.shellDir + "/assets/cursors/previews"
     readonly property string statePath: root.home + "/.cache/aurora/current-cursor"
     readonly property string sizePath: root.home + "/.cache/aurora/current-cursor-size"
-    readonly property string applyScript: root.home + "/.config/scripts/set-cursor.sh"
+    readonly property string applyScript: "aurora"
     readonly property string bashBin: "/run/current-system/sw/bin/bash"
     readonly property int minSize: 24
     readonly property int maxSize: 96
@@ -161,7 +161,7 @@ QtObject {
         root.hypr(["eval", "hl.env('XCURSOR_SIZE', '" + px + "')"]);
         root.hypr(["eval", "hl.config({ cursor = { enable_hyprcursor = true, no_hardware_cursors = true, use_cpu_buffer = false, hide_on_key_press = false, default_monitor = 'DP-4' } })"]);
         root.hypr(["setcursor", theme, String(px)]);
-        Quickshell.execDetached([root.applyScript, key, String(px), theme]);
+        Quickshell.execDetached([root.applyScript, "cursor", "set", key, String(px), theme]);
     }
 
     function applySize(size) {

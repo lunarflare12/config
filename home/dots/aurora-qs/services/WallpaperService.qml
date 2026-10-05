@@ -15,7 +15,7 @@ QtObject {
     readonly property string statePath: root.home + "/.cache/aurora/current-wallpaper"
     readonly property string persistPath: root.home + "/.local/state/aurora/wallpaper"
     readonly property string currentNamePath: root.wallpaperDirectory + "/.current"
-    readonly property string thumbScript: root.home + "/.config/scripts/cache-wallpaper-thumbs.sh"
+    readonly property string thumbScript: "aurora-wallpaper"
 
     property bool scanning: false
     property string error: ""
@@ -87,7 +87,7 @@ QtObject {
     }
 
     property Process thumbProcess: Process {
-        command: [root.thumbScript, root.wallpaperDirectory]
+        command: [root.thumbScript, "thumbs", root.wallpaperDirectory]
         onExited: {
             if (!root.scanProcess.running)
                 root.scanProcess.running = true;
@@ -212,6 +212,6 @@ QtObject {
     function apply(path) {
         if (!path || path.length === 0)
             return;
-        Quickshell.execDetached([root.home + "/.config/scripts/set-wallpaper.sh", path]);
+        Quickshell.execDetached(["aurora", "wallpaper", "set", path]);
     }
 }

@@ -32,14 +32,6 @@
     "thumb": "mita.png"
   },
   {
-    "id": "overwatch-pointer",
-    "name": "Overwatch Pointer",
-    "theme": "Overwatch-Pointer",
-    "source": "https://vsthemes.org/en/cursors/games/14474-overwatch-pointer.html",
-    "newsId": 14474,
-    "thumb": "overwatch-pointer.png"
-  },
-  {
     "id": "gradient-blue",
     "name": "Gradient Blue",
     "theme": "Gradient-Blue",

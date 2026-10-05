@@ -30,7 +30,6 @@ let
     "config/monitor-pin.lua"
   ];
   windowShadePluginDir = "${pkgs.hyprlandPlugins.hypr-window-shade}";
-  csgoVulkanFixPluginDir = "${pkgs.hyprlandPlugins.csgo-vulkan-fix}";
 
   monitorLua =
     let
@@ -88,7 +87,8 @@ let
     unset QT_STYLE_OVERRIDE
     exec ${pkgs.hyprpolkitagent}/libexec/hyprpolkitagent "$@"
   '';
-  scripts = "${config.home.homeDirectory}/.config/scripts";
+  aurora = lib.getExe pkgs.aurora-helpers;
+  profileBin = "${config.home.homeDirectory}/.nix-profile/bin";
   luaEnv =
     lib.concatStrings (
       lib.mapAttrsToList
@@ -126,12 +126,12 @@ in
               terminal = "${params.terminal}",
               browser = "${
                 if params.browser == "google-chrome" then
-                  "${config.home.homeDirectory}/.config/scripts/google-chrome.sh"
+                  "${profileBin}/google-chrome"
                 else
                   params.browser
               }",
-              file_manager = "${config.home.homeDirectory}/.config/scripts/finder.sh",
-              scripts = os.getenv("HOME") .. "/.config/scripts",
+              file_manager = "${profileBin}/finder",
+              aurora = "${aurora}",
           }
         '';
       };
@@ -175,7 +175,6 @@ in
       "uwsm/env".text = uwsmEnv;
 
       "hypr/hypr-window-shade-dir".text = windowShadePluginDir;
-      "hypr/hypr-csgo-vulkan-fix-dir".text = csgoVulkanFixPluginDir;
 
       "hypr/shaders/liixini" = {
         source = config.lib.file.mkOutOfStoreSymlink "${hyprDots}/shaders/liixini";
@@ -191,17 +190,16 @@ in
         force = true;
         text = ''
           hl.on("hyprland.start", function()
-              hl.exec_cmd("${scripts}/hypr-fix-safe-mode.sh")
+              hl.exec_cmd("${aurora} hypr-fix")
               hl.exec_cmd("hypridle")
-              hl.exec_cmd("${scripts}/steam-lock-shaders.sh")
-              hl.exec_cmd("${scripts}/cap-fossilize.sh")
-              hl.exec_cmd("${scripts}/hypr-window-shade.sh load")
-              hl.exec_cmd("${scripts}/hypr-csgo-vulkan-fix.sh ensure")
-              hl.exec_cmd("${scripts}/qs-session-start.sh")
+              hl.exec_cmd("${aurora} steam-lock")
+              hl.exec_cmd("${aurora} fossilize")
+              hl.exec_cmd("${aurora} shade load")
+              hl.exec_cmd("${aurora} session")
           end)
 
           hl.on("monitor.added", function()
-              hl.exec_cmd("${scripts}/load-wallpaper.sh")
+              hl.exec_cmd("${aurora} wallpaper load")
           end)
         '';
       };

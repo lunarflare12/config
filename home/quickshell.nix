@@ -39,19 +39,11 @@ in
   xdg.configFile."fastfetch".source = ./dots/fastfetch;
   xdg.configFile."fastfetch".recursive = true;
 
-  xdg.configFile."scripts" = {
-    source = config.lib.file.mkOutOfStoreSymlink "${repoRoot}/home/dots/scripts";
-    force = true;
-  };
-
-  # Last generation wrote a directory of store copies. Move it so this
-  # generation can place the git-tree symlink.
+  # Drop legacy ~/.config/scripts symlink tree (everything is aurora + HM shims).
   home.activation.replaceScriptsStoreDir = lib.hm.dag.entryBefore [ "checkLinkTargets" ] ''
     scripts="${config.xdg.configHome}/scripts"
-    if [ -d "$scripts" ] && [ ! -L "$scripts" ]; then
-      backup="$scripts.store-dir.bak"
-      rm -rf "$backup"
-      mv "$scripts" "$backup"
+    if [ -e "$scripts" ]; then
+      rm -rf "$scripts"
     fi
     qs="${config.xdg.configHome}/quickshell"
     if [ -d "$qs" ] && [ ! -L "$qs" ]; then
@@ -113,7 +105,7 @@ in
       # process starts and draws a second bar on the same monitor.
       ExecStart = "${lib.getExe pkgs.quickshell} --no-duplicate";
       # Drop leftover helpers from a previous crash (KillMode=process keeps them).
-      ExecStartPre = "-${config.home.homeDirectory}/.config/scripts/aurora-kill-qs-helpers.sh";
+      ExecStartPre = "-${lib.getExe pkgs.aurora-helpers} helpers kill-qs";
       # Launched apps inherit this cgroup. control-group would kill
       # Chrome/Cursor/games when the bar dies or reloads. AppsService uses
       # systemd-run --scope for real launches; helpers are cleaned above.
@@ -167,7 +159,7 @@ in
       ConditionEnvironment = "WAYLAND_DISPLAY";
     };
     Service = {
-      ExecStart = "${config.home.homeDirectory}/.config/scripts/wallpaper-daemon.sh";
+      ExecStart = "${lib.getExe pkgs.aurora-helpers} wallpaper daemon";
       ExecStartPost = "${pkgs.writeShellScript "awww-ready" ''
         export PATH="${
           lib.makeBinPath [
@@ -180,7 +172,7 @@ in
           ${pkgs.awww}/bin/awww query >/dev/null 2>&1 && break
           sleep 0.1
         done
-        exec ${config.home.homeDirectory}/.config/scripts/load-wallpaper.sh
+        exec ${lib.getExe pkgs.aurora-helpers} wallpaper load
       ''}";
       Restart = "on-failure";
     };

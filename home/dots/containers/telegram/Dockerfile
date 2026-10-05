@@ -67,4 +67,4 @@ ENV LANG=ru_RU.UTF-8 \
     QT_QPA_PLATFORM=xcb \
     QT_AUTO_SCREEN_SCALE_FACTOR=1
 
-ENTRYPOINT ["/opt/Telegram/Telegram", "-workdir", "/home/telegram/.local/share/TelegramDesktop"]
+ENTRYPOINT ["/etc/profiles/per-user/dd/bin/aurora", "container", "telegram"]

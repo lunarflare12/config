@@ -526,8 +526,8 @@ in
 
       printf '%s\n' "dark" > "$CONFIG_DIR/mode"
 
-      if [[ -x "$HOME/.config/scripts/spotify-theme" ]]; then
-        "$HOME/.config/scripts/spotify-theme" >/dev/null 2>&1 || true
+      if command -v spotify-theme >/dev/null 2>&1; then
+        spotify-theme >/dev/null 2>&1 || true
       fi
 
       echo "Aurora theme: $selected"

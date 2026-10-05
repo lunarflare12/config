@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"aurora/internal/awgprotect"
 	"aurora/internal/execx"
 )
 
@@ -18,8 +19,17 @@ const (
 	policyPath = "/etc/polkit-1/actions/org.aurora.vpnctl.policy"
 )
 
-func protectScript() string {
-	return filepath.Join(execx.Home(), ".config/scripts/awg-protect-endpoint.sh")
+func auroraBin() string {
+	for _, p := range []string{
+		filepath.Join(execx.Home(), ".local/bin/aurora"),
+		"/etc/profiles/per-user/dd/bin/aurora",
+		"/run/current-system/sw/bin/aurora",
+	} {
+		if st, err := os.Stat(p); err == nil && !st.IsDir() {
+			return p
+		}
+	}
+	return "aurora"
 }
 
 func ensureProtectHooks(path string) {
@@ -31,14 +41,15 @@ func ensureProtectHooks(path string) {
 	if err != nil {
 		return
 	}
-	if strings.Contains(string(text), "awg-protect-endpoint.sh") {
+	blob := string(text)
+	if strings.Contains(blob, "awg-protect-endpoint.sh") || strings.Contains(blob, "awg-protect") {
 		return
 	}
-	protect := protectScript()
-	hookUp := "PreUp = " + protect + " up %i\n"
-	hookAfter := "PostUp = " + protect + " up %i\n"
-	hookDown := "PostDown = " + protect + " down %i\n"
-	lines := strings.Split(string(text), "\n")
+	aurora := auroraBin()
+	hookUp := "PreUp = " + aurora + " awg-protect up %i\n"
+	hookAfter := "PostUp = " + aurora + " awg-protect up %i\n"
+	hookDown := "PostDown = " + aurora + " awg-protect down %i\n"
+	lines := strings.Split(blob, "\n")
 	var out []string
 	inserted := false
 	for _, line := range lines {
@@ -55,11 +66,7 @@ func ensureProtectHooks(path string) {
 }
 
 func protectEndpoint(name, action string) {
-	script := protectScript()
-	if _, err := os.Stat(script); err != nil {
-		return
-	}
-	_, _, _ = run(5*time.Second, "bash", script, action, name)
+	_ = awgprotect.Main([]string{action, name})
 }
 
 func toggle(kind, name string) int {

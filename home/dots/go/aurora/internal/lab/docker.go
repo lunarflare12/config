@@ -3,7 +3,6 @@ package lab
 import (
 	"encoding/json"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -215,9 +214,6 @@ func dropContainerWindows(name, action string) {
 	}
 	aurora := execx.Look("aurora")
 	if aurora == "" {
-		aurora = filepath.Join(execx.Home(), ".config/scripts/aurora")
-	}
-	if st, err := os.Stat(aurora); err != nil || st.IsDir() {
 		return
 	}
 	_, _, _ = run(2*time.Second, aurora, "reaper", name, action)

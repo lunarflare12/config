@@ -88,7 +88,7 @@ Item {
         id: watcher
 
         // KillMode=process leaves prior watchers alive after a qs crash.
-        command: ["sh", "-c", "\"$HOME/.config/scripts/aurora-kill-qs-helpers.sh\" >/dev/null 2>&1 || true; exec wl-paste --watch cliphist store"]
+        command: ["sh", "-c", "aurora helpers kill-qs >/dev/null 2>&1 || true; exec wl-paste --watch cliphist store"]
 
         running: true
 

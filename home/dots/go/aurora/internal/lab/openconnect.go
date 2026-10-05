@@ -24,7 +24,31 @@ func ocPIDPath(name string) string {
 }
 
 func ocTunnelScript() string {
-	return filepath.Join(execx.Home(), ".config/scripts/openconnect-tunnel.sh")
+	// Thin shim still works for kitty/sudo; prefer aurora binary.
+	aurora := filepath.Join(execx.Home(), ".local/bin/aurora")
+	if st, err := os.Stat(aurora); err == nil && !st.IsDir() {
+		return aurora
+	}
+	if p := execx.Look("aurora"); p != "" {
+		return p
+	}
+	return "aurora"
+}
+
+func ocUpArgs(name string) []string {
+	script := ocTunnelScript()
+	if strings.HasSuffix(script, "aurora") {
+		return []string{script, "openconnect", "up", name}
+	}
+	return []string{script, "up", name}
+}
+
+func ocDownArgs(name string) []string {
+	script := ocTunnelScript()
+	if strings.HasSuffix(script, "aurora") {
+		return []string{script, "openconnect", "down", name}
+	}
+	return []string{script, "down", name}
 }
 
 func ocUp(name string) bool {
@@ -131,7 +155,8 @@ func toggleOpenconnect(name string) int {
 		return 1
 	}
 	if row.Up {
-		code, out, err := run(20*time.Second, script, "down", name)
+		args := ocDownArgs(name)
+		code, out, err := run(20*time.Second, args[0], args[1:]...)
 		emit(out, err)
 		return code
 	}
@@ -140,7 +165,8 @@ func toggleOpenconnect(name string) int {
 		return openconnectKitty(name)
 	}
 	fmt.Fprintf(os.Stderr, "openconnect %s → %s (password + MFA)\n", name, orDefault(ocConfURL(row.Path), "?"))
-	err := syscall.Exec(script, []string{script, "up", name}, os.Environ())
+	args := ocUpArgs(name)
+	err := syscall.Exec(args[0], args, os.Environ())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "exec: %v\n", err)
 		return 1
@@ -161,12 +187,13 @@ func openconnectKitty(name string) int {
 	if kitty == "" {
 		kitty = "kitty"
 	}
-	script := ocTunnelScript()
+	up := ocUpArgs(name)
 	argv := []string{
 		kitty, "--class", "termfloat",
 		"-o", "confirm_os_window_close=0",
-		"-e", sudoBin, "--", script, "up", name,
+		"-e", sudoBin, "--",
 	}
+	argv = append(argv, up...)
 	if err := syscall.Exec(kitty, argv, os.Environ()); err != nil {
 		fmt.Fprintf(os.Stderr, "kitty: %v\n", err)
 		return 1

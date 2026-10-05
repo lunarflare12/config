@@ -178,7 +178,7 @@ in
     mkSpaces
     ;
 
-  # Drop-in shell helpers for hand-written scripts under home/dots/scripts.
+  # Container launchers call aurora on the host profile.
   spaceEnvSh =
     let
       keys = lib.attrNames darkTheme;

@@ -97,7 +97,7 @@ in
         }
         {
           # Interactive SoftServe OpenConnect (password + MFA in termfloat).
-          command = "/home/${host.userName}/.config/scripts/openconnect-tunnel.sh";
+          command = "/run/current-system/sw/bin/aurora";
           options = [ "NOPASSWD" ];
         }
       ];

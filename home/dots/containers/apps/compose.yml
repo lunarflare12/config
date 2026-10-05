@@ -74,7 +74,6 @@ x-base: &base
   environment:
     <<: *env
   volumes:
-    - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
     - /nix/store:/nix/store:ro
     - /etc/static/fonts:/etc/fonts:ro
     - /etc/ssl/certs:/etc/ssl/certs:ro
@@ -85,6 +84,7 @@ x-base: &base
     - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
     - /etc/profiles/per-user/dd/share/themes:/usr/share/themes:ro
     - /etc/profiles/per-user/dd/share/icons:/usr/share/icons:ro
+    - /etc/profiles/per-user/dd/bin/aurora:/etc/profiles/per-user/dd/bin/aurora:ro
   stop_grace_period: 0s
   restart: "no"
 
@@ -116,7 +116,6 @@ services:
       <<: *env
       WAYLAND_DISPLAY: wayland-1
     volumes:
-      - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
       - /nix/store:/nix/store:ro
       - /etc/static/fonts:/etc/fonts:ro
       - /etc/ssl/certs:/etc/ssl/certs:ro
@@ -127,7 +126,7 @@ services:
       - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
       - /home/dd/programs/chrome-dd:/home/app
       - /home/dd/Downloads:/home/app/Downloads
-      - /home/dd/.config/scripts/xdg-open-in-container.sh:/usr/bin/xdg-open:ro
+      - /run/current-system/sw/bin/container-xdg-open:/usr/bin/xdg-open:ro
       - /home/dd/.local/share/aurora/chrome-policies:/etc/opt/chrome/policies/managed:ro
     command:
       - ${CHROME_BIN}
@@ -156,7 +155,6 @@ services:
       <<: *env
       WAYLAND_DISPLAY: wayland-1
     volumes:
-      - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
       - /nix/store:/nix/store:ro
       - /etc/static/fonts:/etc/fonts:ro
       - /etc/ssl/certs:/etc/ssl/certs:ro
@@ -167,7 +165,7 @@ services:
       - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
       - /home/dd/programs/chrome-az:/home/app
       - /home/dd/Downloads:/home/app/Downloads
-      - /home/dd/.config/scripts/xdg-open-in-container.sh:/usr/bin/xdg-open:ro
+      - /run/current-system/sw/bin/container-xdg-open:/usr/bin/xdg-open:ro
       - /home/dd/.local/share/aurora/chrome-policies:/etc/opt/chrome/policies/managed:ro
     command:
       - ${CHROME_BIN}
@@ -196,7 +194,6 @@ services:
       <<: *env
       WAYLAND_DISPLAY: wayland-1
     volumes:
-      - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
       - /nix/store:/nix/store:ro
       - /etc/static/fonts:/etc/fonts:ro
       - /etc/ssl/certs:/etc/ssl/certs:ro
@@ -207,7 +204,7 @@ services:
       - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
       - /home/dd/programs/chrome-hika:/home/app
       - /home/dd/Downloads:/home/app/Downloads
-      - /home/dd/.config/scripts/xdg-open-in-container.sh:/usr/bin/xdg-open:ro
+      - /run/current-system/sw/bin/container-xdg-open:/usr/bin/xdg-open:ro
       - /home/dd/.local/share/aurora/chrome-policies:/etc/opt/chrome/policies/managed:ro
     command:
       - ${CHROME_BIN}
@@ -234,7 +231,6 @@ services:
       <<: *env
       WAYLAND_DISPLAY: wayland-1
     volumes:
-      - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
       - /nix/store:/nix/store:ro
       - /etc/static/fonts:/etc/fonts:ro
       - /etc/ssl/certs:/etc/ssl/certs:ro
@@ -245,7 +241,7 @@ services:
       - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
       - /home/dd/programs/chrome-sciencesoft:/home/app
       - /home/dd/Downloads:/home/app/Downloads
-      - /home/dd/.config/scripts/xdg-open-in-container.sh:/usr/bin/xdg-open:ro
+      - /run/current-system/sw/bin/container-xdg-open:/usr/bin/xdg-open:ro
       - /home/dd/.local/share/aurora/chrome-policies:/etc/opt/chrome/policies/managed:ro
     command:
       - ${CHROME_BIN}
@@ -274,7 +270,6 @@ services:
       WAYLAND_DISPLAY: wayland-1
       MOZ_ENABLE_WAYLAND: "1"
     volumes:
-      - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
       - /nix/store:/nix/store:ro
       - /etc/static/fonts:/etc/fonts:ro
       - /etc/ssl/certs:/etc/ssl/certs:ro
@@ -286,7 +281,7 @@ services:
       - /home/dd/programs/firefox:/home/app
       - /home/dd/programs/firefox/distribution/policies.json:/etc/firefox/policies/policies.json:ro
       - /home/dd/Downloads:/home/app/Downloads
-      - /home/dd/.config/scripts/xdg-open-in-container.sh:/usr/bin/xdg-open:ro
+      - /run/current-system/sw/bin/container-xdg-open:/usr/bin/xdg-open:ro
     command:
       - ${FIREFOX_BIN}
       - --profile
@@ -303,7 +298,6 @@ services:
       WAYLAND_DISPLAY: wayland-1
       MOZ_ENABLE_WAYLAND: "1"
     volumes:
-      - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
       - /nix/store:/nix/store:ro
       - /etc/static/fonts:/etc/fonts:ro
       - /etc/ssl/certs:/etc/ssl/certs:ro
@@ -314,7 +308,7 @@ services:
       - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
       - /home/dd/programs/zen:/home/app
       - /home/dd/Downloads:/home/app/Downloads
-      - /home/dd/.config/scripts/xdg-open-in-container.sh:/usr/bin/xdg-open:ro
+      - /run/current-system/sw/bin/container-xdg-open:/usr/bin/xdg-open:ro
     command:
       - ${ZEN_BIN}
       - --profile
@@ -338,7 +332,6 @@ services:
       ZDOTDIR: /home/dd/.config/zsh
       PATH: /etc/profiles/per-user/dd/bin:/nix/var/nix/profiles/default/bin:/usr/local/bin:/usr/bin:/bin
     volumes:
-      - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
       - /nix/store:/nix/store:ro
       - /etc/static/fonts:/etc/fonts:ro
       - /etc/ssl/certs:/etc/ssl/certs:ro
@@ -358,7 +351,7 @@ services:
       - /home/dd/.config/zsh:/home/dd/.config/zsh:ro
       - /home/dd/.config/starship.toml:/home/dd/.config/starship.toml:ro
       - /home/dd/.cache/oh-my-zsh:/home/dd/.cache/oh-my-zsh
-      - /home/dd/.config/scripts:/home/dd/.config/scripts:ro
+      - 
     command:
       - ${IDEA_BIN}
 
@@ -375,7 +368,6 @@ services:
       WAYLAND_DISPLAY: wayland-1
       GDK_BACKEND: wayland
     volumes:
-      - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
       - /nix/store:/nix/store:ro
       - /etc/static/fonts:/etc/fonts:ro
       - /etc/ssl/certs:/etc/ssl/certs:ro
@@ -408,7 +400,6 @@ services:
       <<: *env
       WAYLAND_DISPLAY: wayland-1
     volumes:
-      - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
       - /nix/store:/nix/store:ro
       - /etc/static/fonts:/etc/fonts:ro
       - /etc/ssl/certs:/etc/ssl/certs:ro
@@ -418,6 +409,7 @@ services:
       - /run/user/1000/pipewire-0-manager:/tmp/pipewire-0-manager:ro
       - /etc/profiles/per-user/dd/share/themes:/usr/share/themes:ro
       - /etc/profiles/per-user/dd/share/icons:/usr/share/icons:ro
+    - /etc/profiles/per-user/dd/bin/aurora:/etc/profiles/per-user/dd/bin/aurora:ro
       - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
       - /home/dd/programs/vscode:/home/app
       - /home/dd/Documents/projects:/home/dd/Documents/projects
@@ -440,7 +432,6 @@ services:
       <<: *env
       WAYLAND_DISPLAY: wayland-1
     volumes:
-      - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
       - /nix/store:/nix/store:ro
       - /etc/static/fonts:/etc/fonts:ro
       - /etc/ssl/certs:/etc/ssl/certs:ro
@@ -450,6 +441,7 @@ services:
       - /run/user/1000/pipewire-0-manager:/tmp/pipewire-0-manager:ro
       - /etc/profiles/per-user/dd/share/themes:/usr/share/themes:ro
       - /etc/profiles/per-user/dd/share/icons:/usr/share/icons:ro
+    - /etc/profiles/per-user/dd/bin/aurora:/etc/profiles/per-user/dd/bin/aurora:ro
       - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
       - /home/dd/programs/obsidian:/home/app
       - /home/dd/Documents/notes:/home/dd/Documents/notes
@@ -472,7 +464,6 @@ services:
       <<: *env
       WAYLAND_DISPLAY: wayland-1
     volumes:
-      - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
       - /nix/store:/nix/store:ro
       - /etc/static/fonts:/etc/fonts:ro
       - /etc/ssl/certs:/etc/ssl/certs:ro
@@ -482,6 +473,7 @@ services:
       - /run/user/1000/pipewire-0-manager:/tmp/pipewire-0-manager:ro
       - /etc/profiles/per-user/dd/share/themes:/usr/share/themes:ro
       - /etc/profiles/per-user/dd/share/icons:/usr/share/icons:ro
+    - /etc/profiles/per-user/dd/bin/aurora:/etc/profiles/per-user/dd/bin/aurora:ro
       - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
       - /home/dd/programs/openlens:/home/app
       - ./launch-openlens.sh:/usr/local/bin/launch-openlens.sh:ro
@@ -501,7 +493,6 @@ services:
       GDK_BACKEND: wayland
       SAL_USE_VCLPLUGIN: gtk3
     volumes:
-      - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
       - /nix/store:/nix/store:ro
       - /etc/static/fonts:/etc/fonts:ro
       - /etc/ssl/certs:/etc/ssl/certs:ro
@@ -511,6 +502,7 @@ services:
       - /run/user/1000/pipewire-0-manager:/tmp/pipewire-0-manager:ro
       - /etc/profiles/per-user/dd/share/themes:/usr/share/themes:ro
       - /etc/profiles/per-user/dd/share/icons:/usr/share/icons:ro
+    - /etc/profiles/per-user/dd/bin/aurora:/etc/profiles/per-user/dd/bin/aurora:ro
       - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
       - /home/dd/programs/libreoffice:/home/app
       - /home/dd/Documents:/home/dd/Documents
@@ -536,7 +528,6 @@ services:
       # Host session bus — StatusNotifierItem must reach Quickshell's watcher.
       DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/1000/bus"
     volumes:
-      - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
       - /nix/store:/nix/store:ro
       - /etc/static/fonts:/etc/fonts:ro
       - /etc/ssl/certs:/etc/ssl/certs:ro
@@ -546,6 +537,7 @@ services:
       - /run/user/1000/pipewire-0-manager:/tmp/pipewire-0-manager:ro
       - /etc/profiles/per-user/dd/share/themes:/usr/share/themes:ro
       - /etc/profiles/per-user/dd/share/icons:/usr/share/icons:ro
+    - /etc/profiles/per-user/dd/bin/aurora:/etc/profiles/per-user/dd/bin/aurora:ro
       - /etc/profiles/per-user/dd/lib/qt-6/plugins:/etc/profiles/per-user/dd/lib/qt-6/plugins:ro
       - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
       - /run/user/1000/bus:/run/user/1000/bus
@@ -574,7 +566,6 @@ services:
       QT_QPA_PLATFORM: wayland
       QT_PLUGIN_PATH: /etc/profiles/per-user/dd/lib/qt-6/plugins
     volumes:
-      - ./entrypoint.sh:/usr/local/bin/entrypoint.sh:ro
       - /nix/store:/nix/store:ro
       - /etc/static/fonts:/etc/fonts:ro
       - /etc/ssl/certs:/etc/ssl/certs:ro
@@ -584,6 +575,7 @@ services:
       - /run/user/1000/pipewire-0-manager:/tmp/pipewire-0-manager:ro
       - /etc/profiles/per-user/dd/share/themes:/usr/share/themes:ro
       - /etc/profiles/per-user/dd/share/icons:/usr/share/icons:ro
+    - /etc/profiles/per-user/dd/bin/aurora:/etc/profiles/per-user/dd/bin/aurora:ro
       - /etc/profiles/per-user/dd/lib/qt-6/plugins:/etc/profiles/per-user/dd/lib/qt-6/plugins:ro
       - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
       - /home/dd/programs/prismlauncher:/home/app

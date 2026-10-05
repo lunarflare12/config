@@ -1463,21 +1463,21 @@ QtObject {
     function runDirect(app, entry) {
         const steamId = root.steamAppId(app);
         if (steamId) {
-            root.spawnOut([root.home + "/.config/scripts/steam.sh", "steam://rungameid/" + steamId]);
+            root.spawnOut(["steam", "steam://rungameid/" + steamId]);
             return;
         }
         if (root.isSpotify(app) || root.isSpotify(entry))
-            root.spawnOut([root.home + "/.config/scripts/spotify"]);
+            root.spawnOut(["spotify"]);
         else if (root.isInsta360(app) || root.isInsta360(entry))
-            root.spawnOut([root.home + "/.config/scripts/insta360-link.sh"]);
+            root.spawnOut(["insta360-link"]);
         else if (root.isObs(app) || root.isObs(entry))
-            root.spawnOut([root.home + "/.config/scripts/obs.sh"]);
+            root.spawnOut(["obs"]);
         else if (root.isCursor(app) || root.isCursor(entry))
-            root.spawnOut([root.home + "/.config/scripts/cursor.sh"]);
+            root.spawnOut(["cursor"]);
         else if (root.isIdea(app) || root.isIdea(entry))
-            root.spawnOut([root.home + "/.config/scripts/idea-ultimate.sh"]);
+            root.spawnOut(["idea-ultimate"]);
         else if (root.isDiscord(app) || root.isDiscord(entry))
-            root.spawnOut([root.home + "/.config/scripts/discord.sh"]);
+            root.spawnOut(["discord"]);
         else if (app.execute)
             app.execute();
         else if (app.command && app.command.length)
@@ -1488,7 +1488,7 @@ QtObject {
 
     function startExisting(app) {
         const needles = LaunchSplash.needlesOf(app);
-        const cmd = [root.home + "/.config/scripts/activate-existing"];
+        const cmd = ["aurora", "activate"];
         for (let i = 0; i < needles.length; i++)
             cmd.push(String(needles[i]));
         root.existingGen += 1;
@@ -1611,19 +1611,19 @@ QtObject {
         const rule = id >= 1 ? "[workspace " + id + " silent] " : "";
         let cmd = "";
         if (root.isSpotify(app) || root.isSpotify(entry))
-            cmd = "'" + root.home + "/.config/scripts/spotify'";
+            cmd = "spotify";
         else if (root.isInsta360(app) || root.isInsta360(entry))
-            cmd = "'" + root.home + "/.config/scripts/insta360-link.sh'";
+            cmd = "insta360-link";
         else if (root.isObs(app) || root.isObs(entry))
-            cmd = "'" + root.home + "/.config/scripts/obs.sh'";
+            cmd = "obs";
         else if (root.isCursor(app) || root.isCursor(entry))
-            cmd = "'" + root.home + "/.config/scripts/cursor.sh'";
+            cmd = "cursor";
         else if (root.isIdea(app) || root.isIdea(entry))
-            cmd = "'" + root.home + "/.config/scripts/idea-ultimate.sh'";
+            cmd = "idea-ultimate";
         else if (root.isDiscord(app) || root.isDiscord(entry))
-            cmd = "'" + root.home + "/.config/scripts/discord.sh'";
+            cmd = "discord";
         else if (root.steamAppId(app) || root.steamAppId(entry))
-            cmd = "'" + root.home + "/.config/scripts/steam.sh' 'steam://rungameid/" + (root.steamAppId(app) || root.steamAppId(entry)) + "'";
+            cmd = "steam 'steam://rungameid/" + (root.steamAppId(app) || root.steamAppId(entry)) + "'";
         else if (app.command && app.command.length)
             cmd = root.shellJoin(app.command);
         else if (app.execString || app.exec) {

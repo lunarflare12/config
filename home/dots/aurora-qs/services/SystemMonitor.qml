@@ -58,7 +58,7 @@ Item {
     property var cpuTimestamps: []
     readonly property int historyLimit: 90
 
-    readonly property string scriptPath: (Quickshell.env("HOME") || "") + "/.config/scripts/system-monitor.sh"
+    readonly property string scriptPath: "aurora-monitor"
 
     // Full nvidia-smi and disk stats while a metrics popup or the desktop boards are visible.
     readonly property bool metricsOpen: {

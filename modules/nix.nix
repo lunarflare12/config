@@ -51,7 +51,7 @@
   '';
 
   programs.gamemode.settings.custom = lib.mkForce {
-    start = "/home/${host.userName}/.config/scripts/gamemode-start.sh";
-    end = "/home/${host.userName}/.config/scripts/gamemode-end.sh";
+    start = "/bin/true";
+    end = "/bin/true";
   };
 }

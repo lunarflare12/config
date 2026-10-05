@@ -21,7 +21,7 @@ Singleton {
 
     readonly property var players: (Mpris.players && Mpris.players.values) ? Mpris.players.values : []
 
-    readonly property string bridgeBin: (Quickshell.env("HOME") || "") + "/.config/scripts/mpris-bridge"
+    readonly property string bridgeBin: "aurora-mpris"
 
     property var bridge: ({
             "available": false,
@@ -326,7 +326,7 @@ Singleton {
         id: bridgeProc
         // Same as cliphist: KillMode=process orphans the bridge across crashes.
         running: true
-        command: ["sh", "-c", "\"$HOME/.config/scripts/aurora-kill-qs-helpers.sh\" >/dev/null 2>&1 || true; exec \"$HOME/.config/scripts/mpris-bridge\""]
+        command: ["sh", "-c", "aurora helpers kill-qs >/dev/null 2>&1 || true; exec aurora-mpris"]
         stdout: SplitParser {
             splitMarker: "\n"
             onRead: function (line) {

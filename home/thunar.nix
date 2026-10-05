@@ -7,10 +7,10 @@
 
 let
   homeDir = config.home.homeDirectory;
-  scripts = "${homeDir}/.config/scripts";
+  aurora = lib.getExe pkgs.aurora-helpers;
   finderIcon = ./dots/aurora-qs/assets/finder-icon.png;
-  finderExec = "${scripts}/finder.sh";
-  finderAction = "${scripts}/finder-action.sh";
+  finderExec = "${aurora} finder";
+  finderAction = "${aurora} finder-action";
   finderEntry = {
     name = "Finder";
     genericName = "File Manager";
@@ -40,14 +40,14 @@ in
     pkgs.finder-pick
     (lib.hiPrio (
       pkgs.writeShellScriptBin "thunar" ''
-        exec "${finderExec}" "$@"
+        exec ${aurora} finder "$@"
       ''
     ))
   ];
 
   xdg.configFile."xdg-desktop-portal-termfilechooser/config".text = ''
     [filechooser]
-    cmd=${scripts}/finder-pick.sh
+    cmd=${lib.getExe pkgs.finder-pick}
     default_dir=${homeDir}
     open_mode=suggested
     save_mode=suggested

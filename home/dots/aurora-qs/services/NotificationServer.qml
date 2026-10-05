@@ -483,7 +483,7 @@ Singleton {
         }
         if (!needles.length)
             return false;
-        const cmd = [Quickshell.env("HOME") + "/.config/scripts/activate-existing"];
+        const cmd = ["aurora", "activate"];
         for (let i = 0; i < needles.length; i++)
             cmd.push(String(needles[i]));
         Quickshell.execDetached(cmd);

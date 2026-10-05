@@ -17,9 +17,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && if ! getent group 100 >/dev/null; then groupadd --gid 100 users; fi \
     && useradd --uid 1000 --gid 100 --create-home --shell /usr/sbin/nologin app
 
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod 755 /usr/local/bin/entrypoint.sh
-
 WORKDIR /home/app
 ENV LANG=ru_RU.UTF-8 \
     LC_ALL=ru_RU.UTF-8 \
@@ -28,4 +25,4 @@ ENV LANG=ru_RU.UTF-8 \
     GDK_BACKEND=wayland \
     MOZ_ENABLE_WAYLAND=1
 
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+ENTRYPOINT ["/etc/profiles/per-user/dd/bin/aurora", "container", "apps"]

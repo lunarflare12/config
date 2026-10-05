@@ -16,7 +16,7 @@ stdenvNoCC.mkDerivation {
   installPhase = ''
     runHook preInstall
     mkdir -p "$out/share/icons"
-    for theme in Moga Hatsune-Miku Mita Overwatch-Pointer Gradient-Blue Terracota; do
+    for theme in Moga Hatsune-Miku Mita Gradient-Blue Terracota; do
       cp -a "$theme" "$out/share/icons/"
     done
     runHook postInstall

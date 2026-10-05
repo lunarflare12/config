@@ -1,2 +1,0 @@
--- Intentionally empty. Calling hl.plugin.csgo_vulkan_fix without the .so
--- loaded puts Hyprland into the config error overlay.
