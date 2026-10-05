@@ -116,7 +116,6 @@ x-game: &game
     - /home/dd/.local/share/Terraria:/home/dd/.local/share/Terraria
     - /home/dd/.config/unity3d:/home/dd/.config/unity3d
     - /home/dd/.steam:/home/dd/.steam
-    - 
     - /home/dd/.config/dxvk:/home/dd/.config/dxvk
     - /home/dd/.cache/steam-shadercache:/home/dd/.cache/steam-shadercache
     - /home/dd/.cache/dxvk:/home/dd/.cache/dxvk

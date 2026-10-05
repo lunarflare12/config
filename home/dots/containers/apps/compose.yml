@@ -128,6 +128,7 @@ services:
       - /home/dd/Downloads:/home/app/Downloads
       - /run/current-system/sw/bin/container-xdg-open:/usr/bin/xdg-open:ro
       - /home/dd/.local/share/aurora/chrome-policies:/etc/opt/chrome/policies/managed:ro
+      - /etc/profiles/per-user/dd/bin/aurora:/etc/profiles/per-user/dd/bin/aurora:ro
     command:
       - ${CHROME_BIN}
       - --user-data-dir=/home/app/.config/google-chrome
@@ -167,6 +168,7 @@ services:
       - /home/dd/Downloads:/home/app/Downloads
       - /run/current-system/sw/bin/container-xdg-open:/usr/bin/xdg-open:ro
       - /home/dd/.local/share/aurora/chrome-policies:/etc/opt/chrome/policies/managed:ro
+      - /etc/profiles/per-user/dd/bin/aurora:/etc/profiles/per-user/dd/bin/aurora:ro
     command:
       - ${CHROME_BIN}
       - --user-data-dir=/home/app/.config/google-chrome
@@ -206,6 +208,7 @@ services:
       - /home/dd/Downloads:/home/app/Downloads
       - /run/current-system/sw/bin/container-xdg-open:/usr/bin/xdg-open:ro
       - /home/dd/.local/share/aurora/chrome-policies:/etc/opt/chrome/policies/managed:ro
+      - /etc/profiles/per-user/dd/bin/aurora:/etc/profiles/per-user/dd/bin/aurora:ro
     command:
       - ${CHROME_BIN}
       - --user-data-dir=/home/app/.config/google-chrome
@@ -243,6 +246,7 @@ services:
       - /home/dd/Downloads:/home/app/Downloads
       - /run/current-system/sw/bin/container-xdg-open:/usr/bin/xdg-open:ro
       - /home/dd/.local/share/aurora/chrome-policies:/etc/opt/chrome/policies/managed:ro
+      - /etc/profiles/per-user/dd/bin/aurora:/etc/profiles/per-user/dd/bin/aurora:ro
     command:
       - ${CHROME_BIN}
       - --user-data-dir=/home/app/.config/google-chrome
@@ -282,6 +286,7 @@ services:
       - /home/dd/programs/firefox/distribution/policies.json:/etc/firefox/policies/policies.json:ro
       - /home/dd/Downloads:/home/app/Downloads
       - /run/current-system/sw/bin/container-xdg-open:/usr/bin/xdg-open:ro
+      - /etc/profiles/per-user/dd/bin/aurora:/etc/profiles/per-user/dd/bin/aurora:ro
     command:
       - ${FIREFOX_BIN}
       - --profile
@@ -309,6 +314,7 @@ services:
       - /home/dd/programs/zen:/home/app
       - /home/dd/Downloads:/home/app/Downloads
       - /run/current-system/sw/bin/container-xdg-open:/usr/bin/xdg-open:ro
+      - /etc/profiles/per-user/dd/bin/aurora:/etc/profiles/per-user/dd/bin/aurora:ro
     command:
       - ${ZEN_BIN}
       - --profile
@@ -351,7 +357,7 @@ services:
       - /home/dd/.config/zsh:/home/dd/.config/zsh:ro
       - /home/dd/.config/starship.toml:/home/dd/.config/starship.toml:ro
       - /home/dd/.cache/oh-my-zsh:/home/dd/.cache/oh-my-zsh
-      - 
+      - /etc/profiles/per-user/dd/bin/aurora:/etc/profiles/per-user/dd/bin/aurora:ro
     command:
       - ${IDEA_BIN}
 
@@ -381,6 +387,7 @@ services:
       - /home/dd/.cache/aurora/spotify-xpui/colors.css:${SPOTIFY_XPUI:-/home/dd/.cache/aurora/spotify-xpui}/colors.css:ro
       - /home/dd/.cache/aurora/spotify-xpui/index.html:${SPOTIFY_XPUI:-/home/dd/.cache/aurora/spotify-xpui}/index.html:ro
       - /home/dd/.cache/aurora/spotify-xpui/extensions:${SPOTIFY_XPUI:-/home/dd/.cache/aurora/spotify-xpui}/extensions:ro
+      - /etc/profiles/per-user/dd/bin/aurora:/etc/profiles/per-user/dd/bin/aurora:ro
     command:
       - ${SPOTIFY_BIN}
       - --ozone-platform=wayland
@@ -409,7 +416,7 @@ services:
       - /run/user/1000/pipewire-0-manager:/tmp/pipewire-0-manager:ro
       - /etc/profiles/per-user/dd/share/themes:/usr/share/themes:ro
       - /etc/profiles/per-user/dd/share/icons:/usr/share/icons:ro
-    - /etc/profiles/per-user/dd/bin/aurora:/etc/profiles/per-user/dd/bin/aurora:ro
+      - /etc/profiles/per-user/dd/bin/aurora:/etc/profiles/per-user/dd/bin/aurora:ro
       - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
       - /home/dd/programs/vscode:/home/app
       - /home/dd/Documents/projects:/home/dd/Documents/projects
@@ -441,7 +448,7 @@ services:
       - /run/user/1000/pipewire-0-manager:/tmp/pipewire-0-manager:ro
       - /etc/profiles/per-user/dd/share/themes:/usr/share/themes:ro
       - /etc/profiles/per-user/dd/share/icons:/usr/share/icons:ro
-    - /etc/profiles/per-user/dd/bin/aurora:/etc/profiles/per-user/dd/bin/aurora:ro
+      - /etc/profiles/per-user/dd/bin/aurora:/etc/profiles/per-user/dd/bin/aurora:ro
       - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
       - /home/dd/programs/obsidian:/home/app
       - /home/dd/Documents/notes:/home/dd/Documents/notes
@@ -473,7 +480,7 @@ services:
       - /run/user/1000/pipewire-0-manager:/tmp/pipewire-0-manager:ro
       - /etc/profiles/per-user/dd/share/themes:/usr/share/themes:ro
       - /etc/profiles/per-user/dd/share/icons:/usr/share/icons:ro
-    - /etc/profiles/per-user/dd/bin/aurora:/etc/profiles/per-user/dd/bin/aurora:ro
+      - /etc/profiles/per-user/dd/bin/aurora:/etc/profiles/per-user/dd/bin/aurora:ro
       - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
       - /home/dd/programs/openlens:/home/app
       - ./launch-openlens.sh:/usr/local/bin/launch-openlens.sh:ro
@@ -502,7 +509,7 @@ services:
       - /run/user/1000/pipewire-0-manager:/tmp/pipewire-0-manager:ro
       - /etc/profiles/per-user/dd/share/themes:/usr/share/themes:ro
       - /etc/profiles/per-user/dd/share/icons:/usr/share/icons:ro
-    - /etc/profiles/per-user/dd/bin/aurora:/etc/profiles/per-user/dd/bin/aurora:ro
+      - /etc/profiles/per-user/dd/bin/aurora:/etc/profiles/per-user/dd/bin/aurora:ro
       - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
       - /home/dd/programs/libreoffice:/home/app
       - /home/dd/Documents:/home/dd/Documents
@@ -537,7 +544,7 @@ services:
       - /run/user/1000/pipewire-0-manager:/tmp/pipewire-0-manager:ro
       - /etc/profiles/per-user/dd/share/themes:/usr/share/themes:ro
       - /etc/profiles/per-user/dd/share/icons:/usr/share/icons:ro
-    - /etc/profiles/per-user/dd/bin/aurora:/etc/profiles/per-user/dd/bin/aurora:ro
+      - /etc/profiles/per-user/dd/bin/aurora:/etc/profiles/per-user/dd/bin/aurora:ro
       - /etc/profiles/per-user/dd/lib/qt-6/plugins:/etc/profiles/per-user/dd/lib/qt-6/plugins:ro
       - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
       - /run/user/1000/bus:/run/user/1000/bus
@@ -575,7 +582,7 @@ services:
       - /run/user/1000/pipewire-0-manager:/tmp/pipewire-0-manager:ro
       - /etc/profiles/per-user/dd/share/themes:/usr/share/themes:ro
       - /etc/profiles/per-user/dd/share/icons:/usr/share/icons:ro
-    - /etc/profiles/per-user/dd/bin/aurora:/etc/profiles/per-user/dd/bin/aurora:ro
+      - /etc/profiles/per-user/dd/bin/aurora:/etc/profiles/per-user/dd/bin/aurora:ro
       - /etc/profiles/per-user/dd/lib/qt-6/plugins:/etc/profiles/per-user/dd/lib/qt-6/plugins:ro
       - /run/user/1000/wayland-1:/tmp/xdg/wayland-1:ro
       - /home/dd/programs/prismlauncher:/home/app

@@ -45,6 +45,7 @@ stdenv.mkDerivation {
   '';
   meta = {
     description = "WhiteSur / Finder-backed portal file picker";
+    mainProgram = "finder-pick";
     platforms = lib.platforms.linux;
   };
 }

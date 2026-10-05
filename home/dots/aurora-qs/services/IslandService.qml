@@ -1,7 +1,6 @@
 pragma Singleton
 
 import QtQuick
-import Quickshell
 
 // Faces on the center island. Super+wheel turns them like a gear tooth.
 Item {

@@ -89,12 +89,14 @@
 
           # maybeMissing: a flake only sees git-tracked files, and the two tool
           # configs break evaluation here until they are added to the index.
+          # Only Aurora Quickshell — SDDM theme QML crashes qmllint (exit 255)
+          # and is third-party chrome, not part of the shell checks.
           qmlSources = lib.fileset.toSource {
             root = ./.;
             fileset = lib.fileset.unions [
               (lib.fileset.maybeMissing ./.qmlformat.ini)
               (lib.fileset.maybeMissing ./.qmllint.ini)
-              (lib.fileset.fileFilter (file: file.hasExt "qml") ./.)
+              (lib.fileset.fileFilter (file: file.hasExt "qml") ./home/dots/aurora-qs)
             ];
           };
 
@@ -103,6 +105,7 @@
           qmlImports = lib.concatMapStringsSep " " (path: "-I ${path}") [
             "${pkgs.quickshell}/lib/qt-6/qml"
             "${pkgs.qt6.qtdeclarative}/lib/qt-6/qml"
+            "${pkgs.qt6.qtmultimedia}/lib/qt-6/qml"
             "home/dots/aurora-qs"
           ];
 
@@ -146,10 +149,25 @@
           '';
 
           # Warning levels live in .qmllint.ini; info-level findings do not fail.
-          qml-lint = check "qml-lint" [ pkgs.qt6.qtdeclarative ] ''
-            cd "${qmlSources}"
-            find . -name '*.qml' -print0 | xargs -0 qmllint ${qmlImports}
-          '';
+          # Lint one file at a time so a single qmllint crash cannot abort xargs.
+          qml-lint =
+            check "qml-lint"
+              [
+                pkgs.qt6.qtdeclarative
+                pkgs.qt6.qtmultimedia
+              ]
+              ''
+                cd "${qmlSources}"
+                failed=0
+                while IFS= read -r -d "" f; do
+                  if ! qmllint --import info ${qmlImports} "$f"; then
+                    failed=1
+                  fi
+                done < <(find . -name '*.qml' -print0)
+                if [ "$failed" -ne 0 ]; then
+                  exit 1
+                fi
+              '';
         };
     };
 }

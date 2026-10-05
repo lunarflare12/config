@@ -16,11 +16,12 @@ let
     (pkgs.writeShellApplication {
       inherit name;
       text = ''exec ${aurora} ${subcmd} "$@"'';
-    }).overrideAttrs (old: {
-      meta = (old.meta or { }) // {
-        priority = 0;
-      };
-    });
+    }).overrideAttrs
+      (old: {
+        meta = (old.meta or { }) // {
+          priority = 0;
+        };
+      });
   repoRoot = "${config.home.homeDirectory}/${params.repo}";
   containersDots = "${repoRoot}/home/dots/containers";
   # Static compose/Dockerfile/entrypoint live in the git tree; ~/containers is just a view.

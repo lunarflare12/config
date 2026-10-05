@@ -26,18 +26,12 @@ PanelWindow {
     // is monitor-global, so we re-show as soon as focus leaves the game.
     readonly property bool gameClass: {
         const cls = (Core.Session.activeWindowClass || "").toLowerCase();
-        return cls.indexOf("steam_app_") !== -1
-            || cls.indexOf("gamescope") !== -1
-            || cls.indexOf("dota2") !== -1
-            || cls.indexOf("minecraft") !== -1
-            || cls.indexOf("albion") !== -1;
+        return cls.indexOf("steam_app_") !== -1 || cls.indexOf("gamescope") !== -1 || cls.indexOf("dota2") !== -1 || cls.indexOf("minecraft") !== -1 || cls.indexOf("albion") !== -1;
     }
     // Keep in lockstep with ScreenBorder.gameHide. Latched game chrome does
     // not require the active window to still be the game class — otherwise a
     // focus blip restores exclusiveZone=40 and hitchs the OW window.
-    readonly property bool gameCovers: root.onMain
-        && (root.gameClass || Core.Session.gameChromeLatched)
-        && Core.Session.gameFullscreenOnScreen(root.screen)
+    readonly property bool gameCovers: root.onMain && (root.gameClass || Core.Session.gameChromeLatched) && Core.Session.gameFullscreenOnScreen(root.screen)
     exclusiveZone: root.gameCovers ? 0 : Core.Theme.notchHeight
     color: "transparent"
 

@@ -54,7 +54,8 @@ let
             "HDMI-A-2"
             "HDMI-A-1"
           ];
-        }.${output} or [ output ];
+        }
+        .${output} or [ output ];
       dp = lib.findFirst (
         m: (m.output or "") == "DP-4" || (m.output or "") == "DP-1"
       ) null params.monitors;
@@ -68,9 +69,7 @@ let
           bitdepth = lib.optionalString (monitor ? bitdepth) "bitdepth = ${toString monitor.bitdepth}, ";
         in
         ''hl.monitor({ output = "${output}", mode = "${monitor.mode}", position = "${monitor.position}", scale = ${toString monitor.scale}, ${bitdepth}${transform}})'';
-      fmtAll =
-        monitor:
-        lib.concatMapStringsSep "\n        " (fmt monitor) (expandOutput monitor.output);
+      fmtAll = monitor: lib.concatMapStringsSep "\n        " (fmt monitor) (expandOutput monitor.output);
     in
     ''
       local function apply_monitors()
@@ -125,10 +124,7 @@ in
           return {
               terminal = "${params.terminal}",
               browser = "${
-                if params.browser == "google-chrome" then
-                  "${profileBin}/google-chrome"
-                else
-                  params.browser
+                if params.browser == "google-chrome" then "${profileBin}/google-chrome" else params.browser
               }",
               file_manager = "${profileBin}/finder",
               aurora = "${aurora}",

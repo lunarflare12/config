@@ -53,17 +53,11 @@ PanelWindow {
 
     readonly property bool gameClass: {
         const cls = (Core.Session.activeWindowClass || "").toLowerCase();
-        return cls.indexOf("steam_app_") !== -1
-            || cls.indexOf("gamescope") !== -1
-            || cls.indexOf("dota2") !== -1
-            || cls.indexOf("minecraft") !== -1
-            || cls.indexOf("albion") !== -1;
+        return cls.indexOf("steam_app_") !== -1 || cls.indexOf("gamescope") !== -1 || cls.indexOf("dota2") !== -1 || cls.indexOf("minecraft") !== -1 || cls.indexOf("albion") !== -1;
     }
     // Same hide rule as Bar.gameCovers — frames must vanish/reappear with
     // the notch, not linger as orphan strokes around a fullscreen game.
-    readonly property bool gameHide: root.onMain
-        && (root.gameClass || Core.Session.gameChromeLatched)
-        && Core.Session.gameFullscreenOnScreen(root.screen)
+    readonly property bool gameHide: root.onMain && (root.gameClass || Core.Session.gameChromeLatched) && Core.Session.gameFullscreenOnScreen(root.screen)
     visible: !root.gameHide
 
     anchors {

@@ -162,11 +162,7 @@ QtObject {
                         for (let i = 0; i < clients.length; i++) {
                             const c = clients[i];
                             const ccls = String(c.class || "").toLowerCase();
-                            const isGame = ccls.indexOf("steam_app_") !== -1
-                                || ccls.indexOf("gamescope") !== -1
-                                || ccls.indexOf("dota2") !== -1
-                                || ccls.indexOf("minecraft") !== -1
-                                || ccls.indexOf("albion") !== -1;
+                            const isGame = ccls.indexOf("steam_app_") !== -1 || ccls.indexOf("gamescope") !== -1 || ccls.indexOf("dota2") !== -1 || ccls.indexOf("minecraft") !== -1 || ccls.indexOf("albion") !== -1;
                             if (!isGame)
                                 continue;
                             if (root.gameChromeWorkspace > 0 && Number(c.workspace) !== Number(root.gameChromeWorkspace))

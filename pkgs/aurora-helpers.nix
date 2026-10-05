@@ -28,4 +28,9 @@ buildGoModule {
     makeWrapper $out/bin/aurora $out/bin/container-xdg-open \
       --add-flags "dispatch" --add-flags "xdg-open"
   '';
+  meta = {
+    description = "Aurora desktop helpers";
+    mainProgram = "aurora";
+    platforms = lib.platforms.linux;
+  };
 }
