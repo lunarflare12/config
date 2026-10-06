@@ -125,7 +125,7 @@ func hostSession(appid string, names ...string) int {
 
 func Main(args []string) int {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: aurora game terraria|albion|alien-shooter|steam [args]")
+		fmt.Fprintln(os.Stderr, "usage: aurora game terraria|albion|alien-shooter|generals|steam [args]")
 		return 2
 	}
 	switch args[0] {
@@ -145,12 +145,14 @@ func Main(args []string) int {
 		return hostSession("33100", "AlienShooter.exe", "alien_shooter.exe")
 	case "albion":
 		return albionMain(args[1:])
+	case "generals", "cnc-generals", "generals-online":
+		return generalsMain(args[1:])
 	case "steam":
 		return steamMain(args[1:])
 	case "session":
 		return sessionMain(args[1:])
 	default:
-		fmt.Fprintln(os.Stderr, "usage: aurora game terraria|albion|alien-shooter|steam [args]")
+		fmt.Fprintln(os.Stderr, "usage: aurora game terraria|albion|alien-shooter|generals|steam [args]")
 		return 2
 	}
 }

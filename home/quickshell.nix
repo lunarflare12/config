@@ -39,11 +39,15 @@ in
   xdg.configFile."fastfetch".source = ./dots/fastfetch;
   xdg.configFile."fastfetch".recursive = true;
 
-  # Drop legacy ~/.config/scripts symlink tree (everything is aurora + HM shims).
+  # Drop legacy ~/.config/scripts. Docker may have left root-owned dirs when a
+  # bind source was missing — those are cleared by system.activationScripts.
   home.activation.replaceScriptsStoreDir = lib.hm.dag.entryBefore [ "checkLinkTargets" ] ''
     scripts="${config.xdg.configHome}/scripts"
     if [ -e "$scripts" ]; then
-      rm -rf "$scripts"
+      rm -rf "$scripts" 2>/dev/null || /run/wrappers/bin/sudo -n rm -rf "$scripts" 2>/dev/null || true
+    fi
+    if [ -e "$scripts" ]; then
+      echo "warning: $scripts still present (likely root-owned docker leftover); system activation will remove it" >&2
     fi
     qs="${config.xdg.configHome}/quickshell"
     if [ -d "$qs" ] && [ ! -L "$qs" ]; then

@@ -155,6 +155,7 @@ in
     (aShim "terraria" "game terraria")
     (aShim "albion" "game albion")
     (aShim "alien-shooter" "game alien-shooter")
+    (aShim "generals" "game generals")
     (aShim "code" "apps code")
     (aShim "obsidian" "apps obsidian")
     (aShim "openlens" "apps openlens")
@@ -307,6 +308,14 @@ in
       categories = [ "Game" ];
       terminal = false;
       settings.StartupWMClass = "steam_app_33100";
+    };
+    generals = {
+      name = "C&C Generals Online";
+      exec = "${lib.getExe (aShim "generals" "game generals")}";
+      icon = "applications-games";
+      categories = [ "Game" ];
+      terminal = false;
+      settings.StartupWMClass = "steam_proton";
     };
     discord = {
       name = "Discord";

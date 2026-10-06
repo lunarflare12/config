@@ -50,6 +50,25 @@
     rm -rf /home/${host.userName}/.nix-defexpr/channels
   '';
 
+  # Docker creates a root-owned directory when a bind-mount source is missing
+  # (e.g. old compose pointed at ~/.config/scripts/*.sh after we deleted them).
+  # Clear those before Home Manager runs so activation is not blocked.
+  system.activationScripts.auroraCleanupDockerLeftovers.text = ''
+    rm -rf /home/${host.userName}/.config/scripts
+    for f in \
+      /home/${host.userName}/containers/apps/entrypoint.sh \
+      /home/${host.userName}/containers/steam/entrypoint.sh \
+      /home/${host.userName}/containers/steam/game-session.sh \
+      /home/${host.userName}/containers/steam/terraria-entry.sh \
+      /home/${host.userName}/containers/steam/albion-entry.sh \
+      /home/${host.userName}/containers/telegram/entrypoint.sh
+    do
+      if [ -d "$f" ] || [ -L "$f" ]; then
+        rm -rf "$f"
+      fi
+    done
+  '';
+
   programs.gamemode.settings.custom = lib.mkForce {
     start = "/bin/true";
     end = "/bin/true";

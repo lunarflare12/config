@@ -82,8 +82,9 @@
     find "$configHome/aurora" "$configHome/hypr" "$configHome/systemd" "$configHome/gtk-3.0" "$configHome/gtk-4.0" \
       \( -name '*.hm.bak' -o -name '*.hm.bak.prev' -o -name '*.prev' \) -delete 2>/dev/null || true
     wantsDir="$configHome/systemd/user/graphical-session.target.wants"
-    for name in opencluely.service obs-tray.service insta360-hold.service telegram-link.service telegram-link.path; do
-      rm -f "$wantsDir/$name"
+    defaultWants="$configHome/systemd/user/default.target.wants"
+    for name in opencluely.service obs-tray.service insta360-hold.service telegram-link.service telegram-link.path container-open.service container-open.path; do
+      rm -f "$wantsDir/$name" "$defaultWants/$name"
       unit="$configHome/systemd/user/$name"
       if [ -e "$unit" ] && [ ! -L "$unit" ]; then
         rm -f "$unit"
