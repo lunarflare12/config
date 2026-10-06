@@ -87,7 +87,8 @@ let
     exec ${pkgs.hyprpolkitagent}/libexec/hyprpolkitagent "$@"
   '';
   aurora = lib.getExe pkgs.aurora-helpers;
-  profileBin = "${config.home.homeDirectory}/.nix-profile/bin";
+  # HM as a NixOS module installs here, not ~/.nix-profile (that tree has no finder).
+  profileBin = "${config.home.profileDirectory}/bin";
   luaEnv =
     lib.concatStrings (
       lib.mapAttrsToList

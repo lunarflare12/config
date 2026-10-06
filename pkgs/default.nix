@@ -7,6 +7,7 @@ final: prev: {
     script = ./finder-pick.py;
   };
   aurora-cursors = final.callPackage ./aurora-cursors.nix { };
+  balena-etcher = final.callPackage ./balena-etcher.nix { };
   thunar-unwrapped = prev.thunar-unwrapped.overrideAttrs (old: {
     patches = (old.patches or [ ]) ++ [
       ./patches/thunar-hide-pathbar-root.patch

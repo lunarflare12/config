@@ -2,9 +2,9 @@ local ok_programs, programs = pcall(require, "config/programs")
 if not ok_programs or type(programs) ~= "table" then
     programs = {
         terminal = "kitty",
-        browser = (os.getenv("HOME") or "/home/dd") .. "/.nix-profile/bin/google-chrome",
-        file_manager = (os.getenv("HOME") or "/home/dd") .. "/.nix-profile/bin/finder",
-        aurora = (os.getenv("HOME") or "/home/dd") .. "/.nix-profile/bin/aurora",
+        browser = "/etc/profiles/per-user/dd/bin/google-chrome",
+        file_manager = "/etc/profiles/per-user/dd/bin/finder",
+        aurora = "/etc/profiles/per-user/dd/bin/aurora",
     }
 end
 local mod = "SUPER"

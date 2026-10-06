@@ -188,7 +188,7 @@ QtObject {
     }
 
     function openDesktop() {
-        Quickshell.execDetached(["systemd-run", "--user", "--scope", "--collect", "--quiet", "--", "finder", root.desktopPath]);
+        Quickshell.execDetached(["systemd-run", "--user", "--scope", "--collect", "--quiet", "--", "/etc/profiles/per-user/dd/bin/finder", root.desktopPath]);
     }
 
     function createFolder() {
@@ -241,12 +241,12 @@ QtObject {
     readonly property string trashIcon: Quickshell.iconPath(root.trashFull ? "user-trash-full" : "user-trash", "user-trash")
 
     function openDownloads() {
-        Quickshell.execDetached(["systemd-run", "--user", "--scope", "--collect", "--quiet", "--", "finder", root.downloadsPath]);
+        Quickshell.execDetached(["systemd-run", "--user", "--scope", "--collect", "--quiet", "--", "/etc/profiles/per-user/dd/bin/finder", root.downloadsPath]);
     }
 
     function openTrash() {
         const dir = root.trashDir;
-        Quickshell.execDetached(["sh", "-c", "mkdir -p \"$1/files\" \"$1/info\"; if command -v gio >/dev/null 2>&1 && gio list trash:// >/dev/null 2>&1; then exec finder trash:///; fi; exec finder \"$1/files\"", "open-trash", dir]);
+        Quickshell.execDetached(["sh", "-c", "fm=/etc/profiles/per-user/dd/bin/finder; mkdir -p \"$1/files\" \"$1/info\"; if command -v gio >/dev/null 2>&1 && gio list trash:// >/dev/null 2>&1; then exec \"$fm\" trash:///; fi; exec \"$fm\" \"$1/files\"", "open-trash", dir]);
     }
 
     function emptyTrash() {

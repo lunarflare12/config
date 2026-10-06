@@ -136,6 +136,7 @@ in
 
   home.packages = [
     pkgs.aurora-helpers
+    pkgs.balena-etcher
     pkgs.xrandr
     spaces.discord.package
     spaces.cursor.package

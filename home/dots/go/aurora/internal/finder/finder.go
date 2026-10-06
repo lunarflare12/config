@@ -45,8 +45,6 @@ func Main(args []string) int {
 		}
 	} else if st, err := os.Stat(systemThunar); err == nil && !st.IsDir() {
 		thunar = systemThunar
-	} else if p, err := exec.LookPath("thunar"); err == nil {
-		thunar = p
 	}
 	if thunar == "" {
 		fmt.Fprintln(os.Stderr, "finder: thunar not found")
