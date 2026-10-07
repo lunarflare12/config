@@ -172,6 +172,7 @@ in
     (aShim "prismlauncher" "apps prismlauncher")
     (aShim "qbittorrent" "apps qbittorrent")
     (aShim "wayland-box" "box")
+    pkgs.lutris
   ];
 
   # Keep store paths for containerized apps without installing their .desktop files.
@@ -317,6 +318,15 @@ in
       categories = [ "Game" ];
       terminal = false;
       settings.StartupWMClass = "steam_proton";
+    };
+    "net.lutris.Lutris" = {
+      name = "Lutris";
+      exec = "${lib.getExe pkgs.lutris} %U";
+      icon = "lutris";
+      categories = [ "Game" ];
+      mimeType = [ "x-scheme-handler/lutris" ];
+      terminal = false;
+      settings.StartupWMClass = "lutris";
     };
     discord = {
       name = "Discord";

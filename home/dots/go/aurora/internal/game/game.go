@@ -128,7 +128,13 @@ func Main(args []string) int {
 		fmt.Fprintln(os.Stderr, "usage: aurora game terraria|albion|alien-shooter|generals|steam [args]")
 		return 2
 	}
-	switch args[0] {
+	cmd := strings.TrimSpace(args[0])
+	rest := args[1:]
+	if fields := strings.Fields(cmd); len(fields) > 1 {
+		cmd = fields[0]
+		rest = append(fields[1:], rest...)
+	}
+	switch cmd {
 	case "terraria":
 		if inBox() {
 			fmt.Fprintln(os.Stderr, "terraria: host launcher, not a launch-option wrapper")
@@ -144,13 +150,13 @@ func Main(args []string) int {
 		stopOther("alien-shooter")
 		return hostSession("33100", "AlienShooter.exe", "alien_shooter.exe")
 	case "albion":
-		return albionMain(args[1:])
+		return albionMain(rest)
 	case "generals", "cnc-generals", "generals-online":
-		return generalsMain(args[1:])
+		return generalsMain(rest)
 	case "steam":
-		return steamMain(args[1:])
+		return steamMain(rest)
 	case "session":
-		return sessionMain(args[1:])
+		return sessionMain(rest)
 	default:
 		fmt.Fprintln(os.Stderr, "usage: aurora game terraria|albion|alien-shooter|generals|steam [args]")
 		return 2

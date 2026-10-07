@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"aurora/internal/activate"
 	"aurora/internal/apps"
 	"aurora/internal/awgprotect"
 	"aurora/internal/box"
-	"aurora/internal/container"
 	"aurora/internal/brightness"
+	"aurora/internal/container"
 	"aurora/internal/cursor"
 	auroradispatch "aurora/internal/dispatch"
 	"aurora/internal/emoji"
@@ -49,6 +50,10 @@ func usage() {
 }
 
 func dispatch(cmd string, args []string) int {
+	if fields := strings.Fields(cmd); len(fields) > 1 {
+		cmd = fields[0]
+		args = append(fields[1:], args...)
+	}
 	switch cmd {
 	case "wallpaper", "wp":
 		return wallpaper.Main(args)
@@ -152,6 +157,8 @@ func main() {
 		os.Exit(spotify.Main(append([]string{"theme"}, args...)))
 	case "shader-ctl":
 		os.Exit(shader.Main(args))
+	case "generals":
+		os.Exit(game.Main(append([]string{"generals"}, args...)))
 	}
 	if len(args) == 0 {
 		usage()

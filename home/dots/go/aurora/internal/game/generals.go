@@ -69,15 +69,25 @@ func closeWineDesktop() {
 	}
 }
 
+func steamRunBin() string {
+	if p := execx.Look("steam-run"); p != "" {
+		return p
+	}
+	return "/run/current-system/sw/bin/steam-run"
+}
+
 func cleanupWine(wineserver, prefix string) {
+	_ = exec.Command("pkill", "-9", "-f", `GeneralsOnlineZH`).Run()
+	_ = exec.Command("pkill", "-9", "-f", `Games/generals/.*/explorer\.exe`).Run()
 	if wineserver != "" {
-		cmd := exec.Command("steam-run", "env",
+		cmd := exec.Command(steamRunBin(), "env",
 			"WINEPREFIX="+prefix, "WINEARCH=win64", wineserver, "-k")
 		_ = cmd.Run()
 	}
 	time.Sleep(300 * time.Millisecond)
 	closeWineDesktop()
-	_ = exec.Command("pkill", "-f", `Games/generals/.*/explorer\.exe`).Run()
+	_ = exec.Command("pkill", "-9", "-f", `Games/generals/.*/explorer\.exe`).Run()
+	_ = exec.Command("pkill", "-9", "-f", `GeneralsOnlineZH`).Run()
 	time.Sleep(200 * time.Millisecond)
 	closeWineDesktop()
 }
@@ -405,7 +415,8 @@ func watchLoginCode(logPath string, stop <-chan struct{}) {
 
 func placeWineDesktop() {
 	outName := envOr("GENERALS_OUTPUT", "DP-4")
-	for i := 0; i < 40; i++ {
+	ws := envOr("GENERALS_WORKSPACE", "8")
+	for i := 0; i < 60; i++ {
 		out, err := exec.Command("hyprctl", "-j", "clients").Output()
 		if err == nil {
 			type client struct {
@@ -416,11 +427,26 @@ func placeWineDesktop() {
 			var clients []client
 			if json.Unmarshal(out, &clients) == nil {
 				for _, c := range clients {
-					if c.Class == "steam_proton" && strings.Contains(c.Title, "Wine Desktop") && c.Address != "" {
-						_ = exec.Command("hyprctl", "eval",
-							fmt.Sprintf(`hl.dispatch(hl.dsp.window.move({ output = "%s", window = "%s" }))`, outName, c.Address)).Run()
-						_ = exec.Command("hyprctl", "eval",
-							fmt.Sprintf(`hl.dispatch(hl.dsp.window.fullscreen_state({ window = "%s", internal = 0, client = 0 }))`, c.Address)).Run()
+					title := strings.ToLower(c.Title)
+					isWineDesk := c.Class == "steam_proton" && strings.Contains(c.Title, "Wine Desktop")
+					isGenerals := strings.Contains(title, "generals") || strings.Contains(title, "command and conquer")
+					if (!isWineDesk && !isGenerals) || c.Address == "" {
+						continue
+					}
+					addr := c.Address
+					expr := fmt.Sprintf(`(function()
+  local w = hl.get_window("address:%s")
+  if not w then return "missing" end
+  hl.dispatch(hl.dsp.window.move({ workspace = %s, window = w, silent = true }))
+  pcall(function() hl.dispatch(hl.dsp.window.move({ output = "%s", window = w })) end)
+  pcall(function() hl.dispatch(hl.dsp.window.fullscreen_state({ window = w, internal = 0, client = 0 })) end)
+  hl.dispatch(hl.dsp.focus({ workspace = %s }))
+  return "ok"
+end)()`, addr, ws, outName, ws)
+					stdout, err := exec.Command("hyprctl", "eval", expr).CombinedOutput()
+					outStr := string(stdout)
+					if err == nil && strings.Contains(outStr, "ok") && !strings.Contains(outStr, "error") {
+						fmt.Fprintf(os.Stderr, "generals: placed %s on %s workspace %s\n", addr, outName, ws)
 						return
 					}
 				}
@@ -428,6 +454,7 @@ func placeWineDesktop() {
 		}
 		time.Sleep(400 * time.Millisecond)
 	}
+	fmt.Fprintln(os.Stderr, "generals: Wine Desktop window never appeared in hyprctl")
 }
 
 func generalsMain(args []string) int {
@@ -455,6 +482,8 @@ func generalsMain(args []string) int {
 
 	ensureXwayland()
 	pinGeneralsOutputs()
+	// Drop leftover Wine Desktop / exe from a previous broken launch (audio-only orphans).
+	cleanupWine(wineserver, prefix)
 
 	_ = os.Setenv("WINEPREFIX", prefix)
 	_ = os.Setenv("WINEARCH", "win64")
@@ -522,7 +551,7 @@ func generalsMain(args []string) int {
 	go placeWineDesktop()
 
 	wineArgs := append([]string{
-		"env",
+		"env", "-C", zh,
 		"WINEPREFIX=" + prefix,
 		"WINEARCH=win64",
 		"WINEESYNC=0",
@@ -532,7 +561,7 @@ func generalsMain(args []string) int {
 		fmt.Sprintf("/desktop=Default,%sx%s", resW, resH),
 		exe,
 	}, args...)
-	cmd := exec.Command("steam-run", wineArgs...)
+	cmd := exec.Command(steamRunBin(), wineArgs...)
 	cmd.Dir = zh
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
